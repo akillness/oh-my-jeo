@@ -28,11 +28,12 @@ deterministic, reviewable contract. For normal users the experience stays in
 chat; the command layer is a first-class backend for wrappers and routers,
 without replacing your existing setup.
 
-text
+```text
 user says a plain request in chat
   -> oh-my-jeo routes it to the right skill / playbook / profile
   -> the agent explains the next action and the evidence boundary
   -> coding is handed off to the selected runtime only when accepted
+```
 
 
 oh-my-jeo adds a thin layer of ready-to-use workflows such as `web-research`, `doctor`, `idea-to-deploy`, `ultragoal`, `loop`, and `ultraprocess` so the agent feels easier to start, easier to trust, and more natural to apply in real work.
@@ -53,17 +54,19 @@ Pick one of the two paths.
 
 **Option A — one-line installer (recommended for most users):**
 
-sh
+```sh
 curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup     # wires oh-my-jeo into your agent/runtime
 omj doctor    # health check; tells you what (if anything) is missing
+```
 
 
 **Option B — install as a Hermes skill / Hermes skill tap path (if you already run Hermes):**
 
-sh
+```sh
 hermes skills tap add akillness/oh-my-jeo
 hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
+```
 
 
 ### 2. Use it from chat
@@ -71,8 +74,9 @@ hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 You do not need new CLI commands for daily work. Just tell your agent which
 workflow you want, in plain language:
 
-text
+```text
 Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
+```
 
 
 The agent then:
@@ -84,9 +88,10 @@ The agent then:
 
 ### 3. Handy commands (optional)
 
-sh
+```sh
 omj doctor          # re-check setup health anytime
 omj setup --help    # see setup options
+```
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
@@ -183,7 +188,7 @@ understand first. The rest live in [Workflow Reference](docs/WORKFLOWS.md) and
 
 ## Project Structure
 
-text
+```text
 src/
   routing/      intent, policy, recommend, route_plan, chat        # what runs next
   workflows/    materials, paper_learning, research, visual, memory # value modes
@@ -199,6 +204,7 @@ skills/         <skill>/SKILL.md                                    # tap-instal
 docs/           architecture, workflows, roles, playbooks, parity   # contracts & guides
 site/           static GitHub Pages marketing + docs                # no build step
 tests/          50+ deterministic contract test modules             # the content gate
+```
 
 
 The package keeps a thin `omj.*` import shim over readable `src/<domain>/`
@@ -223,12 +229,13 @@ for the executable identity proofs.
 oh-my-jeo keeps the flow simple and visible. The agent chooses the smallest role
 path that fits the request instead of locking setup to one team model.
 
-text
+```text
 plain request
   -> choose workflow lane
   -> prepare plan, source brief, or handoff
   -> observe execution / review / CI only when evidence exists
   -> report the next action in chat
+```
 
 
 | Request shape | Typical flow |
@@ -273,10 +280,11 @@ execution evidence.
 
 ## Development
 
-sh
+```sh
 python3 -m unittest discover -s tests
 python3 -m compileall src
 python3 -m omj.cli docs workflows --check
+```
 
 
 oh-my-jeo inherits oh-my-hermes 1.0.1, a quality-gated stable baseline, and is
