@@ -56,10 +56,10 @@ Pick one of the two paths.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
-omj setup     # wires oh-my-jeo into your agent/runtime
-omj doctor    # health check; tells you what (if anything) is missing
 ```
 
+The installer stops after placing the isolated command package and the `omj`
+executable — it does **not** touch Hermes yet. Connect Hermes in step 2.
 
 **Option B — install as a Hermes skill / Hermes skill tap path (if you already run Hermes):**
 
@@ -68,30 +68,73 @@ hermes skills tap add akillness/oh-my-jeo
 hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 ```
 
+### 2. Connect OMJ to Hermes, then verify
 
-### 2. Use it from chat
+`omj setup` is the one explicit step that makes OMJ usable from Hermes. Run it
+once and pick Hermes as your coding runtime:
 
-You do not need new CLI commands for daily work. Just tell your agent which
-workflow you want, in plain language:
+```sh
+omj setup --default-executor hermes   # add --with-mcp to also expose the MCP bridge
+```
+
+The setup wizard performs six bounded actions and prints what each one touched:
+
+1. Installs the managed OMJ workflows into `~/.omj/skills` (43 workflows).
+2. Connects OMJ to Hermes via `~/.hermes/config.yaml` (`skills.external_dirs`).
+3. Installs the OMJ status helper / plugin bridge to `~/.hermes/plugins/omj`.
+4. Records your optional tool-bridge (MCP) preference.
+5. Saves your coding-request preference (here, **Hermes**).
+6. Checks that at least one Hermes profile is detected.
+
+Run `omj setup --dry-run` first to preview every path without changing files,
+or `omj setup --json` for the machine-readable payload. Use `--scope project`
+to write `./.omj` + `./.hermes` for a single repository instead of `~`.
+
+> **Restart Hermes before you trust it.** The plugin bridge is ready locally as
+> soon as setup finishes, but Hermes only loads it on (re)start. Until you
+> restart or reload Hermes Agent, chat visibility and native plugin use are
+> **not** observed — see [Evidence Boundaries](#evidence-boundaries).
+
+Then confirm the wiring:
+
+```sh
+omj doctor    # checks Hermes registration, Hermes targets, and plugin-bridge readiness
+```
+
+A healthy result reports `Hermes registration: ok`, `Hermes targets: ok`, and
+`Plugin bridge: ready locally`. `omj doctor` names the exact repair command for
+anything missing. For MCP-capable hosts (Claude Code, Codex, Cursor, …) print a
+copy-paste config with `omj mcp config-recipe --host <host>`.
+
+### 3. Use it from chat
+
+Once Hermes is connected and restarted, you do not need new CLI commands for
+daily work. Just tell Hermes which workflow you want, in plain language:
 
 ```text
 Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
 ```
 
-
-The agent then:
+Hermes then:
 
 1. Routes your request to the right workflow skill (e.g. `web-research`,
    `idea-to-deploy`, `doctor`, `loop`).
 2. Explains the next action and what counts as real evidence vs. a prepared plan.
 3. Hands coding off to your selected runtime **only after you accept** the plan.
 
-### 3. Handy commands (optional)
+Not sure setup landed? Ask Hermes `what should I do next with OMJ setup?` — it
+answers with the same `omj quickstart` card (version, local checks, plugin
+bridge, next action).
+
+### 4. Handy commands (optional)
 
 ```sh
+omj quickstart      # first-run map: status + ready-to-paste prompts + next action
 omj doctor          # re-check setup health anytime
-omj setup --help    # see setup options
+omj setup --help    # see setup options (executor, memory mode, scope, MCP)
+omj mcp manifest    # OMJ MCP bridge manifest for stdio MCP hosts
 ```
+
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
@@ -218,6 +261,46 @@ omj worktree prepare --repo . --task "risky refactor" --dry-run
 Both emit JSON with a `claim_boundary` field that states, in the artifact
 itself, that a prepared handoff or a created worktree is **not** execution,
 verification, review, CI, or merge evidence.
+
+### 6. Verify OMJ actually responds (run behavior, not just install)
+
+A green `omj doctor` proves setup landed; it does not prove OMJ *answers* a
+real request. Two commands exercise live behavior and the persisted evidence
+store, so you can confirm the loop responds end to end:
+
+```sh
+omj chat route "I want to safely add a feature to this repo"   # live routing response
+omj runtime status                                             # persisted runtime / observed-evidence store
+```
+
+`omj chat route` returns OMJ's actual decision for that message — the action it
+would take, the skill it picked, and the boundary that keeps it honest (trimmed
+from the real JSON):
+
+```text
+route.action                      dispatch
+route.candidate_skill             ralplan   (confidence: high)
+route.reason                      Matched safe feature-change language; prepare a reviewed plan before executor handoff.
+recommendation.next_action        present_plan
+recommendation.evidence_boundary  A recommendation or draft plan is not execution evidence.
+```
+
+`omj runtime status` reports the evidence store itself — the journal and runs
+directory where observed records land, plus the last doctor snapshot:
+
+```text
+schema_version    1
+journal_path      ~/.omj/runtime/journal/events.jsonl
+runs_dir          ~/.omj/runtime/runs
+installed_skills  43
+doctor checks     all passing
+```
+
+A non-empty `route` proves OMJ parsed and answered your request; a populated
+`runtime status` proves the observed-evidence store exists. The
+`evidence_boundary` line is OMJ telling you, in its own output, that a route or
+plan still is **not** execution proof — that only arrives as a runtime record.
+
 
 A prepared handoff is **not** execution proof. Observed evidence only exists once
 a runtime record is written under `runtime/` — see [Evidence Boundaries](#evidence-boundaries).
