@@ -484,7 +484,7 @@ Record only what is observed. If Hermes or a chosen oh-my runtime does not expos
 def router_skill() -> SkillTemplate:
     body = f"""# Oh My Jeo Router
 
-Use this skill when the user mentions oh-my-hermes or a workflow keyword such as {router_keyword_summary()}.
+Use this skill when the user mentions oh-my-jeo or a workflow keyword such as {router_keyword_summary()}.
 
 ## Routing Contract
 

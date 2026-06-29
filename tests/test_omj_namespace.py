@@ -1,19 +1,22 @@
 """Real-verification tests for the completed ``omh`` -> ``omj`` rename.
 
-``omj`` (oh-my-jeo) is now the canonical brand, implementation, CLI, runtime
-home, env, plugin-bundle, and ABI identity.  ``omh`` survives only as a thin
-*deprecated* backward-compatibility alias whose every name resolves to the
-*same* module object as its ``omj`` counterpart — not a duplicate copy of
-runtime state and not a dangling console-script alias.
+``omj`` (oh-my-jeo) is the single canonical brand, implementation, CLI, runtime
+home, env, plugin-bundle, and ABI identity.  The previously shipped ``omh``
+backward-compatibility alias (import package and console script) has been
+**removed** — the project is now ``omj`` only.  ``oh-my-hermes`` survives solely
+as upstream license/provenance attribution in ``NOTICE``/``LICENSE``/``README``
+because oh-my-jeo is an MIT derivative of oh-my-hermes; it is no longer a live
+import name, console script, ABI token, or chat cue.
 
 These tests pin both halves of that contract:
-  * ``omh.<x>`` IS ``omj.<x>`` (object identity, single runtime singleton);
-  * the live ABI/packaging/chat surfaces all read ``omj``.
-See ``.ouroboros/seeds/full-rename-seed.yaml``.
+  * the ``omh`` import namespace and console script no longer exist;
+  * every live ABI/packaging/chat surface reads ``omj`` and only ``omj``.
 """
 
 from __future__ import annotations
 
+import importlib
+import sys
 import tomllib
 import unittest
 from pathlib import Path
@@ -23,84 +26,48 @@ from _local_package import load_local_package
 load_local_package()
 
 
-class OmjIsCanonicalOmhIsAliasTests(unittest.TestCase):
-    def test_top_level_import_exposes_shared_version(self) -> None:
-        import omh
+class OmhAliasIsFullyRemovedTests(unittest.TestCase):
+    def test_omh_top_level_import_is_gone(self) -> None:
+        sys.modules.pop("omh", None)
+        with self.assertRaises(ModuleNotFoundError):
+            importlib.import_module("omh")
+
+    def test_omh_submodule_imports_are_gone(self) -> None:
+        for name in ("omh.routing", "omh.wrapper.contract", "omh.commands.main"):
+            sys.modules.pop(name, None)
+            with self.subTest(name=name):
+                with self.assertRaises(ModuleNotFoundError):
+                    importlib.import_module(name)
+
+    def test_omh_package_directories_do_not_exist(self) -> None:
+        self.assertFalse(Path("omh").exists())
+        self.assertFalse(Path("src/omh").exists())
+
+    def test_omj_canonical_imports_still_resolve(self) -> None:
         import omj
-
-        # Same version string, sourced from the canonical implementation.
-        self.assertEqual(omh.__version__, omj.__version__)
-
-    def test_submodules_resolve_to_the_same_objects(self) -> None:
-        import omh.routing
-        import omh.wrapper.contract
         import omj.routing
         import omj.wrapper.contract
-
-        # Shallow submodule identity through the alias.
-        self.assertIs(omh.routing, omj.routing)
-        # Deep submodule identity — guards against the PathFinder re-loading a
-        # second copy of ``contract`` via the aliased parent's ``__path__``.
-        self.assertIs(omh.wrapper.contract, omj.wrapper.contract)
-
-    def test_from_import_yields_one_canonical_callable(self) -> None:
-        from omh.commands.main import main as omh_main
         from omj.commands.main import main as omj_main
         from omj.routing.recommend import recommend_skills
 
-        self.assertIs(omh_main, omj_main)
+        self.assertTrue(omj.__version__)
+        self.assertEqual(omj.wrapper.contract.__name__, "omj.wrapper.contract")
+        self.assertTrue(callable(omj_main))
         self.assertTrue(callable(recommend_skills))
 
-    def test_runtime_singletons_are_not_forked(self) -> None:
-        # Importing through either brand must register exactly one module under
-        # the canonical ``omj`` name, so module-level state stays a singleton.
-        import sys
-
-        import omh.runtime.records as via_omh
-        import omj.runtime.records as via_omj
-
-        self.assertIs(via_omh, via_omj)
-        self.assertIs(sys.modules["omj.runtime.records"], via_omj)
-
-
-class OmjAliasPreservesCanonicalMetadataTests(unittest.TestCase):
-    """Aliasing must not corrupt the shared ``omj.*`` import metadata.
-
-    Because ``omh.<sub>`` is the *same object* as ``omj.<sub>``, the import
-    machinery's ``_init_module_attrs(override=True)`` pass would otherwise
-    overwrite the canonical ``__name__``/``__spec__``/``__loader__`` with the
-    alias values, silently breaking ``importlib.resources`` and name-based
-    introspection on ``omj.*``.  These tests pin the repair.
-    """
-
-    def test_importing_via_omh_keeps_canonical_name_and_loader(self) -> None:
-        import omh.wrapper.contract  # noqa: F401  (triggers the alias path)
-        import omj.wrapper.contract
-
-        self.assertEqual(omj.wrapper.contract.__name__, "omj.wrapper.contract")
-        self.assertIsNotNone(omj.wrapper.contract.__spec__)
-        self.assertEqual(omj.wrapper.contract.__spec__.name, "omj.wrapper.contract")
-        # The loader must remain a real source loader, not the alias shim, or
-        # resource lookups degrade to the empty CompatibilityFiles adapter.
-        loader_name = type(omj.wrapper.contract.__spec__.loader).__name__
-        self.assertNotIn("OmhAlias", loader_name)
-
-    def test_packaged_plugin_bundle_resources_resolve_after_omh_import(self) -> None:
+    def test_packaged_plugin_bundle_resources_resolve(self) -> None:
         from importlib import resources
 
-        import omh.plugin_bundle.omj.metadata  # noqa: F401  (triggers the alias path)
-
         bundle = resources.files("omj.plugin_bundle.omj")
-        # A working traversable resolves the real packaged file; the degraded
-        # adapter raises FileNotFoundError on ``is_file()``.
         self.assertTrue((bundle / "plugin.yaml").is_file())
 
 
 class OmjPackagingIdentityTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.project = tomllib.loads(
+        self.pyproject = tomllib.loads(
             Path("pyproject.toml").read_text(encoding="utf-8")
-        )["project"]
+        )
+        self.project = self.pyproject["project"]
 
     def test_distribution_is_rebranded(self) -> None:
         self.assertEqual(self.project["name"], "oh-my-jeo")
@@ -112,28 +79,24 @@ class OmjPackagingIdentityTests(unittest.TestCase):
         for value in urls.values():
             self.assertNotIn("rlaope/oh-my-hermes", value)
 
-    def test_both_brand_console_scripts_resolve_to_real_callables(self) -> None:
+    def test_only_omj_console_script_is_shipped(self) -> None:
         scripts = self.project["scripts"]
-        # The canonical ``omj`` plus the deprecated ``omh`` alias are both shipped.
-        self.assertIn("omj", scripts)
-        self.assertIn("omh", scripts)
-        self.assertEqual(scripts["omj"], "omj.cli:main")
-        self.assertEqual(scripts["omh"], "omj.cli:main")
-        for target in {scripts["omj"], scripts["omh"]}:
-            module_name, _, attr = target.partition(":")
-            module = __import__(module_name, fromlist=[attr])
-            self.assertTrue(callable(getattr(module, attr)), target)
+        self.assertEqual(scripts.get("omj"), "omj.cli:main")
+        self.assertNotIn("omh", scripts)
+        module_name, _, attr = scripts["omj"].partition(":")
+        module = __import__(module_name, fromlist=[attr])
+        self.assertTrue(callable(getattr(module, attr)))
+
+    def test_setuptools_packaging_drops_the_omh_alias(self) -> None:
+        tool = self.pyproject["tool"]["setuptools"]
+        self.assertNotIn("omh", tool["packages"])
+        self.assertIn("omj", tool["packages"])
+        self.assertNotIn("omh", tool["package-dir"])
+        self.assertEqual(tool["package-dir"]["omj"], "src/omj")
 
 
 class OmjRenameIsCompleteTests(unittest.TestCase):
-    """Pin the *completed* rename: the live ABI/chat surfaces read ``omj``.
-
-    The earlier Stage-4 freeze deliberately kept the ABI on ``omh``; the user
-    later approved finishing the rename, so these tests now assert the opposite
-    invariant — every advertised tool, the bundle name, and the canonical
-    self-reference token are ``omj``, while ``omh`` is only a synonym for
-    legacy chat input.  See ``.ouroboros/seeds/full-rename-seed.yaml``.
-    """
+    """Pin the *completed, omj-only* rename across live ABI/chat surfaces."""
 
     def test_hermes_plugin_abi_uses_the_omj_token(self) -> None:
         from importlib import resources
@@ -154,7 +117,6 @@ class OmjRenameIsCompleteTests(unittest.TestCase):
                 "omj_status",
             ),
         )
-        # No tool may carry the retired ``omh_`` ABI prefix.
         for tool in PROVIDED_TOOLS:
             self.assertFalse(tool.startswith("omh_"), tool)
 
@@ -166,29 +128,23 @@ class OmjRenameIsCompleteTests(unittest.TestCase):
         for tool in PROVIDED_TOOLS:
             self.assertIn(f"  - {tool}", manifest)
 
-    def test_chat_self_reference_is_omj_with_omh_kept_as_synonym(self) -> None:
+    def test_chat_self_reference_is_omj_only(self) -> None:
         from omj.routing import intent
 
         match = intent._matched_omj_system_target_cues
         # ``omj`` is the canonical token and never duplicates.
         self.assertEqual(match("why did omj route this"), ("omj",))
         self.assertEqual(match("please improve omj routing"), ("omj",))
-        # The deprecated ``omh`` name still resolves to the canonical token.
-        self.assertEqual(match("why did omh route this"), ("omj",))
-        # A request naming both brands is not double-counted.
-        self.assertEqual(match("does omj or omh own this"), ("omj",))
-        # Legacy/long-form brand spellings stay recognized.
-        self.assertIn("oh-my-hermes", match("evaluate oh-my-hermes quality"))
-        self.assertIn("oh-my-jeo", match("evaluate oh-my-jeo quality"))
+        # The canonical long-form brand resolves to itself.
+        self.assertEqual(match("evaluate oh-my-jeo quality"), ("oh-my-jeo",))
+        self.assertEqual(match("evaluate oh my jeo quality"), ("oh my jeo",))
+        # A request naming the brand twice is not double-counted.
+        self.assertEqual(match("does omj or oh-my-jeo own this"), ("omj", "oh-my-jeo"))
+        # The retired ``omh`` / ``oh-my-hermes`` brand is no longer a live cue.
+        self.assertEqual(match("why did omh route this"), ())
+        self.assertEqual(match("evaluate oh-my-hermes quality"), ())
         # Unrelated requests are not mis-claimed as system-target.
         self.assertEqual(match("build a web app for invoices"), ())
-
-    def test_internal_namespace_is_importable_via_both_brands(self) -> None:
-        import omh.plugin_bundle.omj.metadata as via_omh
-        import omj.plugin_bundle.omj.metadata as via_omj
-
-        self.assertIs(via_omh, via_omj)
-        self.assertEqual(via_omj.__name__, "omj.plugin_bundle.omj.metadata")
 
 
 if __name__ == "__main__":  # pragma: no cover

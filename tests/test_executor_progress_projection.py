@@ -90,7 +90,7 @@ class ExecutorProgressProjectionTests(unittest.TestCase):
     def test_plugin_runtime_reader_projects_persisted_progress_without_live_polling(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -126,7 +126,7 @@ class ExecutorProgressProjectionTests(unittest.TestCase):
     def test_binding_without_progress_event_does_not_project_as_active_executor(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -151,8 +151,8 @@ class ExecutorProgressProjectionTests(unittest.TestCase):
     def test_worktree_branch_only_bindings_project_as_separate_instances(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run_one = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
-            run_two = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run_one = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
+            run_two = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             shared = {"worktree": "/tmp/omj-worktree", "branch": "feature/live-progress"}
             for index, run in enumerate((run_one, run_two), start=1):
                 binding = write_progress_binding(
@@ -193,7 +193,7 @@ class ExecutorProgressProjectionTests(unittest.TestCase):
     def test_plugin_reader_drops_invalid_progress_event_payloads(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -234,7 +234,7 @@ class ExecutorProgressProjectionTests(unittest.TestCase):
     def test_plugin_reader_drops_invalid_progress_binding_metadata(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -270,7 +270,7 @@ class ExecutorProgressProjectionTests(unittest.TestCase):
     def test_cross_surface_projection_agrees_for_active_and_terminal_run_progress(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(

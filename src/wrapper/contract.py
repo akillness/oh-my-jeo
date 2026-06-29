@@ -2577,7 +2577,7 @@ def _is_omj_intro_question(message: str) -> bool:
     text = message.strip().lower()
     if not text:
         return False
-    omj_markers = ("omj", "oh-my-hermes", "oh my hermes", "오마이헤르메스")
+    omj_markers = ("omj", "oh-my-jeo", "oh my jeo")
     if not any(marker in text for marker in omj_markers):
         return False
     if any(marker in text for marker in ("status", "doctor", "health", "install", "setup", "next", "상태", "설치", "셋업", "세팅", "다음")):
@@ -2639,7 +2639,7 @@ def _is_omj_quickstart_question(message: str) -> bool:
     text = message.strip().lower()
     if not text:
         return False
-    omj_markers = ("omj", "oh-my-hermes", "oh my hermes", "오마이헤르메스")
+    omj_markers = ("omj", "oh-my-jeo", "oh my jeo")
     if not any(marker in text for marker in omj_markers):
         return False
     quickstart_markers = (
@@ -2673,7 +2673,7 @@ def _is_omj_status_question(message: str) -> bool:
     text = message.strip().lower()
     if not text:
         return False
-    omj_markers = ("omj", "oh-my-hermes", "oh my hermes", "오마이헤르메스")
+    omj_markers = ("omj", "oh-my-jeo", "oh my jeo")
     if not any(marker in text for marker in omj_markers):
         return False
     catalog_markers = (

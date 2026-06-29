@@ -1,7 +1,7 @@
 # OMJ Agent Contract
 
 This file is the repo-local operating contract for coding agents working on
-oh-my-hermes, including Codex, Claude Code, Hermes runtime/handoff paths, and
+oh-my-jeo, including Codex, Claude Code, Hermes runtime/handoff paths, and
 generic executor profiles.
 
 ## Product Direction

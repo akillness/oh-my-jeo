@@ -358,8 +358,8 @@ def classify_workflow_intent(message: str) -> WorkflowIntent:
 
 _OMJ_SYSTEM_TARGET_CUES = (
     "omj",
-    "oh-my-hermes",
-    "oh my hermes",
+    "oh-my-jeo",
+    "oh my jeo",
 )
 _OMJ_QUALITY_DOMAIN_CUES = (
     "route quality",
@@ -507,15 +507,13 @@ def classify_omj_quality_intent(message: str) -> OmjQualityIntent:
 
 def _matched_omj_system_target_cues(normalized: str) -> tuple[str, ...]:
     cues: list[str] = []
-    # ``omj`` is the canonical engine self-identity token. ``omh`` is the
-    # deprecated legacy alias and is still accepted as a synonym so chat users
-    # who remember the old oh-my-hermes name keep being understood; it resolves
-    # to the canonical ``omj`` token (see .ouroboros/seeds/full-rename-seed.yaml).
+    # ``omj`` is the canonical engine self-identity token. The retired
+    # ``omh`` / ``oh-my-hermes`` brand is no longer recognized as a live
+    # system-target cue; it survives only as upstream provenance in
+    # NOTICE/LICENSE/README (oh-my-jeo is a derivative of oh-my-hermes).
     if re.search(r"(?<![a-z0-9])omj(?![a-z0-9])", normalized):
         cues.append("omj")
-    if re.search(r"(?<![a-z0-9])omh(?![a-z0-9])", normalized) and "omj" not in cues:
-        cues.append("omj")
-    for cue in ("oh-my-hermes", "oh my hermes", "oh-my-jeo", "oh my jeo"):
+    for cue in ("oh-my-jeo", "oh my jeo"):
         if cue in normalized and cue not in cues:
             cues.append(cue)
     return tuple(cues)
@@ -745,7 +743,7 @@ def _explicit_workflow_invocation(normalized: str, tokens: set[str]) -> bool:
 def _routing_context(normalized: str, tokens: set[str]) -> bool:
     context_tokens = {
         "omj",
-        "oh-my-hermes",
+        "oh-my-jeo",
         "route",
         "routing",
         "router",
@@ -760,7 +758,7 @@ def _routing_context(normalized: str, tokens: set[str]) -> bool:
         "코딩",
     }
     context_phrases = {
-        "oh-my-hermes",
+        "oh-my-jeo",
         "route hint",
         "handoff",
         "coding handoff",

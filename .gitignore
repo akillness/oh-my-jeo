@@ -24,7 +24,7 @@ dist/
 
 # Local agent/runtime artifacts
 .hermes/
-.omh/
+.omj/
 .omc/
 .loop/
 

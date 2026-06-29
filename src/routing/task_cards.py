@@ -112,7 +112,7 @@ _MAINTENANCE_COMMAND_ALIASES = {
     "install": ("install", "설치"),
     "list": ("list", "목록", "리스트"),
 }
-_MAINTENANCE_SURFACE_PHRASES = ("omj", "./omj", "/omj", "oh my hermes", "oh-my-hermes")
+_MAINTENANCE_SURFACE_PHRASES = ("omj", "./omj", "/omj", "oh my jeo", "oh-my-jeo")
 _MAINTENANCE_RUN_CUES = (
     "run",
     "please",
@@ -315,7 +315,7 @@ def _maintenance_command(normalized: str, compact: str, tokens: set[str]) -> str
 
 
 def _maintenance_surface_hit(normalized: str, compact: str, tokens: set[str]) -> bool:
-    if "omj" in tokens or "oh-my-hermes" in normalized or "oh my hermes" in normalized:
+    if "omj" in tokens or "oh-my-jeo" in normalized or "oh my jeo" in normalized:
         return True
     return any(surface.replace(" ", "") in compact for surface in _MAINTENANCE_SURFACE_PHRASES)
 
@@ -419,7 +419,7 @@ def _without_diagnostic_status_lines(normalized: str) -> str:
 
 
 def _diagnostic_region_router_feedback(normalized: str, compact: str) -> bool:
-    subject = _phrase_hit(("omj", "omj가", "omj를", "omj의", "oh-my-hermes", "oh my hermes", "router", "routing", "route hint", "라우터", "라우팅"), normalized, compact)
+    subject = _phrase_hit(("omj", "omj가", "omj를", "omj의", "oh-my-jeo", "oh my jeo", "router", "routing", "route hint", "라우터", "라우팅"), normalized, compact)
     evaluation = _phrase_hit(("usage evaluation", "usability evaluation", "usage analysis", "router improvement", "router hardening", "route improvement", "evaluate omj", "why omj", "사용성 평가", "사용성평가", "안쓴이유", "안 쓴 이유", "덜 쓴 이유", "덜쓴 이유", "덜 썼", "덜썼", "부족했던 점", "부족한 점", "라우터 강화", "라우터강화", "라우터 개선", "플랜으로 잡", "반복해서 강화"), normalized, compact)
     return subject and evaluation
 

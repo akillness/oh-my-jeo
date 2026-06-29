@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve oh-my-hermes.
+Thanks for helping improve oh-my-jeo.
 
 ## Development Setup
 

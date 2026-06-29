@@ -88,7 +88,7 @@ def _stage_list(value: object) -> list[dict[str, object]]:
 def _primary_owner(stages: list[dict[str, object]]) -> str:
     for stage in stages:
         owner = str(stage.get("owner") or "")
-        if owner and owner not in {"hermes", "oh-my-hermes", "oh-my-jeo", "wrapper"}:
+        if owner and owner not in {"hermes", "oh-my-jeo", "wrapper"}:
             return owner
     if stages:
         return str(stages[0].get("owner") or "")

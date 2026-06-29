@@ -176,7 +176,7 @@ def _standalone_catalog_question(message: str) -> bool:
     )
     if any(phrase in text for phrase in explicit):
         return True
-    has_context = any(marker in text for marker in ("omj", "oh-my-hermes", "oh my hermes", "hermes", "헤르메스"))
+    has_context = any(marker in text for marker in ("omj", "oh-my-jeo", "oh my jeo", "hermes", "헤르메스"))
     has_catalog_word = any(
         word in text
         for word in (

@@ -12,7 +12,7 @@ metadata:
 
 # Oh My Jeo Router
 
-Use this skill when the user mentions oh-my-hermes or a workflow keyword such as `deep-interview`, `ralplan`, `ultragoal`, `loop`, `ultraprocess`, `web-research`, `research-department`, `source-finder`, `paper-learning`, `feedback-triage`, `materials-package`, `img-summary`, `automation-blueprint`, `workflow-learning`, `code-review`, `team`, `ultrawork`, `ultraqa`, `doctor`.
+Use this skill when the user mentions oh-my-jeo or a workflow keyword such as `deep-interview`, `ralplan`, `ultragoal`, `loop`, `ultraprocess`, `web-research`, `research-department`, `source-finder`, `paper-learning`, `feedback-triage`, `materials-package`, `img-summary`, `automation-blueprint`, `workflow-learning`, `code-review`, `team`, `ultrawork`, `ultraqa`, `doctor`.
 
 ## Routing Contract
 

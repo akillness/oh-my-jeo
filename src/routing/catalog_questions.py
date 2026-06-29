@@ -28,12 +28,10 @@ _EXPLICIT_CATALOG_PHRASES = (
     "skill picker",
     "workflow picker",
     "what can omj do",
-    "what can oh-my-hermes do",
     "what can oh-my-jeo do",
     "catalog",
     "omj로 할 수 있는",
     "omj가 할 수 있는",
-    "oh-my-hermes로 할 수 있는",
     "oh-my-jeo로 할 수 있는",
     "할 수 있는 workflow",
     "할 수 있는 workflows",
@@ -70,25 +68,15 @@ _EXPLICIT_CATALOG_PHRASES = (
 )
 _EXPLICIT_OMJ_CAPABILITY_PHRASES = (
     "what can omj do",
-    "what can oh-my-hermes do",
     "what can i do with omj",
-    "what can i do with oh-my-hermes",
     "what can you do with omj",
-    "what can you do with oh-my-hermes",
     "what does omj do",
-    "what does oh-my-hermes do",
     "how can omj help",
-    "how can oh-my-hermes help",
     "can omj help with",
-    "can oh-my-hermes help with",
     "what is omj useful for",
-    "what is oh-my-hermes useful for",
     "how should i use omj",
-    "how should i use oh-my-hermes",
     "omj로 뭐 할 수",
     "omj로 무엇을 할 수",
-    "oh-my-hermes로 뭐 할 수",
-    "oh-my-hermes로 무엇을 할 수",
     "omj가 뭐 해",
     "omj가 무엇을 해",
     "omj가 뭘 도와",
@@ -102,7 +90,6 @@ _EXPLICIT_OMJ_CAPABILITY_PHRASES = (
     "omj는 어떻게 쓰",
     "omj를 어떻게 쓰",
     "omj 기능 뭐",
-    "oh-my-hermes 기능 뭐",
     "what can oh-my-jeo do",
     "what can i do with oh-my-jeo",
     "what can you do with oh-my-jeo",
@@ -115,7 +102,7 @@ _EXPLICIT_OMJ_CAPABILITY_PHRASES = (
     "oh-my-jeo로 무엇을 할 수",
     "oh-my-jeo 기능 뭐",
 )
-_OMJ_CONTEXT_MARKERS = ("omj", "oh-my-hermes", "oh my hermes", "oh-my-jeo", "oh my jeo")
+_OMJ_CONTEXT_MARKERS = ("omj", "oh-my-jeo", "oh my jeo")
 _CONTEXT_MARKERS = _OMJ_CONTEXT_MARKERS + ("hermes", "헤르메스")
 _CONTEXT_CAPABILITY_MARKERS = (
     "help",
@@ -432,10 +419,10 @@ def _catalog_search_texts(lowered: str) -> tuple[str, ...]:
         character for character in unicodedata.normalize("NFKD", lowered) if not unicodedata.combining(character)
     )
     texts = [lowered] if folded == lowered else [lowered, folded]
-    # Accept the spaced brand spelling ("oh my jeo" / "oh my hermes") by aligning it
+    # Accept the spaced brand spelling ("oh my jeo") by aligning it
     # to the hyphenated form that every catalog phrase is written in.
     for text in list(texts):
-        normalized = text.replace("oh my hermes", "oh-my-hermes").replace("oh my jeo", "oh-my-jeo")
+        normalized = text.replace("oh my jeo", "oh-my-jeo")
         if normalized not in texts:
             texts.append(normalized)
     return tuple(texts)

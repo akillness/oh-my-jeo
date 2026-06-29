@@ -65,7 +65,7 @@ class RuntimeArtifactTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
 
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
 
             run_dir = paths.runtime_runs_dir / run["run_id"]
             self.assertTrue((run_dir / "run.json").exists())
@@ -98,8 +98,8 @@ class RuntimeArtifactTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
 
-            first = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
-            second = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            first = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
+            second = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
 
             self.assertNotEqual(first["run_id"], second["run_id"])
             self.assertEqual(len(list_runs(paths)), 2)
@@ -107,7 +107,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_show_and_export_report_malformed_jsonl_without_crashing(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             events_path = paths.runtime_runs_dir / run["run_id"] / "events.jsonl"
             with events_path.open("a", encoding="utf-8") as handle:
                 handle.write("{not json\n")
@@ -126,9 +126,9 @@ class RuntimeArtifactTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
             runs = [
-                create_run(paths, {"run_id": "20260604T000001000000Z-one", "skill": "oh-my-hermes", "harness": "coding-handling"}),
-                create_run(paths, {"run_id": "20260604T000002000000Z-two", "skill": "oh-my-hermes", "harness": "coding-handling"}),
-                create_run(paths, {"run_id": "20260604T000003000000Z-three", "skill": "oh-my-hermes", "harness": "coding-handling"}),
+                create_run(paths, {"run_id": "20260604T000001000000Z-one", "skill": "oh-my-jeo", "harness": "coding-handling"}),
+                create_run(paths, {"run_id": "20260604T000002000000Z-two", "skill": "oh-my-jeo", "harness": "coding-handling"}),
+                create_run(paths, {"run_id": "20260604T000003000000Z-three", "skill": "oh-my-jeo", "harness": "coding-handling"}),
             ]
 
             self.assertEqual([run["run_id"] for run in list_runs(paths, limit=2)], [runs[1]["run_id"], runs[2]["run_id"]])
@@ -146,7 +146,7 @@ class RuntimeArtifactTests(unittest.TestCase):
             old_umask = os.umask(0o022)
             try:
                 paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-                run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+                run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             finally:
                 os.umask(old_umask)
 
@@ -159,7 +159,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_write_delegation_preserves_observed_boundary(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "critic", "status": "completed"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "critic", "status": "completed"})
 
             delegation = write_delegation(
                 paths.runtime_runs_dir / run["run_id"],
@@ -174,7 +174,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_write_delegation_rejects_contradictory_observation(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "critic", "status": "completed"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "critic", "status": "completed"})
 
             with self.assertRaises(ValueError):
                 write_delegation(paths.runtime_runs_dir / run["run_id"], {"observed": True, "result": "not_observed"})
@@ -184,7 +184,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_write_wrapper_contract_records_observed_boundaries(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
 
             wrapper = write_wrapper_contract(
                 paths.runtime_runs_dir / run["run_id"],
@@ -456,7 +456,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_runtime_observation_records_status_ladder_without_claiming_missing_steps(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             run_dir = paths.runtime_runs_dir / run["run_id"]
 
             observation = write_runtime_observation(
@@ -766,7 +766,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_validate_runtime_rejects_runtime_observations_on_plain_runs(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             write_runtime_observation(
                 paths.runtime_runs_dir / run["run_id"],
                 {
@@ -788,7 +788,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_validate_runtime_rejects_run_observation_target_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             run_dir = paths.runtime_runs_dir / run["run_id"]
             write_runtime_observation(
                 run_dir,
@@ -874,7 +874,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_validate_runtime_rejects_missing_and_invalid_artifacts(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            good = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            good = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
 
             self.assertTrue(validate_runtime(paths, good["run_id"])["ok"])
 
@@ -941,7 +941,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_review_ci_merge_records_validate_and_show_under_runtime_run(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             run_dir = paths.runtime_runs_dir / run["run_id"]
 
             review = write_review_record(
@@ -971,7 +971,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_show_run_includes_executor_progress_without_gate_evidence(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -1000,7 +1000,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_redacted_export_removes_executor_progress_refs_and_summaries(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -1053,7 +1053,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_show_run_and_export_drop_invalid_executor_progress_payloads(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             binding = write_progress_binding(
                 paths,
                 build_progress_binding(
@@ -1114,7 +1114,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_show_run_and_export_report_malformed_executor_progress_binding(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             progress_dir = paths.runtime_runs_dir / run["run_id"] / "executor_progress"
             progress_dir.mkdir(parents=True)
             (progress_dir / "binding.json").write_text("{not json", encoding="utf-8")
@@ -1238,7 +1238,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_runtime_validation_rejects_merge_ready_before_upstream_gates(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             run_dir = paths.runtime_runs_dir / run["run_id"]
             write_merge_record(run_dir, {"status": "ready", "target_branch": "main"})
 
@@ -1435,7 +1435,7 @@ class RuntimeArtifactTests(unittest.TestCase):
     def test_export_runtime_redacts_sensitive_text_and_preserves_evidence_booleans(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
-            run = create_run(paths, {"skill": "oh-my-hermes", "harness": "coding-handling", "status": "started"})
+            run = create_run(paths, {"skill": "oh-my-jeo", "harness": "coding-handling", "status": "started"})
             write_wrapper_contract(
                 paths.runtime_runs_dir / run["run_id"],
                 {

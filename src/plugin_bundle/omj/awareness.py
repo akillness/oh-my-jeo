@@ -158,7 +158,7 @@ except ImportError:  # pragma: no cover - exercised by standalone plugin hosts.
         system_target_cues = []
         if re.search(r"(?<![a-z0-9])omj(?![a-z0-9])", text):
             system_target_cues.append("omj")
-        system_target_cues.extend(cue for cue in ("oh-my-hermes", "oh my hermes") if cue in text and cue not in system_target_cues)
+        system_target_cues.extend(cue for cue in ("oh-my-jeo", "oh my jeo") if cue in text and cue not in system_target_cues)
         quality_domain_cues = _fallback_matched_omj_quality_cues(
             (
                 "route quality",
@@ -557,7 +557,7 @@ _WORKFLOW_CONTEXT_CARD_BY_WORKFLOW = {
     "ultrawork": "coding_handoff",
 }
 _AWARENESS_MESSAGE_MARKERS = (
-    "oh-my-hermes",
+    "oh-my-jeo",
     "pull request",
     "image card",
     "summary card",

@@ -722,7 +722,6 @@ _DEFINITIONS = [
         "oh-my-jeo",
         "Router guidance for using oh-my-jeo workflow skills inside Hermes Agent.",
         (
-            "oh-my-hermes",
             "oh-my-jeo",
             "oh my jeo",
             "omj",
@@ -759,7 +758,7 @@ _DEFINITIONS = [
             "상태 기록",
             "증거 경계",
         ),
-        "Use as the top-level router when a request references oh-my-jeo (or the legacy name oh-my-hermes), asks for the workflow picker, the flagship request-to-handoff path, installed workflows, or ambiguous workflow routing.",
+        "Use as the top-level router when a request references oh-my-jeo, asks for the workflow picker, the flagship request-to-handoff path, installed workflows, or ambiguous workflow routing.",
         category="router",
         phase="routing",
         hermes_role="retained-router",

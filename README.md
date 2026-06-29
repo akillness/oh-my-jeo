@@ -17,8 +17,7 @@
 </p>
 
 oh-my-jeo is a **spec-first workflow pack** for chat agents. The product is not
-"more CLI commands" — the `omj` command (with the `omh` alias kept for backward
-compatibility) is setup, repair, doctor, verifier,
+"more CLI commands" — the `omj` command is setup, repair, doctor, verifier,
 and the wrapper/backend surface that turns a plain chat request into a
 deterministic, reviewable contract. For normal users the experience stays in
 chat; the command layer is a first-class backend for wrappers and routers,
@@ -95,16 +94,13 @@ omj setup --help    # see setup options
 > attribution. oh-my-jeo layers its own brand, documentation, visualization, and
 > agent spec on top.
 
-> **Why you still see `omh`.** `omj` (oh-my-jeo) is the canonical implementation
-> namespace and Hermes plugin ABI. The Python import namespace still exposes both
-> `omj` and `omh` (same objects), and chat accepts either "OMJ"/"oh-my-jeo" or
-> "OMH"/"oh-my-hermes". The engine ships its ABI under the `omj` token — the
+> **Canonical `omj` namespace.** `omj` (oh-my-jeo) is the single implementation
+> namespace, Python import package, CLI command, and Hermes plugin ABI. The
 > bridge installs to `~/.hermes/plugins/omj`, advertises `omj_*` tools, and emits
-> `omj_*` schema versions — so it stays loadable by an unmodified Hermes host;
-> renaming the canonical `omj` ABI would break host interoperability, so it is
-> kept stable on purpose. `omh` survives only as a thin backward-compatibility
-> alias so legacy `import omh` call sites and host references keep resolving (see
-> `.ouroboros/seeds/full-rename-seed.yaml`).
+> `omj_*` schema versions, so it stays loadable by an unmodified Hermes host. The
+> previously deprecated `omh` import alias and `omh` console script have been
+> removed — use `omj` everywhere. Chat understands "OMJ"/"oh-my-jeo"; the
+> upstream "oh-my-hermes" name is retained only in `NOTICE`/`LICENSE` attribution.
 
 
 [Documentation](docs/README.md) -

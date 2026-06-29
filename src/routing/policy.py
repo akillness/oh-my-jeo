@@ -3336,7 +3336,7 @@ def _materials_package_guard_applies(normalized_query: str, query_tokens: set[st
 def _memory_curation_guard_applies(normalized_query: str, query_tokens: set[str]) -> bool:
     context = bool(_MEMORY_CURATION_CONTEXT_TOKENS & query_tokens)
     hermes_context = _contains_phrase(normalized_query, ("hermes", "헤르메스"))
-    omj_context = _contains_phrase(normalized_query, ("omj", "oh-my-hermes", "oh my hermes"))
+    omj_context = _contains_phrase(normalized_query, ("omj", "oh-my-jeo", "oh my jeo"))
     memory_context = bool({"memory", "memories", "context", "contexts", "기억", "메모리", "맥락"} & query_tokens)
     if _scheduled_ops_blueprint_guard_applies(normalized_query, query_tokens) and not (
         hermes_context or omj_context or memory_context
@@ -3509,7 +3509,7 @@ def _doctor_health_guard_applies(normalized_query: str, query_tokens: set[str]) 
         ),
     ):
         return True
-    omj_context = _contains_phrase(normalized_query, ("omj", "oh-my-hermes", "oh my hermes", "hermes skills"))
+    omj_context = _contains_phrase(normalized_query, ("omj", "oh-my-jeo", "oh my jeo", "hermes skills"))
     maintenance = bool(
         {
             "install",
@@ -3723,7 +3723,7 @@ def _is_short_visual_summary_request(normalized_query: str) -> bool:
 def _missed_omj_workflow_context_applies(normalized_query: str) -> bool:
     if _contains_phrase(normalized_query, _OMJ_MISSED_WORKFLOW_PHRASES):
         return True
-    return ("omj" in normalized_query or "oh-my-hermes" in normalized_query) and _contains_phrase(
+    return ("omj" in normalized_query or "oh-my-jeo" in normalized_query) and _contains_phrase(
         normalized_query, _MISSED_WORKFLOW_ACTION_PHRASES
     )
 

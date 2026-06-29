@@ -23,7 +23,6 @@ classifiers = [
 
 [project.scripts]
 omj = "omj.cli:main"
-omh = "omj.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/akillness/oh-my-jeo"
@@ -33,7 +32,6 @@ Repository = "https://github.com/akillness/oh-my-jeo"
 [tool.setuptools]
 packages = [
   "omj",
-  "omh",
   "omj.capabilities",
   "omj.catalogs",
   "omj.cli",
@@ -62,7 +60,6 @@ packages = [
 
 [tool.setuptools.package-dir]
 "omj" = "src/omj"
-"omh" = "src/omh"
 "omj.capabilities" = "src/capabilities"
 "omj.catalogs" = "src/catalogs"
 "omj.codegraph" = "src/codegraph"

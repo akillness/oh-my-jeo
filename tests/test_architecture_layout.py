@@ -70,9 +70,9 @@ class ArchitectureLayoutTests(unittest.TestCase):
             "wrapper",
         )
 
-        # ``omj`` is the canonical implementation package; ``omj`` is the
-        # jeo-brand alias package introduced by the staged rename.
-        brand_packages = ("omj", "omh")
+        # ``omj`` is the canonical implementation package directory; the
+        # deprecated ``omh`` brand alias package has been removed (omj-only).
+        brand_packages = ("omj",)
         self.assertEqual(entries, sorted([*domain_packages, *brand_packages]))
         self.assertFalse((src_root / "__init__.py").exists())
         self.assertTrue((package_root / "__init__.py").is_file())
@@ -95,8 +95,8 @@ class ArchitectureLayoutTests(unittest.TestCase):
                 self.assertTrue((src_root / grouped_module).is_file())
 
         # Domain packages must carry real modules; an ``__init__.py``-only
-        # directory signals an empty stub.  The ``omh`` brand alias is exempt:
-        # it is intentionally a pure import shim that re-exports ``omj``.
+        # directory signals an empty stub.  The ``omj`` package root is exempt
+        # because it intentionally hosts only top-level brand modules.
         init_only_dirs = sorted(
             path.name
             for path in src_root.iterdir()

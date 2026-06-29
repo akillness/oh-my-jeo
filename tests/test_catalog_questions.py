@@ -41,10 +41,11 @@ class CatalogQuestionTests(unittest.TestCase):
             with self.subTest(message=message):
                 self.assertTrue(is_skill_catalog_question(message))
 
-    def test_new_and_legacy_brand_capability_questions_are_detected(self) -> None:
-        # Rule B: the renamed product brand (oh-my-jeo / oh my jeo) must be accepted
-        # for the picker fast-path, while the legacy brand (oh-my-hermes) stays
-        # backward-compatible.
+    def test_new_brand_questions_detected_and_retired_brand_is_not(self) -> None:
+        # Rule B (omj-only): the canonical product brand (oh-my-jeo / oh my jeo)
+        # is accepted for the picker fast-path.  The retired oh-my-hermes brand
+        # is no longer treated as a live capability cue; it survives only as
+        # upstream provenance in NOTICE/LICENSE.
         new_brand = (
             "what can oh-my-jeo do?",
             "what can I do with oh-my-jeo?",
@@ -56,15 +57,18 @@ class CatalogQuestionTests(unittest.TestCase):
             "oh-my-jeo 기능 뭐 있어?",
             "what can oh my jeo do?",
         )
-        legacy_brand = (
+        for message in new_brand:
+            with self.subTest(message=message):
+                self.assertTrue(is_skill_catalog_question(message))
+        retired_brand = (
             "what can oh-my-hermes do?",
             "what does oh-my-hermes do?",
             "oh-my-hermes로 뭐 할 수 있어?",
             "what can oh my hermes do?",
         )
-        for message in new_brand + legacy_brand:
+        for message in retired_brand:
             with self.subTest(message=message):
-                self.assertTrue(is_skill_catalog_question(message))
+                self.assertFalse(is_skill_catalog_question(message))
 
     def test_operator_command_questions_are_not_catalog_questions(self) -> None:
         cases = (
