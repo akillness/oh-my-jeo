@@ -1,0 +1,197 @@
+from __future__ import annotations
+
+import json
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from _cli_harness import run_cli
+
+
+class HudCliTests(unittest.TestCase):
+    def test_hud_prints_compact_line_without_runtime_state(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status, stdout, stderr = run_cli(
+                ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes"), "hud"],
+                output_json=False,
+            )
+
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            self.assertIn("[omj] v1.0.1", stdout)
+            self.assertIn("plugin:not-installed", stdout)
+            self.assertIn("coding-agent:idle(ask)", stdout)
+            self.assertNotIn("tokens:unobserved", stdout)
+            self.assertNotIn("executor:", stdout)
+            self.assertNotIn("handoff:", stdout)
+
+    def test_hud_reports_setup_plugin_target_and_prepared_runtime_boundary(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            omj_home = root / ".omj"
+            hermes_home = root / ".hermes"
+            self.assertEqual(run_cli(["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "setup"])[0], 0)
+            status, stdout, stderr = run_cli(
+                [
+                    "--omj-home",
+                    str(omj_home),
+                    "--hermes-home",
+                    str(hermes_home),
+                    "coding",
+                    "delegate",
+                    "--record",
+                    "--executor",
+                    "codex",
+                    "implement safe status feature in src/omj/runtime/status.py without overclaiming",
+                ]
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            run_id = json.loads(stdout)["runtime"]["run"]["run_id"]
+
+            status, stdout, stderr = run_cli(
+                [
+                    "--omj-home",
+                    str(omj_home),
+                    "--hermes-home",
+                    str(hermes_home),
+                    "hud",
+                    "--json",
+                    "--preset",
+                    "full",
+                    "--tokens-remaining",
+                    "1200",
+                    "--token-budget",
+                    "4000",
+                ]
+            )
+
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            payload = json.loads(stdout)
+            self.assertEqual(payload["schema_version"], "omj_hud/v1")
+            self.assertEqual(payload["version"], "1.0.1")
+            self.assertEqual(payload["plugin"]["status"], "ready")
+            self.assertNotIn("skills", payload)
+            self.assertEqual(payload["target_topology"]["mode"], "single_agent_target")
+            self.assertEqual(payload["runtime"]["latest_run_id"], run_id)
+            self.assertEqual(payload["runtime"]["evidence_state"], "prepared_not_observed")
+            self.assertEqual(payload["tokens"]["status"], "observed_from_host_metadata")
+            self.assertEqual(payload["tokens"]["values"]["tokens_remaining"], 1200)
+            self.assertEqual(payload["tokens"]["values"]["token_budget"], 4000)
+            self.assertEqual(payload["tokens"]["summary"], "30%")
+            self.assertNotIn("tokens:", payload["display"]["line"])
+            self.assertIn("plugin:ready", payload["display"]["line"])
+            self.assertIn("coding-agent:prepared(codex)", payload["display"]["line"])
+            self.assertNotIn("plan:prepared", payload["display"]["line"])
+            self.assertNotRegex(payload["display"]["line"], r"#[0-9a-f]{6}")
+            self.assertNotIn("skills:", payload["display"]["line"])
+            self.assertNotIn("executor:", payload["display"]["line"])
+            self.assertNotIn("handoff:", payload["display"]["line"])
+            self.assertIn("evidence:prepared_not_observed", payload["display"]["line"])
+            self.assertIn("Prepared handoffs are not execution", payload["evidence_boundary"])
+
+    def test_hud_marks_older_plugin_bundle_as_stale(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            omj_home = root / ".omj"
+            hermes_home = root / ".hermes"
+            plugin_dir = hermes_home / "plugins" / "omj"
+            tools_dir = plugin_dir / "tools"
+            tools_dir.mkdir(parents=True)
+            (plugin_dir / "__init__.py").write_text("def register(ctx):\n    pass\n", encoding="utf-8")
+            (plugin_dir / "plugin.yaml").write_text(
+                "\n".join(
+                    [
+                        "name: omj",
+                        'version: "0.9.0"',
+                        "provides_tools:",
+                        "  - omj_status",
+                        "provides_hooks:",
+                        "  - pre_llm_call",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (tools_dir / "status_tool.py").write_text("OMJ_STATUS_SCHEMA = {}\n", encoding="utf-8")
+
+            status, stdout, stderr = run_cli(
+                ["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "hud", "--json"]
+            )
+
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            payload = json.loads(stdout)
+            self.assertEqual(payload["plugin"]["status"], "stale")
+            self.assertTrue(payload["plugin"]["stale"])
+            self.assertFalse(payload["plugin"]["capabilities"]["tools"]["omj_hud"])
+            self.assertTrue(payload["plugin"]["capabilities"]["tools"]["omj_status"])
+            self.assertIn("plugin:update-needed", payload["display"]["line"])
+
+    def test_hud_marks_legacy_complete_plugin_without_capabilities_tool_as_stale(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            omj_home = root / ".omj"
+            hermes_home = root / ".hermes"
+            plugin_dir = hermes_home / "plugins" / "omj"
+            tools_dir = plugin_dir / "tools"
+            refs_dir = plugin_dir / "references"
+            tools_dir.mkdir(parents=True)
+            refs_dir.mkdir()
+            (plugin_dir / "__init__.py").write_text("def register(ctx):\n    pass\n", encoding="utf-8")
+            (plugin_dir / "plugin.yaml").write_text(
+                "\n".join(
+                    [
+                        "name: omj",
+                        'version: "0.9.0"',
+                        "provides_tools:",
+                        "  - omj_gather_evidence",
+                        "  - omj_hud",
+                        "  - omj_role",
+                        "  - omj_status",
+                        "provides_hooks:",
+                        "  - on_session_end",
+                        "  - pre_llm_call",
+                        "  - pre_tool_call",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            for stem in ("evidence_tool", "hud_tool", "role_tool", "status_tool"):
+                (tools_dir / f"{stem}.py").write_text("SCHEMA = {}\n", encoding="utf-8")
+            (refs_dir / "role-planner.md").write_text("# Planner\n", encoding="utf-8")
+
+            status, stdout, stderr = run_cli(
+                ["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "hud", "--json"]
+            )
+
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            payload = json.loads(stdout)
+            self.assertEqual(payload["plugin"]["status"], "stale")
+            self.assertFalse(payload["plugin"]["capabilities"]["tools"]["omj_capabilities"])
+            self.assertTrue(payload["plugin"]["capabilities"]["tools"]["omj_status"])
+            self.assertIn("plugin:update-needed", payload["display"]["line"])
+
+    def test_hud_plugin_tool_tolerates_untrusted_limit_argument(self) -> None:
+        from omj.plugin_bundle.omj.tools.hud_tool import omj_hud_handler
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = json.loads(
+                omj_hud_handler(
+                    {
+                        "omj_home": str(root / ".omj"),
+                        "hermes_home": str(root / ".hermes"),
+                        "limit": "not-a-number",
+                    }
+                )
+            )
+
+            self.assertEqual(payload["schema_version"], "omj_hud/v1")
+            self.assertEqual(payload["runtime"]["recent_run_count"], 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

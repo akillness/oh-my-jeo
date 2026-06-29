@@ -1,0 +1,153 @@
+---
+name: ai-slop-cleaner
+description: [omj] Hermes AI slop cleaner workflow: behavior-preserving cleanup.
+metadata:
+  hermes:
+    tags: [workflow, oh-my-jeo, maintenance]
+    category: maintenance
+    phase: cleanup
+    role: handoff-guide
+    quality_tier: regression-gated
+---
+
+# Ai Slop Cleaner
+
+This is a Hermes-native `ai-slop-cleaner` workflow skill.
+
+## Why This Exists
+
+`ai-slop-cleaner` exists to keep `maintenance` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+
+## Do Not Use When
+
+- The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+- The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+
+## Examples
+
+Good example:
+
+- Prompt: $ai-slop-cleaner remove duplicated router branches and lock behavior with regression tests before refactoring.
+- Expected behavior: Plan cleanup, preserve behavior, delete or simplify code, and prove it with targeted tests.
+- Why: The request is maintenance cleanup with regression risk.
+
+Bad example:
+
+- Prompt: ai-slop-cleaner: treat casual chat or unaccepted work as if this workflow already produced verified results.
+- Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `ai-slop-cleaner`.
+- Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+
+## Completion Checklist
+
+- The selected coding or runtime owner is named before any implementation claim.
+- Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
+- The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+
+## Recovery Notes
+
+- If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.
+- If dispatch or result evidence is missing, keep the handoff prepared_not_observed and expose the next observable action.
+
+## OMJ Context Rail
+
+- This skill is part of OMJ's Hermes workflow layer, not a standalone executor.
+- Product context: OMJ is a Hermes-native workflow pack: it helps Hermes choose skills, shape work, prepare artifacts, show status, and hand off with observed evidence boundaries.
+- Current lane: **Coding handoff** (`idea-to-deploy`, `cto-loop`, `deploy-and-monitor`, `code-review`, `ultrawork`, `team`, `ultraqa`, `ai-slop-cleaner`, `executor-runtime-readiness`, `request-to-handoff`, `executor selection`, `coding runtime handoff`) - Codex, Claude Code, Hermes coding, or oh-my runtime paths with observed evidence tracking.
+- If the user intent belongs to another OMJ lane, hand back to `oh-my-jeo` or name the adjacent workflow instead of force-fitting this skill.
+- Cross-skill context: Across every OMJ skill: match intent to a lane, name adjacent workflows, and do not dismiss OMJ because a generic tool can render or execute.
+- Generic-tool checkpoint: image->img-summary; supplied paper->paper-learning; file->materials-package; search->web-research; code->ultraprocess/ralplan/review.
+- Coverage: Every generated workflow skill carries this rail.
+- Normal users talk to Hermes; OMJ CLI is backend, setup, verification, and wrapper infrastructure.
+- Boundary: Prepared OMJ routing, prompts, cards, handoffs, or artifacts are not observed execution, image generation, delivery, review, CI, merge-readiness, or merge evidence.
+
+## Use When
+
+Use for behavior-preserving cleanup with tests before and after edits.
+
+    Strong routing signals: `ai-slop-cleaner`, `$ai-slop-cleaner`, `cleanup`, `deslop`, `refactor`, `risky`, `behavior-preserving refactor`, `risk analysis`, `refactor workflow`, `legacy refactor`, `리팩터링`, `리팩토링`, `위험 분석`, `변경 범위 제한`, `회귀 테스트`
+
+## Catalog Metadata
+
+Category: `maintenance`
+Phase: `cleanup`
+Hermes role: `handoff-guide`
+Quality tier: `regression-gated`
+
+Quality bar:
+
+- Lock current behavior with regression checks before non-trivial cleanup.
+- Prefer deletion, reuse, and boundary repair over new abstractions.
+- Rerun verification after cleanup before claiming behavior is preserved.
+
+Handoff policy:
+
+Use Hermes to define cleanup scope and regression checks; route behavior-preserving edits to the selected coding runtime once tests are clear.
+
+Executor readiness:
+
+- When accepted work mutates code, check `executor_readiness/v1` for the selected Codex, Claude Code, Hermes, or oh-my runtime path before first dispatch.
+- If readiness is `missing` or `blocked`, ask the user to choose another coding agent, configure PATH, continue in Hermes, or keep a prompt/runtime handoff; retry only after that state changes.
+- A readiness probe is not dispatch, implementation, verification, review, CI, merge-readiness, or merge evidence.
+
+Required inputs:
+
+- target smell
+- current behavior
+- regression checks
+
+Expected outputs:
+
+- small cleanup diff
+- before/after verification
+- residual risk
+
+Artifact expectations:
+
+- cleanup plan and regression evidence for non-trivial work
+
+Safety rules:
+
+- Lock behavior with tests before risky cleanup.
+- Prefer deletion and existing utilities over new layers.
+- Do not add dependencies for cleanup unless explicitly requested.
+
+## Harness Discipline
+
+- Start from the representative harness registry in `oh-my-jeo` when the workflow needs coding, research, planning, goal execution, architecture, critique, QA, or documentation lanes.
+- Prefer richer evidence and clearer stop conditions over adding more workflow names.
+- Use specialist lanes only when they change the quality of the answer or verification.
+
+## Runtime Evidence
+
+Preferred harness for this skill: `coding-handling`.
+
+When local shell access or a bot wrapper is available, record metadata-only evidence:
+
+```sh
+omj runtime record --skill ai-slop-cleaner --harness coding-handling --status started
+omj runtime delegate --run <run-id> --requested --not-observed --result not_observed
+```
+
+Record observed delegation results when Hermes or the wrapper exposes them. If delegation is unavailable, keep the result explicit as `not_available` or `not_observed`.
+
+## Hermes Compatibility Contract
+
+- Preserve the workflow intent, stop conditions, and verification discipline.
+- Use Hermes-native tools, file operations, and subagent/delegation features when available.
+- Do not require runtime tools, role prompts, or overlays that Hermes Agent does not expose.
+- Respect `omj_target_topology/v1` when a wrapper reports it: bind state to the current target/thread, adapt only the parts of this workflow that benefit from multiple Hermes agents, and fall back to single-target behavior when `active_agent_count` is one.
+- When target topology changes from one to many or many to one, give a concise setup-change comment or use the wrapper's apply action before treating the new topology as persistent.
+- When wrapper metadata includes `memory_review_card/v1` or `handoff_context_pack/v1`, treat it as reviewed OMJ-local or wrapper-supplied context only. Use conflict-free context summaries to shape plans and handoffs, but do not claim Hermes internal memory was read or changed.
+- When a runtime-specific mechanism appears in imported instructions, translate it to a Hermes-native artifact:
+  - goal tools -> `.omj/goals/` ledgers, `goal_completion_gate/v1`, `goal_status_card/v1`, `goal_continuation/v1`, or explicit checklists with named next actions,
+  - question renderers -> one concise question in the current Hermes interface,
+  - native subagents -> Hermes delegation when available, otherwise sequential lanes,
+  - shell bridge commands -> optional bridge mode only.
+
+## Execution Rules
+
+1. Load supporting context with `skills_list` / `skill_view` when needed.
+2. State the workflow target, constraints, validation evidence, and stop condition.
+3. Keep progress evidence-backed.
+4. Verify with the smallest relevant test or inspection before claiming completion.
+5. If Hermes cannot provide a required runtime capability, say so and use the fallback above.

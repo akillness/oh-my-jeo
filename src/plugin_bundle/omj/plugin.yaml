@@ -1,0 +1,18 @@
+name: omj
+version: "1.0.1"
+description: "Oh My Jeo native bridge for metadata-only runtime status, HUD, role context, bounded evidence probes, and evidence-boundary context."
+author: oh-my-jeo maintainers
+provides_tools:
+  - omj_capabilities
+  - omj_context
+  - omj_gather_evidence
+  - omj_hud
+  - omj_interact
+  - omj_probe
+  - omj_recommend
+  - omj_role
+  - omj_status
+provides_hooks:
+  - on_session_end
+  - pre_llm_call
+  - pre_tool_call

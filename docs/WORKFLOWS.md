@@ -1,0 +1,4874 @@
+# Workflow Reference
+
+This file is generated from `src/skills/catalog.py`. Update the catalog first, then refresh this document.
+
+The reference describes prompt-level Hermes workflow guidance and local evidence expectations. It does not claim hidden Hermes runtime behavior.
+
+Workflow names are kept for compatibility, but each skill declares advisory wrapper guidance for whether Hermes should retain the work directly, ask the user to choose an executor/runtime profile, or prepare a coding handoff for coding-heavy execution.
+
+Exposure is the install contract: `install_visibility: true` surfaces generate `skills/<name>/SKILL.md`; router-only, harness-only, and agent-context surfaces stay routable references unless this document explicitly promotes them.
+
+When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow state to the current Hermes target/thread, adapt only the steps that benefit from multiple targets, and fall back to single-target behavior when the active agent count is one.
+`memory_review_card/v1` is separate from `status_card/v1`; `handoff_context_pack/v1` may be attached to executor handoffs only when unresolved conflicts are absent.
+`goal_status_card/v1` and `goal_continuation/v1` are goal-execution payloads separate from generic `status_card/v1`; they must name the next action instead of merely summarizing work.
+
+## Skills
+
+### oh-my-jeo
+
+[omj] Router guidance for using oh-my-jeo workflow skills inside Hermes Agent.
+
+- Category: `router`
+- Phase: `routing`
+- Hermes role: `guide`
+- Quality tier: `routing-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Classify requests into Hermes-retained planning/research/interview lanes, executor choice, or prepared coding handoffs; do not execute code.
+- Why this exists: `oh-my-jeo` exists to keep Hermes chat routing conservative: it maps plain requests to the right workflow, explains evidence boundaries, and avoids making every keyword look like hidden implementation.
+- Use when: Use as the top-level router when a request references oh-my-jeo (or the legacy name oh-my-hermes), asks for the workflow picker, the flagship request-to-handoff path, installed workflows, or ambiguous workflow routing.
+- Do not use when:
+  - The user already invoked a more specific installed skill and its routing signals are unambiguous.
+  - The message is ordinary chat, status acknowledgement, or a question that does not need workflow routing.
+  - The wrapper wants to claim execution, review, CI, or merge evidence that no observed artifact provides.
+- Strong routing signals: `oh-my-hermes`, `oh-my-jeo`, `oh my jeo`, `omj`, `./`, `/`, `./o`, `/o`, `./om`, `/om`, `./omj`, `/omj`, `./skills`, `/skills`, `skill picker`, `workflow picker`, `native command`, `command preview`, `route hint`, `route-hint`, `route hint card`, `fallback card`, `discord command`, `slack command`, `telegram command`, `skill routing`, `workflow routing`, `chat routing`, `request-to-handoff`, `plain request`, `role-owned next action`, `wrapper contract`, `prepared observed`, `evidence boundary`, `상태 기록`, `증거 경계`
+- Good example:
+  - Prompt: Use OMJ request-to-handoff for: safely add a feature to this repo.
+  - Expected behavior: Classify the request, name the retained Hermes lane or prepared coding handoff, and expose the observed/prepared evidence boundary.
+  - Why: The user asks for OMJ-shaped routing without naming a narrow workflow, so the router should choose the safest next surface.
+- Bad example:
+  - Prompt: omj
+  - Expected behavior: Show the workflow picker or ask what the user wants to do next; do not infer a coding workflow.
+  - Why: A bare product name is a picker or clarification signal, not implementation evidence.
+- Quality bar:
+  - Route only from explicit invocation, strong catalog evidence, or a clear workflow-shaped request.
+  - Return a clarification or fallback path instead of forcing low-confidence messages into a workflow.
+  - Keep users command-agnostic by naming the next UX step rather than shell commands.
+  - Expose direct workflow selection without renaming skills or adding an `omj-` prefix to every skill name.
+  - Use request-to-handoff as the first path when a plain request needs role, plan, handoff, or status UX.
+- Completion checklist:
+  - The selected workflow, confidence reason, evidence boundary, and user-facing next action are named.
+  - Low-confidence or conflicting signals return a picker or clarification instead of forced routing.
+  - Catalog answers are rendered without shell approval when wrapper metadata is sufficient.
+- Recovery notes:
+  - If routing signals conflict, show the compact picker or ask one clarifying question.
+  - If wrapper metadata is unavailable, keep the recommendation advisory and avoid runtime claims.
+- Required inputs:
+  - user request
+  - installed skill descriptions
+  - Hermes skill discovery context
+- Expected outputs:
+  - selected workflow guidance
+  - chat_route_hint/v1 when a wrapper needs a lightweight preview
+  - clarification question when routing is ambiguous
+- Artifact expectations:
+  - runtime run record when a wrapper can observe request handling
+- Safety rules:
+  - Prefer explicit skill invocation over weak keyword inference.
+  - Treat partial `./`, `/`, `./o`, or `/om` input as command preview; show one top-level `omj` entry before opening the workflow picker.
+  - Use `omj chat route-hint` when a wrapper needs a metadata-only workflow preview without plugin load or shell catalog approval.
+  - Use `omj chat native-command` contracts for Discord, Slack, Telegram, or Hermes command/menu registration; treat registration and button rendering as adapter-owned observed evidence.
+  - Treat bare `./omj`, `/omj`, `./skills`, or `/skills` as a workflow picker request, not as implementation intent.
+  - Ask one concise question when routing signals conflict.
+  - Do not claim to override Hermes core routing.
+
+### ralph
+
+[omj] Hermes Ralph workflow: persistent execution with verification and review.
+
+- Category: `execution`
+- Phase: `completion`
+- Hermes role: `handoff-guide`
+- Quality tier: `handoff-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep as compatibility guidance; for implementation, ask the wrapper to prepare/track the selected coding runtime path instead of hiding execution inside chat narration.
+- Why this exists: `ralph` exists to keep `execution` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use after scope is concrete and the user wants one owner to continue through implementation and verification.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `ralph`, `$ralph`, `finish until done`, `persistent execution`, `self-referential loop`
+- Good example:
+  - Prompt: ralph: finish the invoice export recovery until the smoke test passes or a blocker is recorded.
+  - Expected behavior: Keep one completion owner, track evidence after every recovery step, and stop only on pass, block, or explicit cancel.
+  - Why: The request needs persistent completion pressure with an observable stop condition.
+- Bad example:
+  - Prompt: ralph: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `ralph`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Do not enter a finish-until-done loop until scope, acceptance criteria, and verification commands are concrete.
+  - For coding edits, prepare and track selected runtime evidence instead of implying unobserved work happened.
+  - Report completion only from observed execution and verification evidence.
+- Completion checklist:
+  - The selected coding or runtime owner is named before any implementation claim.
+  - Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
+  - The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+- Recovery notes:
+  - If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.
+  - If dispatch or result evidence is missing, keep the handoff prepared_not_observed and expose the next observable action.
+- Required inputs:
+  - concrete scope
+  - acceptance criteria
+  - verification commands
+- Expected outputs:
+  - completed work summary
+  - verification evidence
+  - remaining risks
+- Artifact expectations:
+  - goal-execution run record
+  - checkpoint or final evidence when available
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### ultragoal
+
+[omj] Hermes Ultragoal workflow: file-backed durable goal ledgers.
+
+- Category: `execution`
+- Phase: `durable-goals`
+- Hermes role: `handoff-guide`
+- Quality tier: `checkpoint-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Use Hermes to maintain .omj/goals goal_ledger/v1 state, show goal_status_card/v1 / goal_continuation/v1 next actions, and route coding milestones to the selected runtime profile with only observed runtime evidence.
+- Why this exists: `ultragoal` exists for work that can outlive one chat turn: it turns ambition into durable stories, checkpoints, and completion gates so progress can resume without pretending a summary is evidence.
+- Use when: Use when work needs durable goal artifacts, checkpointed progress, and final quality gates.
+- Do not use when:
+  - The request is a single-turn answer, quick diagnosis, or small edit that does not need a durable ledger.
+  - Acceptance criteria, current checkpoint, and final gate expectations are too vague to make a goal inspectable.
+  - The user expects hidden Hermes code execution rather than explicit executor handoff and observed verification evidence.
+- Strong routing signals: `ultragoal`, `$ultragoal`, `durable goal`, `multi-goal`, `goal ledger`
+- Good example:
+  - Prompt: $ultragoal turn OMJ skill quality into a durable goal with rubrics, generated skill sync, tests, and a PR gate.
+  - Expected behavior: Create or update a goal ledger, split the story into verifiable checkpoints, and close only after generated docs, skills, and tests match.
+  - Why: The task has multiple milestones and a final quality gate that should be inspectable across interruptions.
+- Bad example:
+  - Prompt: $ultragoal what does this one error mean?
+  - Expected behavior: Route to diagnosis or a direct answer instead of creating a durable goal.
+  - Why: A narrow explanation does not need checkpointed long-running state.
+- Quality bar:
+  - Keep goal state durable, inspectable, and separate from chat narration.
+  - Checkpoint every success, blocker, and final quality gate with fresh evidence.
+  - Reject completion with a summary-only goal_completion_gate/v1 result until required criteria, blockers, and explicitly linked runtime runs are satisfied.
+  - Tell the user the next action through goal_status_card/v1 or goal_continuation/v1 instead of ending with vague follow-up copy.
+  - For coding milestones, use prepared runtime handoffs and observed runtime evidence rather than hidden execution claims.
+- Completion checklist:
+  - The goal_ledger/v1 names the current criteria, checkpoints, blockers, and next action.
+  - The goal_completion_gate/v1 result passes from required evidence, not from a summary-only message.
+  - All explicitly linked coding milestones have matching observed runtime evidence or are still named as gaps.
+  - The final user-facing status says complete, blocked, or continue with the exact remaining checkpoint.
+- Recovery notes:
+  - If the goal ledger is stale or missing, inspect .omj/goals and ask which checkpoint to resume before continuing.
+  - If a blocker checkpoint exists, keep the goal open and record the blocker plus the smallest unblock action.
+  - If linked runtime evidence is missing, keep coding milestones prepared_not_observed and do not close the goal.
+- Required inputs:
+  - goal statement
+  - acceptance criteria
+  - current checkpoint or missing criteria
+- Expected outputs:
+  - goal_ledger/v1 updates
+  - checkpoint evidence
+  - goal_completion_gate/v1 result
+  - completion or blocker summary
+- Artifact expectations:
+  - metadata-only .omj/goals ledger
+  - goal_status_card/v1 or goal_continuation/v1 wrapper payload
+  - runtime run record only for explicitly linked coding milestones
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### loop
+
+[omj] Hermes Loop workflow: agentic interviewer -> planner -> researcher -> builder -> reviewer cycles until a real gate.
+
+- Category: `goal-loop`
+- Phase: `continuous-goal-loop`
+- Hermes role: `planner`
+- Quality tier: `loop-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep loop orchestration, role sequencing, verification-tier selection, deterministic runtime ticks, loop_engineering/v1 status, feedback evaluation, and permission narration in Hermes; prepare executor/runtime/worktree/connector/verifier handoffs only for concrete work and record completion only from linked evidence.
+- Why this exists: `loop` exists for goals whose correct implementation cannot be known upfront but can be discovered through bounded cycles of definition, action, verification, and revision without confusing planned cycles with observed progress.
+- Use when: Use when the user starts a high-level goal or invokes loop. Direct loop invocation means start/continue through interviewer, planner, researcher, builder, reviewer, and loop-controller lanes until a real gate stops it.
+- Do not use when:
+  - The user asks for one bounded delivery cycle; use `ultraprocess` or `ultragoal` instead.
+  - The user gives only a north-star outcome such as revenue, stars, or adoption and has not accepted a bounded first loop goal.
+  - The goal is too vague to name an observable problem, next artifact, verification signal, or stop condition.
+  - The goal depends mainly on external waiting, adoption, revenue, or community response without observable local next actions.
+  - The permission profile does not allow repeated research, handoff, queue, or feedback cycles.
+- Strong routing signals: `loop`, `./loop`, `$loop`, `goal loop`, `long horizon goal`, `never stop`, `research plan ultragoal feedback`, `token exhaustion resume`, `permission profile`, `star 10k`, `10k star`, `loop engineering`, `루프`, `목표 루프`, `장기 목표`, `끝까지`, `토큰 고갈`, `피드백 루프`
+- Good example:
+  - Prompt: ./loop make OMJ a credible Hermes workflow pack with install, docs, QA, and feedback cycles.
+  - Expected behavior: Start a permission-scoped loop, maintain loop_cycle/v1 state, choose the next concrete task, and keep external outcomes as waiting states.
+  - Why: The request is long-horizon and needs repeated discovery, verification, feedback, and resume decisions.
+- Bad example:
+  - Prompt: ./loop merge this already reviewed one-line README fix.
+  - Expected behavior: Use a direct delivery or PR workflow instead of starting a persistent loop.
+  - Why: The task is bounded and should stop after merge evidence rather than create ongoing cycles.
+- Quality bar:
+  - Treat direct `loop`, `./loop`, `$loop`, and OMJ loop invocations as a start/continue signal rather than a picker or passive clarification path.
+  - Classify the goal as task, project, ambition, external-wait, or unclear inside the loop, then keep progressing until a real permission, evidence, verification, context, budget, or external-wait gate appears.
+  - Expose core OMJ roles: interviewer, planner, researcher, builder, reviewer, and loop controller.
+  - Route tiny direct tasks to one-cycle delivery surfaces instead of forcing loop overhead.
+  - Reframe a north-star ambition into a bounded arena, observable problem, next loop goal, and next verification without shrinking its ambition.
+  - Separate task discovery, distribution, execution, verification, next-task decision, runtime tick queueing, ultragoal/handoff, feedback, waiting, and resume decisions.
+  - Expose a permission profile before executor/runtime dispatch, repository mutation, PR, merge, or external publishing.
+  - Expose the automation, worktree, skill, connector, and subagent building-block states without treating planned blocks as observed work.
+  - Choose workflow patterns such as single-step, fan-out-and-synthesize, adversarial verification, tournament, or triage batch as orchestration metadata only.
+  - Keep repeated scaffold shape stable, summarize within bounded budgets, and add verifier lanes only when risk or evidence warrants them.
+  - Keep prepared worktree/subagent/connector plans, observed executor work, linked goal completion, and external waiting as distinct evidence states.
+  - Use cheap inner-loop checks frequently and expensive outer-loop checks sparingly.
+  - Keep the practical small-loop recipe visible: test as stop signal, plan -> execute -> verify, one task at a time.
+  - Surface verification_gap, comprehension_debt, and cognitive_surrender as warnings before a loop starts looking self-steering.
+- Completion checklist:
+  - The request is classified as task, project, north-star ambition, external-wait, or unclear before a loop starts.
+  - The current loop_status_card/v1 names the queue item, tick status, verification_plan, and next action.
+  - failure_mode_summary checks verification_gap, comprehension_debt, and cognitive_surrender before progress advances.
+  - Completion is backed by linked goal/runtime evidence; queued loop ticks alone are not observed work.
+- Recovery notes:
+  - If a queued tick is pending, show it as prepared queue state and use loop status/run-once before claiming progress.
+  - If feedback is unclear, ask one gate question or route back to research/plan rather than advancing the loop.
+  - If the goal turns into external waiting, record the waiting state and next observable signal instead of continuing locally.
+  - If context or budget is exhausted, checkpoint the loop artifact and continue from the latest loop_cycle/v1 state.
+- Required inputs:
+  - loopability assessment
+  - north-star goal summary when present
+  - bounded arena
+  - observable problem
+  - next verification
+  - goal reframe
+  - success criteria
+  - permission profile
+  - feedback or wait signal
+- Expected outputs:
+  - loopability_assessment/v1 task/project/ambition classification
+  - loop_start_card/v1 setup prompt
+  - loop_cycle/v1 state
+  - loop_engineering/v1 pipeline/building-block snapshot
+  - loop verification_policy for inner/outer checks
+  - loop failure_mode_summary over verification gap, comprehension debt, and cognitive surrender
+  - small-loop guidance: test as stop signal, plan -> execute -> verify, one task at a time
+  - loop_status_card/v1 next action
+  - loop_runtime/v1 queued tick with verification_plan refs
+  - loop_queue_handoff/v1 only when permitted
+  - executor-neutral handoff only when permitted
+  - external-wait or checkpoint boundary
+- Artifact expectations:
+  - metadata-only .omj/loops loop_cycle/v1 artifact with loopability_assessment/v1
+  - loop_engineering/v1 status over automation, worktree, skill, connector, subagent, verification policy, and failure modes
+  - loop_runtime/v1 queue entries with context_policy_ref, cost_policy_ref, and verification_plan
+  - loop_subagent_result_contract/v1 for prepared subagent handoffs
+  - loop_status_card/v1 wrapper payload with loopability_assessment, failure_mode_summary, and small_loop_guidance
+  - loop_start_card/v1 wrapper setup card
+  - linked goal_ledger/v1 only when completion evidence is required
+- Safety rules:
+  - Do not treat loop persistence as permission to bypass the selected permission profile.
+  - Do not treat a runtime tick as worktree creation, subagent dispatch, connector I/O, implementation, review, CI, merge, publication, or completion evidence.
+  - Do not claim goal completion from loop state; require linked goal_ledger/v1 completion evidence.
+  - When context or token budget runs out, checkpoint or rely on resumable state instead of pretending the loop is complete.
+  - External results such as market response, stars, or adoption are waiting states unless observed evidence is supplied.
+  - Do not let unattended loop progress bypass verification; missing or failed verification returns to plan/research or waits for evidence.
+  - Do not let comprehension debt or cognitive surrender hide behind green-looking loop status.
+
+### ultraprocess
+
+[omj] Ultra Process - Research - Ralplan - Ultragoal - Code Review - Sync Circle: one PR-ready delivery cycle.
+
+- Category: `process`
+- Phase: `single-cycle-plan-to-pr`
+- Hermes role: `handoff-guide`
+- Quality tier: `process-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep the one-cycle process orchestration, source/codebase research, planning, review framing, docs-sync checks, PR narration, and evidence boundaries in Hermes; convert implementation into a selected executor/runtime handoff such as Codex, Claude Code, OMX/OMO/OMC, another coding agent, or explicit Hermes coding runtime only when the user accepts that owner.
+- Why this exists: `ultraprocess` exists to give Hermes one clean plan-to-PR operating cycle: research, reviewed plan, selected implementation handoff, review gate, docs sync, and PR-ready evidence.
+- Use when: Use when the user asks Hermes to take a concrete task through one full delivery cycle: research/codebase context, reviewed plan, selected implementation handoff, code review, docs sync when needed, and PR preparation.
+- Do not use when:
+  - The user wants an open-ended feedback loop or long-horizon campaign; use `loop` instead.
+  - The task is still ambiguous enough that a deep interview is required before planning.
+  - No repo, product, or delivery surface is available to support a plan-to-PR cycle.
+- Strong routing signals: `ultraprocess`, `$ultraprocess`, `./ultraprocess`, `/ultraprocess`, `single-cycle delivery`, `one-cycle delivery`, `end-to-end process`, `delivery process`, `research plan implement review docs pr`, `plan implement review docs pr`, `ralplan ultragoal code-review`, `codebase source research planning implementation review docs sync pr`, `docs sync`, `pr-ready`, `prepare a pr`, `sync docs and prepare a pr`, `code-review sync docs and prepare a pr`, `delegate to codex`, `send to codex`, `codex implement`, `codex progress tracking`, `codex session tracking`, `make a pr`, `open a pr`, `끝까지 해줘`, `PR까지`, `계획 구현 리뷰 문서 PR`, `기획 구현 리뷰 문서 PR`, `코드베이스 조사 웹리서치 계획 구현 리뷰 문서 최신화 PR`, `codex로 구현`, `코덱스로 구현`, `codex에게 맡기`, `codex로 맡기`, `코덱스에게 맡기`, `코딩 에이전트에게 맡기`, `구현하게 맡기고 진행상태 추적`, `진행상태 추적`, `진행 상태 추적`, `문서 최신화 PR`
+- Good example:
+  - Prompt: $ultraprocess research this setup bug, plan the fix, implement, review, sync docs, and prepare a PR.
+  - Expected behavior: Run exactly one delivery cycle and report which stages are observed, prepared, or blocked.
+  - Why: The user explicitly asks for the full but bounded delivery path ending at PR readiness.
+- Bad example:
+  - Prompt: $ultraprocess keep improving the project until it becomes popular.
+  - Expected behavior: Route to `loop` or ask for a bounded goal rather than promise endless delivery.
+  - Why: Popularity and indefinite improvement need long-horizon loop management, not one PR-ready cycle.
+- Quality bar:
+  - Complete exactly one plan-to-PR delivery cycle, then stop with status, evidence gaps, or a next recommended workflow.
+  - Start with codebase/source research and a ralplan-style decision record before implementation handoff.
+  - Use ultragoal or the selected executor/runtime path for implementation, with acceptance criteria and verification commands attached.
+  - Run code-review as a gate after implementation evidence exists; review preparation alone is not review evidence.
+  - Add docs-specialist sync when public behavior, commands, setup, examples, or claims changed.
+  - End with a PR-ready or PR-observed report that separates prepared, executed, reviewed, verified, CI, and PR evidence.
+- Completion checklist:
+  - Research and codebase context are captured before implementation handoff.
+  - A ralplan-style or reviewed plan names acceptance criteria, risks, and verification commands.
+  - The implementation owner is selected and handoff, dispatch, run, review, CI, and PR readiness are separated.
+  - The code-review gate is observed or explicitly marked not_observed.
+  - Docs sync is checked when behavior, setup, commands, examples, or public claims changed.
+- Recovery notes:
+  - If the task expands beyond one delivery cycle, stop and route to loop with the current evidence as input.
+  - If no implementation owner is selected, keep the work prepared_not_observed and ask for Codex, Claude Code, Hermes, or another runtime.
+  - If review, CI, docs sync, or PR evidence is missing, report the stage gap instead of saying the process is complete.
+- Required inputs:
+  - task statement
+  - repo or workspace context
+  - executor preference or choose-at-handoff policy
+  - verification expectations
+- Expected outputs:
+  - ralplan-ready context and plan
+  - ultragoal or selected executor/runtime handoff
+  - code-review gate
+  - docs sync checklist
+  - single-cycle PR-ready summary with observed evidence and gaps
+- Artifact expectations:
+  - process checklist or runtime record when a wrapper can observe the stages
+  - prepared handoff artifact only after implementation owner selection
+  - docs-specialist claim check when public behavior changes
+- Safety rules:
+  - Do not skip planning when the request is broad, risky, or user-visible.
+  - Do not continue into a repeated feedback loop; recommend `loop` when the user wants ongoing cycles.
+  - Do not claim implementation, review, CI, merge readiness, or PR creation without observed executor or GitHub evidence.
+  - Keep web research source-backed and permission-aware; do not run hidden network or LLM calls from OMJ core.
+  - Run docs sync only when behavior, setup, commands, or public claims changed.
+
+### deep-interview
+
+[omj] Hermes Deep Interview workflow: one-question-at-a-time clarification.
+
+- Category: `clarification`
+- Phase: `discovery`
+- Hermes role: `planner`
+- Quality tier: `clarity-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run directly in Hermes or the chat wrapper; produce a clarified brief before any coding handoff is prepared.
+- Why this exists: `deep-interview` exists to stop Hermes from guessing through ambiguous product, workflow, or implementation intent; it converts uncertainty into a clarified brief before planning or handoff.
+- Use when: Use before planning or execution when requirements are materially ambiguous.
+- Do not use when:
+  - The request already has concrete scope, acceptance criteria, and verification commands.
+  - The missing information is discoverable from the repository or local artifacts without asking the user.
+  - The user asked for immediate read-only analysis and the ambiguity does not change the answer.
+- Strong routing signals: `deep-interview`, `$deep-interview`, `interview`, `don't assume`, `clarify`, `feature shaping`, `ambiguous product request`, `one question`, `온보딩`, `부드럽게`, `모호한 제품 요청`, `기획자`, `개발자 사이`
+- Good example:
+  - Prompt: $deep-interview before planning Discord and Slack routing, ask what each channel owns and what evidence counts.
+  - Expected behavior: Ask one decision-changing question at a time, then produce goals, non-goals, and acceptance criteria.
+  - Why: The request explicitly rejects assumptions and needs product boundaries before implementation.
+- Bad example:
+  - Prompt: $deep-interview fix this failing test; the traceback and expected behavior are attached.
+  - Expected behavior: Proceed to diagnosis or implementation instead of interviewing.
+  - Why: The required facts are already available, so more questions would slow the workflow.
+- Quality bar:
+  - Ask exactly one blocking question per turn unless the wrapper explicitly supports a structured batch.
+  - Tie each question to a missing decision that changes the plan, handoff, or stop condition.
+  - Emit a clarified brief with non-goals and acceptance criteria before planning or delegation.
+- Completion checklist:
+  - The clarified brief names goals, non-goals, constraints, and one next planning or handoff path.
+  - Remaining ambiguity is listed only when it changes the plan, risk, or stop condition.
+  - No implementation handoff is prepared until the blocking decision is resolved.
+- Recovery notes:
+  - If the user answers with new ambiguity, ask the next decision-changing question instead of planning too early.
+  - If repo evidence can answer the question, inspect it before asking the user.
+- Required inputs:
+  - initial request
+  - known repo facts
+  - current ambiguity
+- Expected outputs:
+  - clarified brief
+  - non-goals
+  - decision boundaries
+- Artifact expectations:
+  - clarity summary or transcript when the wrapper supports it
+- Safety rules:
+  - Ask one question at a time.
+  - Gather discoverable repo facts before asking the user.
+  - Stop interviewing once ambiguity is low enough to plan.
+
+### team
+
+[omj] Hermes Team workflow: coordinated parallel or sequential work lanes.
+
+- Category: `execution`
+- Phase: `coordination`
+- Hermes role: `handoff-guide`
+- Quality tier: `coordination-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Use Hermes for lane framing and status; implementation lanes should become selected runtime handoff tasks, including Hermes-owned coding when the user chooses that runtime.
+- Why this exists: `team` exists to keep `execution` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when multiple independent lanes materially improve throughput or verification.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `team`, `$team`, `swarm`, `parallel agents`, `coordinated workers`
+- Good example:
+  - Prompt: team: coordinate parallel agents for frontend polish, copy polish, and QA with worker ACKs.
+  - Expected behavior: Assign lanes, require worker ACK/result evidence, and keep integration verification separate.
+  - Why: The work benefits from multiple coordinated workers with disjoint ownership.
+- Bad example:
+  - Prompt: team: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `team`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Split only independent lanes with explicit ownership and verification boundaries.
+  - Keep Hermes as coordinator and status narrator while coding lanes become runtime handoffs with explicit ownership.
+  - Integrate lane evidence before reporting combined progress.
+- Completion checklist:
+  - Each lane has an owner, disjoint scope, expected output, and verification target.
+  - Worker ACK, dispatch, result, integration, and verification evidence are separated when wrappers record them.
+  - The integrated status names which lanes are observed, blocked, or still prepared_not_observed.
+- Recovery notes:
+  - If two lanes are not independent, collapse them under one owner or re-plan before dispatch.
+  - If a worker has no ACK or result, mark that lane not_observed or blocked rather than infer progress.
+  - If integration reveals a shared-file conflict, stop lane fan-out and reassign ownership before continuing.
+- Required inputs:
+  - bounded lane definitions
+  - ownership boundaries
+  - verification target
+- Expected outputs:
+  - lane results
+  - integration summary
+  - combined verification evidence
+- Artifact expectations:
+  - delegation record only when separate participants are observed
+- Safety rules:
+  - Use parallel lanes only when work is independent.
+  - Keep shared-file edits under one owner.
+  - Record unobserved delegation as not_observed.
+
+### ultrawork
+
+[omj] Hermes Ultrawork compatibility workflow: bounded parallel delivery guidance.
+
+- Category: `execution`
+- Phase: `parallel-delivery`
+- Hermes role: `handoff-guide`
+- Quality tier: `handoff-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep the workflow name for compatibility, but convert coding lanes into explicit selected runtime handoffs with disjoint scope, verification, review evidence, worker protocol, and worktree guidance.
+- Why this exists: `ultrawork` exists to split an accepted implementation plan into independent lanes without letting parallelism blur ownership, verification, worker protocol, worktree isolation, or observed runtime evidence.
+- Use when: Use when an accepted implementation plan can be split into independent, reviewable work lanes.
+- Do not use when:
+  - The work touches the same files or invariants in ways that need one owner.
+  - The plan is not accepted, lane boundaries are unclear, or verification commands are missing.
+  - The user expects Hermes to secretly execute coding lanes instead of preparing explicit selected-runtime handoffs.
+- Strong routing signals: `ultrawork`, `$ultrawork`, `parallel work`, `parallel implementation`, `high throughput`
+- Good example:
+  - Prompt: $ultrawork split the accepted docs refresh, CLI output polish, and test updates into parallel implementation lanes.
+  - Expected behavior: Create disjoint lane prompts with acceptance criteria, verification commands, and review evidence requirements.
+  - Why: The work can be split cleanly and benefits from parallel execution discipline.
+- Bad example:
+  - Prompt: $ultrawork refactor the central router in five agents at once.
+  - Expected behavior: Keep one owner or re-plan boundaries before parallelization.
+  - Why: Shared core logic makes parallel edits likely to conflict or hide regressions.
+- Quality bar:
+  - Require disjoint lane ownership before preparing multiple coding runtime handoffs.
+  - Attach acceptance criteria, verification commands, and review expectations to each lane.
+  - Keep dispatch, execution, review, CI, and merge status evidence separate.
+- Completion checklist:
+  - All work lanes are disjoint by file, invariant, or responsibility before preparing parallel handoffs.
+  - Each lane has acceptance criteria, verification command, worker protocol expectation, and review owner.
+  - Worker ACK, dispatch, result, review, CI, and merge evidence are observed or explicitly missing.
+  - Integration verification ran after lane results before the final status claims completion.
+- Recovery notes:
+  - If lanes are non-disjoint, collapse to one owner or route back to ultragoal before coding starts.
+  - If a worker does not ACK or return a result, keep that lane blocked/not_observed and expose the retry or reassignment action.
+  - If a worktree or shared-file conflict appears, pause parallel delivery and re-plan ownership before more edits.
+- Required inputs:
+  - accepted plan
+  - lane list
+  - disjoint file or responsibility scopes
+  - verification commands
+- Expected outputs:
+  - runtime handoff prompts or lane instructions
+  - status summary
+  - review/CI evidence requirements
+- Artifact expectations:
+  - prepared coding delegation record per implementation lane when wrappers can record them
+- Safety rules:
+  - Do not start parallel coding without disjoint ownership boundaries.
+  - Keep Hermes responsible for orchestration/status; when Hermes itself is selected for coding, still preserve runtime evidence boundaries.
+  - Record unobserved executor work as prepared_not_observed or not_observed.
+
+### web-research
+
+[omj] Hermes Web Research workflow: source-backed current information gathering.
+
+- Category: `research`
+- Phase: `current-evidence`
+- Hermes role: `researcher`
+- Quality tier: `source-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run as a Hermes-side research lane when web access is available; summarize evidence before any coding handoff and never treat research as implementation.
+- Why this exists: `web-research` exists to make Hermes a careful source-backed research operator: it routes web/current-source requests to evidence gathering, keeps retrieval gaps visible, and prevents search plans from being reported as observed facts.
+- Use when: Use when the user needs current web evidence, links, citations, source diversity, or source comparison before planning or handoff.
+- Do not use when:
+  - The user asks for a full plan-to-PR delivery cycle; use `ultraprocess` or a planning workflow after research instead.
+  - The request is purely local repo inspection with no external, current, citation, or source-comparison need.
+  - The user needs coding execution, review, CI, or merge evidence rather than research synthesis.
+- Strong routing signals: `web-research`, `web research`, `web search`, `search the web`, `internet search`, `latest`, `fresh sources`, `current sources`, `current web evidence`, `source-backed research`, `source search`, `find sources`, `find citations`, `citation check`, `evidence scan`, `source diversity`, `retrieval gap`, `look up`, `lookup`, `investigate`, `research plan`, `웹서치`, `웹 서치`, `웹 검색`, `인터넷 검색`, `검색해줘`, `검색해서`, `최신 자료`, `최신 출처`, `자료 찾아`, `조사`, `근거`, `출처`, `고객 피드백`
+- Good example:
+  - Prompt: 웹서치해서 최신 자료와 출처를 정리해줘.
+  - Expected behavior: Run the Hermes web-research lane, ask for or state source boundaries and freshness, then summarize citations, confidence, and retrieval gaps.
+  - Why: The request explicitly asks for web search, current material, and sources without asking for implementation.
+- Bad example:
+  - Prompt: 웹리서치부터 계획, 구현, 리뷰, 문서, PR까지 한 사이클로 끝내줘.
+  - Expected behavior: Route to `ultraprocess` because the user asked for a bounded delivery cycle, not a research-only lane.
+  - Why: Research is only one stage of the requested delivery process.
+- Quality bar:
+  - Ask for the research question, source boundaries, freshness, jurisdiction, and version assumptions before retrieval.
+  - Use official or primary sources first when current or external facts matter, then add source diversity when the topic is contested.
+  - Separate direct evidence, citation links, retrieval dates, inference, confidence, and residual uncertainty.
+  - Name retrieval gaps when Hermes or the wrapper cannot access the web.
+  - Summarize research before any coding handoff; research is not implementation evidence.
+- Completion checklist:
+  - The research question, source boundaries, recency assumptions, and confidence level are named.
+  - Observed sources, inference, synthesis, and unresolved retrieval gaps are separated.
+  - Follow-up planning or handoff uses the research summary without calling it execution evidence.
+- Recovery notes:
+  - If sources cannot be accessed, state the retrieval gap and use only observed local context.
+  - If evidence is thin or one-sided, lower confidence and ask for a narrower source boundary.
+- Required inputs:
+  - research question
+  - source boundaries
+  - freshness, jurisdiction, or version constraints
+- Expected outputs:
+  - source-backed synthesis
+  - links or citations
+  - source-quality notes
+  - confidence and residual uncertainty
+- Artifact expectations:
+  - research notes with source URLs, retrieval dates, and source-quality notes when the wrapper captures them
+- Safety rules:
+  - Prefer official or primary sources when they can answer the question.
+  - Check source diversity and conflicts before summarizing contested or unstable topics.
+  - Separate quoted evidence from inference.
+  - State retrieval limits, dates, and missing-source gaps for unstable facts.
+
+### source-finder
+
+[omj] Hermes Source Finder workflow: prepare typed source candidates and acquisition status before downstream work.
+
+- Category: `research`
+- Phase: `source-acquisition`
+- Hermes role: `researcher`
+- Quality tier: `source-acquisition-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when the user asks to find or classify source candidates before learning, research, materials, or coding work.
+- Handoff policy: Keep source acquisition planning in Hermes. Do not claim search, download, clone, extraction, license check, verification, or downstream processing unless a wrapper or user records observed evidence.
+- Why this exists: `source-finder` exists so Hermes can turn vague source discovery requests into typed candidates, acquisition status, and downstream workflow choice without pretending OMJ searched, downloaded, or verified the material.
+- Use when: Use when Hermes should prepare a typed source candidate set across papers, web links, datasets, GitHub repositories, public presentations, docs/specs, or unknown source material before choosing paper-learning, web-research, research-brief, research-department, materials-package, or ultraprocess.
+- Do not use when:
+  - The user asks for current citations, fact-finding, or source-backed synthesis; use `web-research`.
+  - The user supplies a paper/PDF/arXiv/DOI/excerpt and wants explanation; use `paper-learning`.
+  - The user asks for recurring monitoring, source inbox, or Scout/Analyst/Briefer operations; use `research-department`.
+  - The user asks to export, convert, render, package, or attach a file; use `materials-package` or `deliverable-package`.
+  - The user asks for an image card or visual summary; use `img-summary`.
+- Strong routing signals: `source-finder`, `source finder`, `source acquisition`, `source intake`, `find papers and datasets`, `find datasets and repos`, `find papers`, `find datasets`, `find github repos`, `find oss repos`, `find presentations`, `find public slides`, `find docs and specs`, `find source candidates`, `download candidate`, `source candidate`, `acquisition status`, `자료 후보`, `출처 후보`, `논문 데이터셋 찾아`, `깃허브 저장소 찾아`, `공개 발표자료 찾아`, `문서 스펙 찾아`
+- Good example:
+  - Prompt: source-finder find papers, datasets, and GitHub repos for evaluating browser agent benchmarks.
+  - Expected behavior: Prepare source_finder_plan/v1 with typed candidates, acquisition states, missing observed evidence, and downstream choices.
+  - Why: The user needs source candidates before deciding whether to learn, research, package, or implement.
+- Bad example:
+  - Prompt: source-finder find current citations and summarize what the sources say.
+  - Expected behavior: Route to `web-research` because the user asks for current evidence and synthesis, not candidate acquisition status.
+  - Why: Source-finder prepares acquisition lifecycle metadata; web-research owns current evidence synthesis.
+- Quality bar:
+  - Name source kinds from: paper, web_link, dataset, github_repo, presentation, docs_spec, unknown.
+  - Record acquisition state from: candidate_prepared, link_observed, download_link_prepared, download_observed, file_hash_recorded, text_extraction_observed, license_checked, verification_observed, downstream_selected.
+  - Separate candidate preparation, observed link, observed download, file hash, text extraction, license check, verification, and downstream selection.
+  - Attach observation provenance before treating any acquisition state as evidence.
+  - Recommend the next downstream workflow without pretending that downstream work already ran.
+- Completion checklist:
+  - Source kinds, source boundaries, and downstream intent are named.
+  - Each candidate has a source_candidate/v1 shape and acquisition state.
+  - Observed states include provenance before being treated as evidence.
+  - The next downstream workflow is recommended without claiming it ran.
+  - Search, download, clone, extraction, hash, license, verification, and downstream processing gaps are explicit.
+- Recovery notes:
+  - If the user asks for facts or citations, route to `web-research`.
+  - If a candidate lacks a link or file reference, keep it candidate_prepared and ask for the next observable source step.
+  - If the user wants to process a selected source, route to the downstream workflow instead of continuing source acquisition.
+- Required inputs:
+  - source target or topic
+  - desired source kinds
+  - source boundaries or exclusion criteria
+  - downstream intent when known
+- Expected outputs:
+  - source_finder_plan/v1
+  - source_candidate/v1
+  - source_candidate_set/v1
+  - source_acquisition_status/v1
+  - downstream workflow recommendation
+  - not-evidence boundary
+- Artifact expectations:
+  - source_finder_plan/v1 under .omj/source-finder when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim web search, download, repository clone, file extraction, file hash verification, license verification, or source correctness from a prepared candidate.
+  - Do not redefine research-department's source_inbox/v1; source-finder owns source_candidate_set/v1 and source_acquisition_status/v1 only.
+  - Route current citations and source-backed synthesis to `web-research`, supplied-paper explanation to `paper-learning`, recurring monitoring to `research-department`, file export to `materials-package`, and image cards to `img-summary`.
+
+### research-brief
+
+[omj] Hermes Research Brief workflow: source-backed business research without pretending evidence was fetched.
+
+- Category: `research`
+- Phase: `business-brief`
+- Hermes role: `researcher`
+- Quality tier: `source-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep business research in Hermes; prepare a selected executor/runtime handoff only after a later accepted plan requires code changes.
+- Why this exists: `research-brief` exists to keep `research` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when Hermes should scope a business question, gather or summarize source-backed evidence, and preserve evidence/inference boundaries before strategy or handoff.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `research-brief`, `business-research`, `business research`, `research brief`, `source-backed business research`, `customer feedback trends`, `feedback trends`, `market evidence`, `data search`, `source scan`, `자료 조사`, `데이터 서치`, `근거 조사`, `피드백 추세`, `고객 피드백 추세`
+- Good example:
+  - Prompt: research-brief: compare three onboarding analytics vendors using customer notes and confidence gaps.
+  - Expected behavior: Prepare a source-backed brief with evidence, inference, confidence, and retrieval gaps separated.
+  - Why: The user needs business research synthesis, not recurring operations or coding.
+- Bad example:
+  - Prompt: research-brief: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `research-brief`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - State the research question, source boundaries, and recency assumptions before synthesis.
+  - Separate observed sources, source quality, source diversity, inferred trends, and unresolved uncertainty.
+  - Use the brief to feed strategy or meeting work without calling it execution evidence.
+- Completion checklist:
+  - The research question, source boundaries, recency assumptions, and confidence level are named.
+  - Observed sources, inference, synthesis, and unresolved retrieval gaps are separated.
+  - Follow-up planning or handoff uses the research summary without calling it execution evidence.
+- Recovery notes:
+  - If sources cannot be accessed, state the retrieval gap and use only observed local context.
+  - If evidence is thin or one-sided, lower confidence and ask for a narrower source boundary.
+- Required inputs:
+  - business question
+  - source boundary
+  - recency or market scope
+- Expected outputs:
+  - evidence table
+  - inference summary
+  - confidence and uncertainty
+- Artifact expectations:
+  - research brief or source ledger when the wrapper captures observed sources
+- Safety rules:
+  - Do not claim sources were fetched unless Hermes or the wrapper observed them.
+  - Separate evidence, inference, confidence, source diversity, and missing-source gaps.
+  - Route later implementation separately through an accepted plan and coding handoff.
+
+### research-department
+
+[omj] Hermes Research Department workflow pack: prepare Scout, Analyst, and Briefer research operations with source inbox and briefing status boundaries.
+
+- Category: `research`
+- Phase: `research-department`
+- Hermes role: `researcher`
+- Quality tier: `research-ops-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep the research operating model in Hermes. Map Scout to `web-research`/`autoresearch-goal`, Analyst to `research-brief`/`best-practice-research`, and Briefer to `report-package` or meeting/report workflows. Record retrieval, synthesis-tool output, knowledge-store writes, delivery, and verification only from observed evidence.
+- Why this exists: `research-department` exists so Hermes users can start complex research-ops patterns without manually designing profiles, cron, knowledge storage, synthesis tooling, and delivery glue, while OMJ keeps every runtime claim observed-only.
+- Use when: Use when Hermes should turn an ongoing or recurring research request into a prepared Scout -> Analyst -> Briefer workflow with source inbox, knowledge-store and synthesis-tool readiness, and briefing status without claiming research execution.
+- Do not use when:
+  - The user only needs a one-off current-source lookup; use `web-research`.
+  - The user only needs a one-off business synthesis; use `research-brief`.
+  - The request is pure scheduling with no source collection or synthesis; use `automation-blueprint`.
+  - The user asks for coding implementation; prepare a selected executor/runtime handoff after the research plan is accepted.
+- Strong routing signals: `research-department`, `research department`, `research ops department`, `research operations department`, `scout analyst briefer`, `scout analyst brief`, `daily research department`, `competitor research department`, `market research department`, `paper review`, `weekly paper review`, `research paper review`, `paper research`, `notebooklm research`, `obsidian research vault`, `knowledge store`, `knowledge storage`, `synthesis tool`, `knowledge summarizer`, `research inbox`, `source inbox`, `briefing status`, `리서치 부서`, `리서치 조직`, `리서치 운영`, `수집 합성 브리핑`, `지식 저장소`, `요약 도구`, `경쟁사 리서치 부서`
+- Good example:
+  - Prompt: Set up a Scout, Analyst, and Briefer research flow for daily competitor and market changes.
+  - Expected behavior: Prepare research_department_plan/v1 with Scout/Analyst/Briefer lanes, source inbox buckets, briefing status, knowledge-store and synthesis-tool readiness, and observed-only evidence requirements.
+  - Why: The request is recurring, source-backed, and operational; a single research brief would miss the ongoing workflow/status boundary.
+- Bad example:
+  - Prompt: research-department prove the synthesis tool queried the knowledge base and posted the Slack brief.
+  - Expected behavior: Ask for observed synthesis-tool and gateway delivery evidence or mark those states as not_observed.
+  - Why: The workflow pack can prepare the operating pattern, but it cannot prove external tool execution or delivery.
+- Quality bar:
+  - Name topic, source boundaries, cadence, delivery target, knowledge-store destination, and synthesis-tool readiness.
+  - Map Scout, Analyst, and Briefer lanes to concrete OMJ skills and source inbox buckets.
+  - Expose collected, synthesized, briefed, conflict, and verification counts as status, not execution proof.
+  - List required evidence before claiming retrieval, synthesis, storage, delivery, or verification.
+- Completion checklist:
+  - The research question, source boundaries, recency assumptions, and confidence level are named.
+  - Observed sources, inference, synthesis, and unresolved retrieval gaps are separated.
+  - Follow-up planning or handoff uses the research summary without calling it execution evidence.
+- Recovery notes:
+  - If sources cannot be accessed, state the retrieval gap and use only observed local context.
+  - If evidence is thin or one-sided, lower confidence and ask for a narrower source boundary.
+- Required inputs:
+  - topic or watch area
+  - source boundaries
+  - cadence
+  - delivery target
+  - knowledge-store preference
+  - synthesis-tool preference
+- Expected outputs:
+  - research_department_plan/v1
+  - source_inbox/v1
+  - briefing_status/v1
+  - not-evidence boundary
+- Artifact expectations:
+  - research_department_plan/v1 under .omj/research-department/plans when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim web retrieval, synthesis-tool query, knowledge-store write, cron creation, gateway delivery, or verification from a prepared plan.
+  - Keep raw findings, processed notes, briefs, conflicts, and verification needs in separate source inbox buckets.
+  - Treat vendor-specific tool names as optional aliases for synthesis-tool and knowledge-store readiness unless observed evidence exists.
+
+### paper-learning
+
+[omj] Hermes Paper Learning workflow: explain a supplied paper or paper/PDF at a selected level while preserving full section coverage and source evidence boundaries.
+
+- Category: `research`
+- Phase: `paper-learning`
+- Hermes role: `researcher`
+- Quality tier: `paper-learning-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when the user asks to understand a supplied paper or paper PDF by level without dropping section coverage.
+- Handoff policy: Keep paper explanation in Hermes. Route file export to `materials-package`, current-source discovery to `web-research`, recurring monitoring to `research-department`, and reproduction or implementation to an accepted coding handoff only after the explanation plan is accepted.
+- Why this exists: `paper-learning` exists so Hermes can act like a strong human tutor for papers: choose the right explanation level, walk through the full paper section by section, and keep PDF extraction and validation evidence honest.
+- Use when: Use when Hermes should explain a supplied paper, arXiv entry, paper PDF, pasted excerpt, or extracted paper text at a selected level while keeping a coverage ledger instead of shrinking the paper into a lossy summary.
+- Do not use when:
+  - The request asks to export, convert, render, or package a file; use `materials-package`.
+  - The request asks for daily/weekly paper monitoring, digest, source inbox, or Scout/Analyst/Briefer operations; use `research-department`.
+  - The request asks to find current papers or sources when no supplied paper exists; use `web-research`.
+  - The request asks for a visual/image card; use `img-summary`.
+  - The request asks to implement or reproduce the paper's code; prepare a coding handoff only after a paper learning or reproduction plan is accepted.
+- Strong routing signals: `paper-learning`, `paper learning`, `paper-explainer`, `paper explainer`, `paper explanation`, `explain this paper`, `explain this arxiv paper`, `paper walkthrough`, `research paper explanation`, `arxiv paper explain`, `pdf paper explain`, `paper pdf explanation`, `explain the attached paper`, `explain this pdf paper`, `without dropping details`, `very easy paper explanation`, `moderate paper explanation`, `expert paper explanation`, `논문 설명`, `논문 해설`, `논문 쉽게 설명`, `논문 아주 쉽게`, `논문 적당한 난이도`, `논문 전문가급`, `이 논문 설명해줘`, `이 논문 PDF 설명해줘`, `논문 PDF 쉽게 설명`, `논문 내용 줄이지 말고`
+- Good example:
+  - Prompt: paper-learning 이 논문 PDF를 아주 쉽게 설명해줘. 내용은 줄이지 말고 섹션별로.
+  - Expected behavior: Prepare paper_learning_card/v1, ask or record level=very_easy, mark PDF extraction/source_state evidence, then explain section-by-section with a coverage ledger.
+  - Why: The user supplied a paper/PDF explanation intent with an explicit level and coverage-preserving constraint.
+- Bad example:
+  - Prompt: paper-learning 이 PDF를 PPT로 변환해서 공유용 파일 만들어줘.
+  - Expected behavior: Route to `materials-package` because the user wants file conversion/export, not conceptual paper explanation.
+  - Why: PDF file output and render QA are material packaging work, not paper learning evidence.
+- Quality bar:
+  - Ask for or state the explanation level before drafting: very easy, moderate, or expert.
+  - Record source_state as one of: metadata_only, excerpt_text_observed, file_text_extraction_observed, full_text_observed, unknown_or_missing.
+  - Preserve the coverage policy `coverage_preserving_not_lossy_summary` through a section-by-section ledger.
+  - Explain by chunks when the source is long; keep each chunk linked to coverage_ledger status.
+  - List missing sections and not-observed claims before presenting the explanation as complete.
+- Completion checklist:
+  - The selected explanation level is one of: very_easy, moderate, expert, choose.
+  - The source_state is recorded and scoped to observed text or extraction evidence.
+  - The coverage ledger lists observed, missing, or prepared sections before claiming completion.
+  - The explanation is section-aware and does not compress away claims, equations, figures, limitations, or reproducibility notes.
+  - Not-observed boundaries remain visible: full_pdf_extraction, figure_ocr, external_citation_check, math_proof_validation, code_or_benchmark_reproduction, peer_review_or_claim_correctness.
+- Recovery notes:
+  - If no paper text is observed, prepare the learning card from metadata only and ask for an attachment, excerpt, or extraction evidence.
+  - If only an abstract or excerpt is supplied, label the result as excerpt explanation and list missing sections.
+  - If context is too long, continue section-by-section and keep covered / next / missing state in the ledger.
+  - If the user asks for validation, citation checking, math proof review, or reproduction, create a separate observed-evidence or coding handoff path.
+- Required inputs:
+  - paper identity or attachment reference
+  - observed text scope or extraction evidence
+  - explanation level: very_easy, moderate, expert, or choose
+  - coverage scope: full paper, selected sections, or supplied excerpt
+  - output language when different from the source
+- Expected outputs:
+  - paper_learning_card/v1
+  - explanation level metadata
+  - source_state boundary
+  - coverage ledger
+  - section-by-section explanation outline
+  - missing-section and not-observed list
+- Artifact expectations:
+  - paper_learning_card/v1 under .omj/paper-learning when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim full PDF extraction, figure OCR, external citation checking, math validation, code reproduction, peer review, or full-paper coverage without observed evidence.
+  - A pasted abstract or excerpt supports only excerpt explanation until the remaining sections are observed.
+  - Level changes may change scaffolding, vocabulary, analogies, and critique depth, but must not drop substantive content.
+  - End each chunk with covered / next / missing rather than done unless the coverage ledger is complete.
+
+### strategy-brief
+
+[omj] Hermes Strategy Brief workflow: options, tradeoffs, recommendation, and decision notes.
+
+- Category: `strategy`
+- Phase: `brief`
+- Hermes role: `operator`
+- Quality tier: `decision-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep strategy synthesis in Hermes; do not create implementation handoff until a decision is accepted and code work is explicit.
+- Why this exists: `strategy-brief` exists to keep `strategy` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when Hermes should turn goals and evidence into options, tradeoffs, recommendations, and a decision-ready brief.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `strategy-brief`, `strategy brief`, `strategy memo`, `product strategy`, `strategic options`, `decision note`, `leadership strategy`, `next strategy`, `다음 전략`, `전략 정리`, `전략 메모`, `전략 옵션`, `의사결정`, `리더십 회의`
+- Good example:
+  - Prompt: strategy-brief: decide whether our onboarding should prioritize solo founders or enterprise buyers.
+  - Expected behavior: Frame options, tradeoffs, assumptions, rejected paths, and the decision evidence needed.
+  - Why: The request is strategy-shaped and should not jump directly into implementation.
+- Bad example:
+  - Prompt: strategy-brief: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `strategy-brief`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name the decision, constraints, options, tradeoffs, and rejected alternatives.
+  - Tie recommendations to observed evidence or mark them as assumptions.
+  - Keep coding handoff disabled until strategy is accepted and code work is explicit.
+- Completion checklist:
+  - The decision, options, tradeoffs, assumptions, and rejected alternatives are named.
+  - Observed signals are separated from strategic inference.
+  - Accepted decisions and implementation follow-ups are not conflated.
+- Recovery notes:
+  - If evidence is mostly assumption, label it and recommend a research or feedback-triage pass.
+  - If the decision owner is missing, keep the output as options rather than accepted strategy.
+- Required inputs:
+  - goal
+  - known evidence
+  - constraints
+  - decision owner
+- Expected outputs:
+  - options
+  - tradeoffs
+  - recommended direction
+  - decision note
+- Artifact expectations:
+  - strategy brief or decision note when a wrapper captures it
+- Safety rules:
+  - Do not treat a draft recommendation as an accepted decision.
+  - Keep unresolved assumptions visible.
+  - Separate strategy from implementation planning unless the user asks for execution.
+
+### meeting-brief
+
+[omj] Hermes Meeting Brief workflow: agenda, prompts, decisions, and record template.
+
+- Category: `meeting`
+- Phase: `preparation`
+- Hermes role: `operator`
+- Quality tier: `facilitation-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run meeting preparation in Hermes; only create follow-up coding handoff from observed decisions or accepted plans.
+- Why this exists: `meeting-brief` exists to turn scattered context into a focused agenda, discussion prompts, decision points, and a record template without pretending the meeting already happened.
+- Use when: Use when Hermes should prepare a meeting agenda, discussion prompts, decision points, and a record template.
+- Do not use when:
+  - The user needs observed meeting minutes, decisions, or action items but has not provided notes.
+  - The request is strategy synthesis without a meeting audience, agenda, or decision ceremony.
+  - The follow-up is implementation work that already has accepted requirements and should become a plan or handoff.
+- Strong routing signals: `meeting-brief`, `meeting brief`, `meeting agenda`, `agenda`, `discussion prompts`, `decisions needed`, `record template`, `meeting topics`, `회의 주제`, `회의 아젠다`, `아젠다`, `회의 준비`, `논의 질문`, `결정할 것`, `기록 템플릿`
+- Good example:
+  - Prompt: Prepare a meeting agenda for a leadership sync on setup UX, plugin bridge defaults, and release risk.
+  - Expected behavior: Prepare agenda topics, prompts, decisions needed, and a record template with unknowns marked.
+  - Why: The request is preparation for a meeting and should separate prep from observed outcomes.
+- Bad example:
+  - Prompt: meeting-brief summarize what the team decided yesterday.
+  - Expected behavior: Ask for meeting notes or route to an ops/status summary with explicit evidence gaps.
+  - Why: A prepared agenda cannot be treated as observed minutes or decisions.
+- Quality bar:
+  - Turn context into agenda topics, prompts, decisions needed, and a record template.
+  - Keep prep distinct from actual meeting minutes or accepted decisions.
+  - Identify missing context that would change the meeting structure.
+- Completion checklist:
+  - The agenda, participants or audience, decisions needed, and record template are named.
+  - Meeting prep, observed minutes, accepted decisions, and action ownership are separate states.
+  - Missing context that would change the meeting structure is surfaced.
+- Recovery notes:
+  - If participants, purpose, or decision owner are missing, ask for the one field that changes the agenda.
+  - If minutes or decisions were not observed, keep the output as prep rather than record.
+- Required inputs:
+  - meeting goal
+  - audience
+  - known context
+  - decision topics
+- Expected outputs:
+  - agenda
+  - discussion prompts
+  - decisions needed
+  - action-item template
+- Artifact expectations:
+  - meeting brief or record template when the wrapper captures it
+- Safety rules:
+  - Do not claim the meeting happened from a prepared agenda.
+  - Separate proposed action items from observed decisions.
+  - Use a later status or decision record for actual meeting outcomes.
+
+### feedback-triage
+
+[omj] Hermes Feedback Triage workflow: cluster customer signals and choose the next workflow.
+
+- Category: `triage`
+- Phase: `feedback`
+- Hermes role: `operator`
+- Quality tier: `triage-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep feedback triage in Hermes; recommend the next workflow and prepare a selected executor/runtime handoff only after explicit coding intent or accepted plan evidence.
+- Why this exists: `feedback-triage` exists to keep customer and community signals from jumping straight into roadmap or coding; it clusters evidence, ranks signals, and chooses the next workflow.
+- Use when: Use when Hermes should classify feedback, bug reports, and feature asks before deciding whether research, planning, or coding handoff is needed.
+- Do not use when:
+  - The request already contains an accepted product decision and asks for implementation.
+  - There are no feedback items, source boundary, or product area to classify.
+  - The user wants current market research rather than triage of supplied signals.
+- Strong routing signals: `feedback-triage`, `customer-feedback-triage`, `feedback triage`, `customer feedback`, `feedback cluster`, `bug or feature`, `feature request triage`, `payment failure feedback`, `feedback trends`, `payment failure`, `payment failure issue`, `payment failure reports`, `고객 피드백`, `피드백`, `피드백 분류`, `피드백을 모아서`, `결제 실패`, `결제 실패 이슈`, `결제 실패 피드백`, `결제 오류`, `고객 불만`, `버그 제보`, `버그 기능 요청`, `기능 요청`
+- Good example:
+  - Prompt: Cluster these customer payment failure reports and feature requests before we plan fixes.
+  - Expected behavior: Cluster bug signals and feature asks, rank severity or opportunity, and recommend research, planning, or coding as a next workflow.
+  - Why: The input is mixed feedback that needs classification before delivery decisions.
+- Bad example:
+  - Prompt: feedback-triage implement the accepted billing fix now.
+  - Expected behavior: Route to planning or coding handoff instead of re-triaging.
+  - Why: The decision is already accepted, so triage would add delay without improving evidence.
+- Quality bar:
+  - Name the source boundary before clustering feedback.
+  - Classify signals into bug, feature, research, or strategy follow-up without overclaiming evidence.
+  - Recommend the next workflow instead of jumping straight to coding.
+- Completion checklist:
+  - The source boundary, signal clusters, severity, and follow-up lane are named.
+  - Bug, feature, research, strategy, and coding handoff outcomes stay separate.
+  - The next workflow is recommended before any implementation claim.
+- Recovery notes:
+  - If feedback lacks source or severity, ask for the missing signal before coding handoff.
+  - If the item is actually a plan or research request, route to that workflow instead of triage.
+- Required inputs:
+  - feedback items or summary
+  - source boundary
+  - product area
+- Expected outputs:
+  - clusters
+  - severity or opportunity ranking
+  - next workflow recommendation
+- Artifact expectations:
+  - feedback triage record when a wrapper captures it
+- Safety rules:
+  - Do not turn feedback into a roadmap, implementation plan, or coding handoff by default.
+  - Separate bug signal, feature ask, severity, opportunity, and missing evidence.
+  - Route code changes only after explicit user intent or accepted planning evidence.
+
+### ops-review
+
+[omj] Hermes Ops Review workflow: status, risks, blockers, priorities, and follow-ups.
+
+- Category: `operations`
+- Phase: `status-review`
+- Hermes role: `operator`
+- Quality tier: `status-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep operating review and status narration in Hermes; delegate code fixes only from explicit accepted follow-up items.
+- Why this exists: `ops-review` exists to keep `operations` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when Hermes should summarize observed status, risks, blockers, priorities, and follow-up actions for recurring operating work.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `ops-review`, `ops review`, `weekly ops review`, `status review`, `operating review`, `release risks`, `risks and blockers`, `priorities`, `weekly status`, `운영 리뷰`, `주간 운영`, `상태 리뷰`, `리스크`, `블로커`, `우선순위`, `릴리즈 리스크`
+- Good example:
+  - Prompt: ops-review: summarize this week’s support queue, release blockers, owner status, and next operating risks.
+  - Expected behavior: Create an operations status review with owners, blockers, evidence gaps, and next actions.
+  - Why: The request is an operating review rather than a one-off plan or coding handoff.
+- Bad example:
+  - Prompt: ops-review: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `ops-review`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Tie every status claim to observed evidence or mark it as unknown.
+  - Separate risks, blockers, priorities, and follow-up owners.
+  - Keep code fixes as explicit follow-up handoffs, not implicit ops-review output.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - status evidence
+  - scope
+  - time window
+  - known risks
+- Expected outputs:
+  - status summary
+  - risks
+  - blockers
+  - priorities
+  - follow-up actions
+- Artifact expectations:
+  - ops review record or status artifact when a wrapper captures it
+- Safety rules:
+  - Do not infer status from missing evidence.
+  - Separate observed facts, risks, blockers, decisions, and follow-up actions.
+  - Do not report review, CI, release, or merge readiness from an ops summary alone.
+
+### operating-rhythm
+
+[omj] Hermes Operating Rhythm workflow: meeting minutes, scrum/sprint records, retros, decisions, and follow-up history.
+
+- Category: `operations`
+- Phase: `rhythm-history`
+- Hermes role: `operator`
+- Quality tier: `operations-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep cadence records, minutes scaffolds, decisions, and follow-up history in Hermes; delegate implementation only from separately accepted action items.
+- Why this exists: `operating-rhythm` exists so recurring operating work has durable minutes, decisions, and follow-up history without pretending a meeting outcome was observed.
+- Use when: Use when Hermes should prepare or maintain recurring operating records such as meetings, scrums, sprint plans, retrospectives, decisions, and follow-ups.
+- Do not use when:
+  - The user only needs a one-off meeting agenda before the meeting; use `meeting-brief`.
+  - The request is a weekly status/risk summary rather than cadence history; use `ops-review`.
+  - The user asks for report packaging, PPT outline, or reliability evidence review.
+- Strong routing signals: `operating-rhythm`, `operating rhythm`, `meeting minutes`, `meeting history`, `scrum record`, `sprint planning`, `sprint review`, `sprint retrospective`, `retro history`, `decision log`, `action item history`, `회의록 관리`, `회의 히스토리`, `운영 리듬`, `스크럼`, `스프린트 회고`, `결정 기록`, `액션 아이템`
+- Good example:
+  - Prompt: operating-rhythm 회의록 히스토리 관리하고 스크럼 스프린트 회고를 정리해줘.
+  - Expected behavior: Create a prepared operating record with cadence, decisions, action items, and not-evidence markers for missing observed notes.
+  - Why: The request is about recurring operating history, not a generic agenda or code handoff.
+- Bad example:
+  - Prompt: operating-rhythm implement the action items from the retro.
+  - Expected behavior: Route implementation to a plan or selected executor/runtime handoff after action items are accepted.
+  - Why: Operating records can capture follow-ups, but implementation is a separate observed work stream.
+- Quality bar:
+  - Name cadence, audience, time window, known notes, and missing evidence before producing a record.
+  - Separate agenda/templates from observed minutes, decisions, and action items.
+  - Record follow-up ownership only when supplied or explicitly mark it unknown.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - cadence or meeting type
+  - audience or participants
+  - time window
+  - source notes or explicit missing-notes boundary
+- Expected outputs:
+  - operation artifact
+  - decision log
+  - action item history
+  - observed/prepared boundary
+- Artifact expectations:
+  - operation_artifact/v1 under .omj/operations when a wrapper or CLI records it
+- Safety rules:
+  - Do not treat a prepared record as proof that the meeting or scrum happened.
+  - Do not mark decisions or action items accepted without supplied notes or owner acknowledgement.
+  - Keep implementation follow-ups separate from operating history.
+
+### report-package
+
+[omj] Hermes Report Package workflow: weekly/monthly reports, executive briefs, PPT-ready outlines, and upload packages.
+
+- Category: `reporting`
+- Phase: `package-outline`
+- Hermes role: `operator`
+- Quality tier: `report-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep report narrative, sectioning, and Markdown/JSON outline packaging in Hermes; do not require reliability evidence unless the user asks for a reliability review.
+- Why this exists: `report-package` exists to make reporting a first-class operations surface: Hermes can produce clean report and slide outlines while keeping approvals, delivery, and binary deck export as separate evidence.
+- Use when: Use when Hermes should turn supplied inputs into a report, executive brief, PPT-ready outline, or upload package without claiming presentation delivery.
+- Do not use when:
+  - The user needs SLO, incident, or error-budget review; use `reliability-review`.
+  - The user asks for a live `.pptx` deck file rather than a PPT-ready outline.
+  - The request is meeting minutes, scrum history, or action-item tracking.
+- Strong routing signals: `report-package`, `report package`, `weekly report`, `monthly report`, `executive report`, `exec brief`, `leadership deck`, `status package`, `ppt outline`, `presentation outline`, `slide outline`, `upload package`, `보고서 패키지`, `주간 보고서`, `월간 보고서`, `경영진 보고`, `리더십 보고`, `PPT`, `피피티`, `슬라이드`, `발표자료`, `업로드 패키지`
+- Good example:
+  - Prompt: report-package 월간 리더십 보고서 PPT outline 만들어줘.
+  - Expected behavior: Prepare a report package with sections, assumptions, missing inputs, and Markdown/JSON outline scope.
+  - Why: The request is packaging known information for reporting, not reliability validation or code work.
+- Bad example:
+  - Prompt: report-package prove our SLO passed and close the incident.
+  - Expected behavior: Route to `reliability-review` and require metric or incident evidence.
+  - Why: Report packaging cannot satisfy reliability closure evidence.
+- Quality bar:
+  - Name audience, reporting period, sections, supplied facts, assumptions, and missing data.
+  - Keep report packaging independent from reliability review unless explicitly requested.
+  - Export only Markdown/JSON outlines unless a separate presentation tool produces a binary deck.
+- Completion checklist:
+  - The reporting window, inputs, audience, narrative, and evidence gaps are named.
+  - Draft report, generated package, approval, and delivery are separate states.
+  - The next action says whether to gather evidence, generate, revise, approve, or deliver.
+- Recovery notes:
+  - If input evidence is incomplete, mark the section as pending rather than fabricating a report claim.
+  - If delivery or attachment is unavailable, keep the report package prepared_not_observed.
+- Required inputs:
+  - audience
+  - reporting period or scope
+  - supplied facts
+  - missing data or assumptions
+- Expected outputs:
+  - report package
+  - PPT-ready Markdown or JSON outline
+  - assumptions and missing-input list
+- Artifact expectations:
+  - operation_artifact/v1 report-package artifact when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim source review completion from a prepared report package.
+  - Do not claim stakeholder approval or presentation delivery without observed evidence.
+  - Do not couple report packages to SLO, incident, or error-budget evidence by default.
+
+### materials-package
+
+[omj] Hermes Materials Package workflow: decks, PDFs, spreadsheets, documents, HWP, Markdown, and binary export handoffs.
+
+- Category: `materials`
+- Phase: `material-plan`
+- Hermes role: `operator`
+- Quality tier: `material-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep source organization, outline planning, target-format selection, QA ladder, and missing-input review in Hermes; prepare an executor-neutral document-generation handoff only when a binary file is needed.
+- Why this exists: `materials-package` exists so Hermes can handle document, deck, spreadsheet, PDF, Keynote, HWP, and Markdown work as a first-class material-processing workflow without becoming a hidden file generator.
+- Use when: Use when Hermes should turn source inputs into a material plan for decks, PDFs, spreadsheets, documents, HWP, Markdown, or binary export handoff without claiming file generation.
+- Do not use when:
+  - The user only needs a weekly/monthly report outline; use `report-package`.
+  - The user asks for recurring meeting minutes or scrum history; use `operating-rhythm`.
+  - The request is code documentation, README, or project wiki maintenance; use the docs/wiki workflow.
+- Strong routing signals: `materials-package`, `material package`, `materials package`, `document package`, `deck file`, `binary export`, `file export`, `render qa`, `layout qa`, `ppt and pdf`, `pdf and ppt`, `ppt/pdf`, `pdf/ppt`, `spreadsheet to pdf`, `excel to pdf`, `monthly report pdf`, `attached spreadsheet`, `pdf`, `pptx`, `keynote`, `keynote deck`, `docx`, `xlsx`, `csv report`, `spreadsheet`, `excel`, `hwp`, `korean hwp`, `proposal document`, `자료 패키지`, `자료 처리`, `자료 생성`, `문서 패키지`, `문서 생성`, `제안서 문서`, `엑셀`, `스프레드시트`, `피디에프`, `PDF`, `한글 문서`, `HWP`, `키노트`, `파일 export`, `파일 생성`, `렌더 QA`, `첨부한 엑셀`, `엑셀을 월간 보고서`, `PDF랑 PPT`, `PPT랑 PDF`, `PDF와 PPT`, `PPT와 PDF`, `PDF랑 PPT로`
+- Good example:
+  - Prompt: materials-package 엑셀 매출 리포트를 PDF로 공유할 수 있게 준비해줘.
+  - Expected behavior: Create a material plan with xlsx/pdf target formats, source inputs, missing metrics, QA checks, and a generation handoff boundary.
+  - Why: The request is about material processing and binary export evidence, not just a text report outline.
+- Bad example:
+  - Prompt: materials-package prove the PDF was sent to leadership.
+  - Expected behavior: Ask for observed delivery evidence or record the delivery as not_observed instead of claiming it happened.
+  - Why: A prepared material artifact cannot prove export, approval, or delivery.
+- Quality bar:
+  - Name audience, source inputs, target formats, outline sections, assumptions, missing inputs, and output owner.
+  - Attach format-specific QA expectations before preparing a binary-generation handoff.
+  - Record binary export, render QA, formula checks, approvals, and delivery only from observed evidence.
+- Completion checklist:
+  - The material source, target format, audience, structure, and QA expectation are named.
+  - Binary export, rendering, formula recalculation, attachment, and delivery stay observed-only.
+  - The next action identifies whether the package is planned, generated, QA-ready, or blocked.
+- Recovery notes:
+  - If a renderer or file tool is missing, keep the package prepared and expose the generation handoff.
+  - If render QA is unavailable, mark the artifact unverified and request the smallest visual/file check.
+- Required inputs:
+  - audience or recipient
+  - source inputs
+  - target format(s)
+  - deadline or delivery context
+  - missing data or assumptions
+- Expected outputs:
+  - material_artifact/v1 plan
+  - format-specific QA ladder
+  - executor-neutral generation handoff when needed
+  - observed export boundary
+- Artifact expectations:
+  - material_artifact/v1 under .omj/materials when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim PPTX, PDF, Keynote, DOCX, XLSX, HWP, or upload output without observed file evidence.
+  - Do not claim render QA, formula recalculation, approval, or delivery from a prepared material plan.
+  - Keep source facts, assumptions, missing inputs, and generated output evidence separate.
+
+### img-summary
+
+[omj] Hermes img-summary workflow: turn meetings, reports, PRs, issues, research, and release notes into source-specific, domain-aware, poster-archetype-aware image-generation-ready visual prompt cards.
+
+- Category: `materials`
+- Phase: `visual-prompt-card`
+- Hermes role: `operator`
+- Quality tier: `visual-card-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep card copy shaping, source-kind selection, language mode, prompt assembly, and evidence narration in Hermes. Use wrapper-reported image generation only as an optional action; record generated image, visual QA, and delivery claims only from visual_observation/v1 evidence.
+- Why this exists: `img-summary` exists so Hermes can turn common communication work into provider-neutral image-card prompts while adapting format to the source kind, adapting visual mood, premium background plate, texture, lighting, and camera treatment to the domain, choosing a poster archetype for visual grammar, and keeping generation, QA, and delivery as observed-only wrapper or user evidence.
+- Use when: Use when Hermes should shape supplied notes, report material, PR context, issue feedback, research/news, or release notes into a source-specific visual prompt whose mood, premium background plate, material texture, camera treatment, lighting, motifs, and poster design grammar adapt without claiming image generation.
+- Do not use when:
+  - The user needs a deck, PDF, spreadsheet, HWP, Markdown package, or binary file export plan; use `materials-package`.
+  - The user wants a text-only report, leadership brief, or PPT-ready outline; use `report-package`.
+  - The user asks OMJ to directly generate, inspect, upload, or post an image without a wrapper-supplied observed evidence path.
+- Strong routing signals: `img-summary`, `img summary`, `visual prompt card`, `image card`, `image generation`, `image generation features`, `image generation support`, `image tool support`, `image feature`, `image features`, `visual generation`, `visual generation support`, `visual card support`, `image summary card`, `summary image`, `summary card`, `explainer image`, `feature explainer image`, `feature explanation image`, `product explainer image`, `product explainer card`, `infographic`, `one-page infographic`, `workflow image`, `workflow card`, `shareable image`, `explain this as an image`, `make an image explaining`, `image explaining the cron feature`, `make an image explaining the cron feature`, `make a visual summary of this PR`, `visual summary`, `picture card`, `meeting notes picture card`, `vertical card`, `vertical summary image`, `vertical image card`, `meeting image`, `meeting summary image`, `conversation summary image`, `meeting notes image`, `pr card`, `pr summary card`, `pull request card`, `review card`, `issue card`, `bug triage card`, `feedback card`, `triage card`, `research card`, `report card`, `report summary card`, `report digest card`, `news briefing card`, `competitor-news briefing card`, `briefing card`, `release announcement image`, `release notes image`, `announcement card`, `multilingual img-summary`, `회의록 세로 요약 이미지`, `회의 요약 이미지`, `회의록을 보기 좋은 세로 이미지로 요약`, `회의록을 보기 좋은 세로 이미지로 요약해줘`, `세로 이미지로 요약`, `세로 이미지로 요약해줘`, `보기 좋은 세로 이미지`, `PR 요약 카드`, `PR 내용을 리뷰어에게 공유할 이미지 카드`, `PR 내용을 리뷰어에게 공유할 이미지 카드로 만들어줘`, `이슈 트리아지 카드`, `버그 트리아지 카드`, `피드백 카드`, `리포트 요약 카드`, `보고서 요약 카드`, `경쟁사 뉴스 브리핑 카드`, `리서치 브리핑 카드`, `릴리즈 노트 발표 이미지`, `업데이트 발표 이미지`, `세로 이미지 카드`, `이미지 카드`, `회의록 이미지 카드`, `회의록을 세로 이미지 카드`, `설명 이미지`, `설명하는 인포그래픽`, `기능 설명 이미지`, `기능 소개 이미지`, `인포그래픽`, `인포그래픽 만들어줘`, `이미지 요약 카드`, `요약 이미지`, `요약 카드`, `카드 이미지`, `이미지로 요약`, `이미지로 요약해줘`, `이미지 생성`, `이미지 생성해줘`, `이미지 생성해 줘`, `이미지 만들어줘`, `이미지를 생성해줘`, `이미지를 만들어줘`, `크론 기능 설명 이미지`, `크론 기능 설명 이미지 하나 만들어줘`, `사진 카드`, `공유용 이미지`, `안내 이미지`, `워크플로우 이미지`, `이미지로 설명`, `이미지 하나 만들어줘`
+- Good example:
+  - Prompt: img-summary make a PR summary card for reviewers.
+  - Expected behavior: Prepare visual_prompt_card/v1 with the PR review infographic format, copy mode, generation prompt, negative prompt, and not-evidence boundaries.
+  - Why: The request asks for an image-card communication artifact, not a PDF/deck package or hidden image generation.
+- Bad example:
+  - Prompt: img-summary prove this generated card was posted to Slack.
+  - Expected behavior: Ask for visual_observation/v1 delivery evidence or report delivery as not_observed.
+  - Why: A prompt card cannot prove generated image, QA, or delivery evidence.
+- Quality bar:
+  - Pick one canonical source kind: meeting, github_pr, issue_feedback, research_briefing, report_summary, or release_announcement.
+  - Use the source-specific format profile instead of forcing every visual into the same grid.
+  - Expose the detected `domain_key` so wrappers and users can explain why a domain-specific scene and poster archetype were selected.
+  - Adapt the high-fidelity background plate, scene, material texture, depth, lighting, camera treatment, motifs, palette, and composition to the detected domain such as security, commerce, sports, fashion, finance, developer work, or research.
+  - Resolve a poster archetype such as Swiss grid, cinematic key-art, editorial magazine, constructivist photomontage, data infographic, product ad, technical brutalist, museum exhibition, sports event, or luxury lookbook, and keep it separate from source kind and domain.
+  - Ask image tools to render the domain-specific environment first, then place readable card modules on top; reject flat vector clipart, plain gradients, generic glass cards, color-swapped templates, and low-detail wallpaper.
+  - Preserve a stable OMJ img-summary format contract: source badge, headline, source-kind subtitle, content modules, evidence footer, and small `OMJ generated` mark.
+  - Use long_scroll or extended rows when the card needs a document-style vertical canvas with more sections or denser text.
+  - Keep visible card text readable and faithful to supplied source or structured sections; do not shrink paragraphs into tiny poster copy.
+  - Separate prompt prepared, image generated, visual QA passed, and delivered states.
+  - Prefer `img-summary` over `materials-package` only when the request asks for an image, visual card, or summary card.
+  - Use materials/report workflows only after an observed generated file needs packaging.
+- Completion checklist:
+  - The material source, target format, audience, structure, and QA expectation are named.
+  - Binary export, rendering, formula recalculation, attachment, and delivery stay observed-only.
+  - The next action identifies whether the package is planned, generated, QA-ready, or blocked.
+- Recovery notes:
+  - If a renderer or file tool is missing, keep the package prepared and expose the generation handoff.
+  - If render QA is unavailable, mark the artifact unverified and request the smallest visual/file check.
+- Required inputs:
+  - source kind
+  - visual format or auto
+  - poster archetype or auto
+  - aspect ratio
+  - headline or source text
+  - audience
+  - language mode
+  - card sections or supplied source excerpts
+- Expected outputs:
+  - visual_prompt_card/v1
+  - image_generation_setup/v1 when generator capability is missing
+  - source-specific visual format
+  - detected domain_key
+  - domain-aware visual theme
+  - poster_archetype/v1
+  - poster archetype visual grammar
+  - premium background plate, texture, camera, and lighting direction
+  - image-safe card copy
+  - generation prompt
+  - negative prompt
+  - quality checks
+  - visual evidence boundary
+- Artifact expectations:
+  - visual_prompt_card/v1 prompt card when prepared
+  - image_generation_setup/v1 fallback when image_generation_capability/v1 is unknown or prompt_only
+  - visual_observation/v1 only when a wrapper or user records generated image, visual QA, or delivery evidence
+- Safety rules:
+  - Do not call image providers, LLMs, APIs, or network services from OMJ core.
+  - Do not claim image generation, visual QA, posting, sharing, attachment, or delivery from a prepared prompt card.
+  - Require visual_observation/v1 before claiming generated image, visual QA, or delivery evidence.
+  - Raw source text may become only an extractive draft; do not fabricate summaries, owners, decisions, test results, or conclusions.
+  - Show `generate_visual_image` only when wrapper context reports image_generation_capability/v1 as connected, and still treat it as wrapper-owned action rather than evidence.
+  - When image_generation_capability/v1 is unknown or prompt_only, ask which image tool to use and route to image_generation_setup/v1 instead of pretending generation can start.
+
+### automation-blueprint
+
+[omj] Hermes Scheduled Ops Blueprint workflow: design recurring Hermes operations with schedule, delivery, silence policy, context chain, and prepared-vs-observed status.
+
+- Category: `operations`
+- Phase: `scheduled-ops-blueprint`
+- Hermes role: `operator`
+- Quality tier: `ops-blueprint-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when the user asks for recurring automation or scheduled ops planning.
+- Handoff policy: Keep schedule intent, delivery policy, silence rules, context-chain selection, and status narration in Hermes; prepare host automation or no-agent follow-up only after an operator/wrapper records observed runtime evidence.
+- Why this exists: `automation-blueprint` exists so Hermes can make recurring operational work feel native and scheduled without OMJ becoming a hidden cron runner, transport bot, source retriever, or executor.
+- Use when: Use when Hermes should turn a natural recurring/cron-like request into a scheduled ops blueprint without claiming host automation, platform delivery, source retrieval, or no-agent execution.
+- Do not use when:
+  - The user needs a one-off report or deck; use `report-package` or `materials-package`.
+  - The user asks to review incident metrics once; use `reliability-review`.
+  - The user needs actual code changes; prepare a selected executor/runtime handoff after the blueprint or plan is accepted.
+- Strong routing signals: `automation-blueprint`, `scheduled ops`, `scheduled operation`, `scheduled operations`, `automation blueprint`, `cron blueprint`, `cron-ready`, `recurring ops`, `recurring workflow`, `every morning`, `every day`, `daily digest`, `weekly digest`, `send to slack`, `send to discord`, `post to telegram`, `only if changed`, `silent if nothing changed`, `schedule this`, `매일`, `매주`, `정기`, `예약`, `반복`, `스케줄`, `슬랙`, `디스코드`, `텔레그램`, `보내`, `공유`, `변화 없으면`, `조용히`
+- Good example:
+  - Prompt: automation-blueprint every weekday run an uptime check and send a Slack digest only if status changes.
+  - Expected behavior: Prepare hermes_ops_blueprint/v1 with schedule intent, Slack delivery policy, silence rule, research/report skills, missing evidence, and next confirmation.
+  - Why: The request is recurring, delivery-shaped, and must stay prepared until host automation and gateway delivery are observed.
+- Bad example:
+  - Prompt: automation-blueprint prove the Slack digest was delivered this morning.
+  - Expected behavior: Ask for observed Hermes/gateway delivery evidence or report the delivery as not_observed instead of claiming it happened.
+  - Why: A blueprint can prepare the scheduled operation, but it cannot prove runtime execution or delivery.
+- Quality bar:
+  - Name cadence/timezone uncertainty, delivery target, silence/no-change rule, selected skills, and context chain.
+  - Expose whether a no-agent watchdog is a candidate without claiming it exists or ran.
+  - List host automation, gateway delivery, source retrieval, and no-agent execution as not evidence until observed.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - recurring request
+  - schedule or cadence hint
+  - delivery target or current-thread default
+  - silence/no-change preference
+- Expected outputs:
+  - hermes_ops_blueprint/v1 projection
+  - schedule/delivery/silence confirmation needs
+  - status-card boundary
+  - not-evidence list
+- Artifact expectations:
+  - hermes_ops_blueprint/v1 under .omj/hermes-ops/blueprints when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim host cron, Hermes automation, gateway delivery, source retrieval, no-agent execution, plugin load, or connector work from a prepared blueprint.
+  - Keep scheduled operations as projection metadata until the host runtime supplies observed evidence.
+  - Route later coding, material generation, or report delivery into separate accepted handoffs when needed.
+
+### reliability-review
+
+[omj] Hermes Reliability Review workflow: postmortems, SLOs, error budgets, incident follow-ups, and service reliability evidence.
+
+- Category: `reliability`
+- Phase: `incident-and-slo-review`
+- Hermes role: `operator`
+- Quality tier: `reliability-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep incident/SLO/error-budget review in Hermes; prepare remediation handoffs only after an accepted fix direction exists and record closure only from observed evidence.
+- Why this exists: `reliability-review` exists to make SRE-style review strict: service reliability claims must point to metrics or references, and remediation remains separate from the review narrative.
+- Use when: Use when Hermes should review incident notes, SLOs, error budgets, or service reliability evidence while keeping remediation and closure claims observed.
+- Do not use when:
+  - The user only needs a generic status report or leadership deck.
+  - No service, incident, SLO, metric, or reliability source boundary is available.
+  - The request is implementation of remediation rather than review of reliability evidence.
+- Strong routing signals: `reliability-review`, `reliability review`, `incident review`, `incident postmortem`, `postmortem`, `post-mortem`, `slo review`, `slo`, `sla`, `error budget`, `service reliability`, `reliability followup`, `remediation tracking`, `sre review`, `장애 리뷰`, `장애 회고`, `포스트모템`, `사후 분석`, `에러버짓`, `에러 버짓`, `서비스 신뢰성`, `신뢰성 검증`, `재발 방지`
+- Good example:
+  - Prompt: reliability-review 장애 포스트모템과 SLO 에러버짓 상태를 검토해줘.
+  - Expected behavior: Prepare a reliability artifact that separates metrics/references, assumptions, missing evidence, and remediation follow-ups.
+  - Why: The request is reliability evidence review with closure-sensitive claims.
+- Bad example:
+  - Prompt: reliability-review make a monthly PPT report for leadership.
+  - Expected behavior: Use `report-package` unless the report specifically asks for reliability evidence review.
+  - Why: Report packaging and reliability validation are independent operations surfaces.
+- Quality bar:
+  - Name service, incident/time window, SLO/error-budget target, source references, and missing observations.
+  - Separate supplied metrics, incident notes, assumptions, and remediation follow-ups.
+  - Keep closure and remediation status unobserved until evidence is supplied.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - service or incident scope
+  - time window
+  - metric/source references
+  - known remediation items or gaps
+- Expected outputs:
+  - reliability review
+  - evidence and missing-evidence list
+  - remediation follow-up boundary
+- Artifact expectations:
+  - operation_artifact/v1 reliability-review artifact when a wrapper or CLI records it
+- Safety rules:
+  - Do not claim SLO pass, healthy error budget, incident closure, or remediation completion without source, metric, or reference evidence.
+  - Do not treat a reliability narrative as verification, review, CI, merge, or deploy evidence.
+  - Route code remediation through a separate accepted plan or executor handoff.
+
+### idea-to-deploy
+
+[omj] Hermes Idea-to-Deploy workflow: shape an app idea into decisions, delivery handoff, verification, release, and monitoring status.
+
+- Category: `delivery`
+- Phase: `app-delivery-loop`
+- Hermes role: `operator`
+- Quality tier: `delivery-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep idea shaping, decision gates, planning, release narration, and status in Hermes; prepare selected executor/runtime handoffs only for accepted code work and record deploy/monitoring only from observed operator or wrapper evidence.
+- Why this exists: `idea-to-deploy` exists to keep `delivery` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when Hermes should carry a product or app idea through shaping, decision gates, plan acceptance, executor handoff, verification, release readiness, deploy, and monitoring boundaries.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `idea-to-deploy`, `idea to deploy`, `from idea to deploy`, `plan to deploy`, `idea to launch`, `ship this idea`, `ship this feature`, `launch this feature`, `product delivery loop`, `app delivery loop`, `complete product loop`, `end-to-end app operation`, `완제품 루프`, `아이디어부터 배포`, `기획부터 배포`, `출시까지`, `앱 운영 루프`
+- Good example:
+  - Prompt: idea-to-deploy: turn this onboarding idea into a scoped plan, implementation handoff, QA gate, and release path.
+  - Expected behavior: Prepare the idea-to-release lane while keeping implementation, QA, and deploy evidence observed-only.
+  - Why: The request spans product shaping through deploy readiness instead of a single task.
+- Bad example:
+  - Prompt: idea-to-deploy: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `idea-to-deploy`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name the idea, user value, decision owner, non-goals, and success metric before planning delivery.
+  - Expose idea, decision, plan, handoff, verification, release, deploy, and monitor stages as separate status steps.
+  - Prepare coding handoffs only after plan acceptance and selected executor/runtime choice.
+  - Mark deploy, monitoring, and rollback as unobserved until the wrapper or operator records evidence.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - product idea
+  - target user or customer signal
+  - success metric
+  - repo or app context
+- Expected outputs:
+  - stage rail
+  - decision gates
+  - executor handoff criteria
+  - verification and deploy/monitor status boundaries
+- Artifact expectations:
+  - app delivery loop status record when the wrapper captures stage acceptance or observations
+- Safety rules:
+  - Do not claim implementation, deploy, health checks, rollback, or monitoring happened from a prepared loop.
+  - Keep coding, release, and monitoring observations as separate evidence gates.
+  - Ask for missing success metric, release scope, or executor choice before preparing a handoff.
+
+### cto-loop
+
+[omj] Hermes CTO Loop workflow: roadmap, PM, technical tradeoffs, risk, delivery, release, and follow-up operating cadence.
+
+- Category: `leadership`
+- Phase: `operating-loop`
+- Hermes role: `operator`
+- Quality tier: `decision-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep CTO/PM-style synthesis, tradeoffs, risk ranking, decision notes, and status in Hermes; convert accepted implementation follow-ups into executor-neutral handoffs.
+- Why this exists: `cto-loop` exists to keep `leadership` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when Hermes should run a leadership-style operating loop that turns signals into roadmap decisions, technical tradeoffs, delivery risk, release readiness, and explicit follow-up handoffs.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `cto-loop`, `cto loop`, `cto`, `cto pm`, `pm dev qa security ops`, `roadmap technical tradeoffs`, `technical tradeoff`, `delivery risk`, `release readiness`, `technical leadership loop`, `leadership operating loop`, `engineering leadership`, `CTO 구조`, `PM 구조`, `로드맵`, `아키텍처 트레이드오프`, `기술 리더십`, `출시 준비`
+- Good example:
+  - Prompt: cto-loop: run the PM, dev, QA, security, and ops loop for this risky billing launch.
+  - Expected behavior: Prepare the CTO operating model with role responsibilities, gates, blockers, and status boundaries.
+  - Why: The request needs a leadership operating loop, not just a generic plan.
+- Bad example:
+  - Prompt: cto-loop: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `cto-loop`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Separate product priority, architecture tradeoff, delivery risk, release risk, and follow-up owner.
+  - Tie recommendations to observed signals or mark assumptions.
+  - Record accepted decisions separately from draft recommendations.
+  - Prepare executor handoffs only for accepted implementation follow-ups.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - operating signals
+  - roadmap or release scope
+  - known risks
+  - decision owner
+- Expected outputs:
+  - priority frame
+  - architecture tradeoffs
+  - delivery risks
+  - decision note
+  - follow-up handoff candidates
+- Artifact expectations:
+  - leadership loop record or status summary when a wrapper captures decisions and follow-ups
+- Safety rules:
+  - Do not treat a CTO loop recommendation as an accepted roadmap decision.
+  - Do not imply CTO, PM, QA, Security, or Ops runtime agents exist without observed wrapper evidence.
+  - Separate strategy decisions from implementation handoffs and release evidence.
+
+### deploy-and-monitor
+
+[omj] Hermes Deploy-and-Monitor workflow: release checklist, deploy decision, health signals, rollback gate, and post-deploy status.
+
+- Category: `monitoring`
+- Phase: `release-ops`
+- Hermes role: `operator`
+- Quality tier: `release-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep release checklist, health criteria, rollback gates, and status narration in Hermes; record deploy, monitor, incident, or rollback evidence only when the wrapper or operator observes it.
+- Why this exists: `deploy-and-monitor` exists to keep `monitoring` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when Hermes should prepare or narrate a release operation with deploy checklist, health signals, rollback criteria, and post-deploy status without pretending to run infrastructure.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `deploy-and-monitor`, `deploy and monitor`, `deploy monitor`, `deployment monitoring`, `release monitor`, `post deploy`, `post-deploy`, `rollback`, `rollback gate`, `health check`, `incident watch`, `release health`, `배포 모니터링`, `배포 감시`, `롤백`, `헬스 체크`, `장애 감시`, `릴리즈 모니터링`
+- Good example:
+  - Prompt: deploy-and-monitor: prepare the release monitor, rollback signals, health checks, and post-deploy status card.
+  - Expected behavior: Create release monitoring guidance with deployment, metric, rollback, and observation boundaries.
+  - Why: The request is about deploy readiness and monitoring rather than code review alone.
+- Bad example:
+  - Prompt: deploy-and-monitor: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `deploy-and-monitor`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name release scope, target environment, health signals, rollback criteria, and evidence owner.
+  - Show pre-deploy, deploy decision, monitor, rollback, and post-deploy record as distinct stages.
+  - Mark health and rollback status unknown until observed evidence arrives.
+  - Convert fix follow-ups into separate accepted plans or executor handoffs.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - release scope
+  - environment
+  - health signals
+  - rollback owner
+- Expected outputs:
+  - pre-deploy checklist
+  - deploy decision gate
+  - monitoring watchlist
+  - rollback criteria
+  - post-deploy status boundary
+- Artifact expectations:
+  - release operation status record when the wrapper captures deploy or monitor observations
+- Safety rules:
+  - Do not claim deployment, health checks, rollback, or incident response happened from a prepared checklist.
+  - Keep release readiness, deploy decision, monitor signals, and rollback as separate evidence steps.
+  - Route code fixes discovered during monitoring as later executor handoffs.
+
+### ultraqa
+
+[omj] Hermes UltraQA workflow: adversarial QA and fix loops.
+
+- Category: `verification`
+- Phase: `qa`
+- Hermes role: `reviewer`
+- Quality tier: `scenario-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Hermes can design scenarios and report observed results; code fixes discovered by QA should become selected executor/runtime handoffs.
+- Why this exists: `ultraqa` exists to keep `verification` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when the task needs adversarial test scenarios, verification, and fix loops.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `ultraqa`, `$ultraqa`, `adversarial qa`, `hostile scenarios`, `e2e qa`, `real-world qa`, `qa scenario`, `release qa`, `장애 상황`, `쿠버네티스 장애`, `적절히 진단`, `검증 체크리스트`, `릴리즈 전 gate`
+- Good example:
+  - Prompt: $ultraqa test the setup wizard with hostile install paths, stale config, and missing PATH cases.
+  - Expected behavior: Generate adversarial QA scenarios, expected signals, observed results, and fix-or-retry routing.
+  - Why: The request asks for verification pressure and hostile scenarios.
+- Bad example:
+  - Prompt: ultraqa: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `ultraqa`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Generate hostile scenarios from changed behavior and known risk areas.
+  - Report pass/fail evidence separately from proposed fixes.
+  - Delegate code mutations discovered by QA to the selected coding executor.
+- Completion checklist:
+  - The scenario, expected behavior, observed result, and pass/fail basis are named.
+  - Proposed fixes are separated from observed QA evidence.
+  - Missing or failed verification routes back to plan, fix, or a narrower test.
+- Recovery notes:
+  - If the expected behavior is unclear, route back to plan before running adversarial checks.
+  - If verification fails, return to fix or research with the failed signal instead of advancing.
+- Required inputs:
+  - changed behavior
+  - acceptance criteria
+  - known risk areas
+- Expected outputs:
+  - adversarial scenarios
+  - pass/fail evidence
+  - fix recommendations
+- Artifact expectations:
+  - QA scenario evidence
+  - runtime verification summary
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### plan
+
+[omj] Hermes Plan workflow: structured planning before execution.
+
+- Category: `planning`
+- Phase: `plan`
+- Hermes role: `planner`
+- Quality tier: `acceptance-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep planning in Hermes; if the accepted plan requires code edits, prepare a selected executor/runtime handoff after acceptance.
+- Why this exists: `plan` exists to keep `planning` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use for structured planning when implementation is not ready to start safely, including feature work that needs a safe plan before handoff.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `plan`, `$plan`, `implementation plan`, `strategy`, `task breakdown`, `safe feature`, `safely add a feature`, `add a feature`, `feature request`, `new feature`, `product triage`, `bug triage`, `issue triage`, `reproduction plan`, `workflow hub`, `coding handoff`, `답할 차례`, `준비할 차례`, `project template`, `재현 계획`, `요구사항 정리`, `작업 허브`, `작업 허브가 필요`, `github pr workflow`, `상태와 다음 행동`, `프로젝트별 운영`
+- Good example:
+  - Prompt: plan: handle a planning request that needs explicit evidence boundaries and a clear stop condition.
+  - Expected behavior: Run `plan` only after naming the target, evidence boundary, and stop condition.
+  - Why: The request matches the catalog use case and keeps observed evidence separate from prepared guidance.
+- Bad example:
+  - Prompt: plan: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `plan`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Make goals, non-goals, risks, acceptance criteria, and verification shape explicit.
+  - Keep draft plans unapproved until a user or wrapper accepts them.
+  - Only prepare coding handoff guidance after the plan is accepted.
+- Completion checklist:
+  - The plan names goals, non-goals, assumptions, acceptance criteria, and verification shape.
+  - Draft recommendations, accepted decisions, and executor handoffs are separate states.
+  - Rejected options or unresolved tradeoffs are recorded before handoff.
+- Recovery notes:
+  - If acceptance criteria or verification are missing, route back to clarification before handoff.
+  - If assumptions materially affect the plan, keep them visible and avoid treating the plan as accepted.
+- Required inputs:
+  - requirements
+  - constraints
+  - known facts
+  - non-goals
+- Expected outputs:
+  - plan
+  - acceptance criteria
+  - verification strategy
+- Artifact expectations:
+  - plan artifact when durable execution will follow
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### ralplan
+
+[omj] Hermes Ralplan workflow: consensus planning with review gates.
+
+- Category: `planning`
+- Phase: `reviewed-plan`
+- Hermes role: `planner`
+- Quality tier: `reviewed-plan-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep consensus planning and review in Hermes; produce explicit selected executor/runtime handoff guidance only after the plan is accepted.
+- Why this exists: `ralplan` exists to make planning reviewable before execution: Hermes should gather codebase/source facts, compare options, expose risks, define acceptance criteria, and prepare a handoff without pretending implementation already happened.
+- Use when: Use when requirements are clear enough for planning but architecture, evidence, alternatives, risks, or tests need a reviewed plan before execution.
+- Do not use when:
+  - The request is still too ambiguous to name requirements, non-goals, or acceptance criteria; use `deep-interview` first.
+  - The user asks for one full research-plan-implementation-review-PR cycle; use `ultraprocess` and keep ralplan as the planning stage.
+  - The user wants a pure source lookup, citation check, or paper explanation with no implementation plan.
+- Strong routing signals: `ralplan`, `$ralplan`, `consensus plan`, `reviewed plan`, `issue to PR`, `acceptance criteria`, `verification command`, `reviewable PR`, `risky planning`, `dangerous`, `dangerous planning`, `unsafe`, `refactor safety`, `PR로 만들`, `PR로 만들 수 있게`, `위험한 리팩터링`, `리팩터링 위험`, `리스크 있는 리팩터링`, `검증 command`, `리뷰 가능한 단위`, `코드베이스 조사`, `웹리서치 계획`, `대안 비교`, `리스크 검토`
+- Good example:
+  - Prompt: $ralplan turn this risky refactor into a reviewable plan with acceptance criteria and verification commands.
+  - Expected behavior: Produce repo/source facts, alternatives, risk review, acceptance criteria, exact verification commands, and handoff readiness without editing code.
+  - Why: The request is clear enough to plan but risky enough to require consensus-style review before execution.
+- Bad example:
+  - Prompt: $ralplan implement the refactor now and open the PR.
+  - Expected behavior: Stop at the reviewed plan or route the full delivery cycle to `ultraprocess` after plan acceptance.
+  - Why: Ralplan is a planning gate, not implementation, review, CI, or PR evidence.
+- Quality bar:
+  - Start from observed repo facts and source/web evidence when freshness or external behavior matters.
+  - Include planner view, critic/risk review, alternative paths, rejected options, and a testability check before handoff.
+  - Produce testable acceptance criteria and exact verification commands or explain why they are not yet knowable.
+  - Record unresolved tradeoffs and evidence gaps instead of flattening uncertainty.
+  - End with a selected executor/runtime handoff shape only after the plan is accepted.
+  - Do not implement directly from consensus planning.
+- Completion checklist:
+  - Observed repo facts and source/web evidence gaps are named.
+  - At least two options or one chosen option plus rejected alternatives are recorded.
+  - Risks, acceptance criteria, and verification commands are testable or explicitly blocked.
+  - The implementation handoff is prepared only after plan acceptance and remains prepared_not_observed.
+- Recovery notes:
+  - If requirements are still fuzzy, route back to deep-interview before planning.
+  - If current-source evidence is missing, route a web-research step before accepting the plan.
+  - If the user asks for implementation, hand off through ultraprocess, ultragoal, or the selected executor path after the plan is accepted.
+- Required inputs:
+  - requirements
+  - codebase facts
+  - source or web evidence when needed
+  - options
+  - tradeoffs
+  - test shape
+- Expected outputs:
+  - reviewed plan
+  - acceptance criteria
+  - risk register
+  - verification commands
+  - handoff guidance
+- Artifact expectations:
+  - plan and review artifacts when a wrapper supports file-backed planning
+- Safety rules:
+  - Do not implement directly from the planning lane.
+  - Do not invent codebase or web evidence; label missing evidence and source gaps.
+  - Make acceptance criteria testable.
+  - Record unresolved tradeoffs explicitly.
+  - Keep rejected options and handoff readiness separate from accepted execution evidence.
+
+### code-review
+
+[omj] Hermes Code Review workflow: bug-first review with evidence.
+
+- Category: `review`
+- Phase: `critique`
+- Hermes role: `reviewer`
+- Quality tier: `finding-evidence-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Hermes may frame and summarize review evidence; fixes or code mutations found during review should be delegated to the selected coding executor.
+- Why this exists: `code-review` exists to make review bug-first and evidence-grounded: findings must cite concrete files, diffs, commands, or artifacts before any summary or fix proposal.
+- Use when: Use for review-shaped requests; findings come first and must cite concrete evidence.
+- Do not use when:
+  - The user asks to implement the fix rather than review existing code or claims.
+  - There is no diff, file set, claim, artifact, or expected behavior to review.
+  - The request is broad product critique, strategy, or planning rather than code or evidence review.
+- Strong routing signals: `code-review`, `$code-review`, `review`, `audit`, `find bugs`, `release gate`, `claim audit`, `evidence audit`, `README claim`, `what actually happened`, `code review`, `review gate`, `리뷰`, `코드 리뷰`, `리뷰까지`, `릴리즈 전`, `실제 코드와 맞는가`, `실제로 뭐 했는지`, `검증된 결과`
+- Good example:
+  - Prompt: $code-review review this PR for install/update UX regressions and missing tests.
+  - Expected behavior: Lead with ranked findings, cite concrete evidence, then list open questions and test gaps.
+  - Why: The task is explicitly review-shaped and has a behavioral risk surface.
+- Bad example:
+  - Prompt: $code-review add the missing setup flag and commit it.
+  - Expected behavior: Route implementation to a selected executor/runtime after review findings are established.
+  - Why: Review can identify the issue, but code mutation is a separate execution step.
+- Quality bar:
+  - Lead with ranked findings grounded in file, diff, command, or artifact evidence.
+  - Separate review findings from fix implementation; fixes become executor work.
+  - Say clearly when no actionable issue is found and name remaining test gaps.
+- Completion checklist:
+  - Findings come first and are ranked by severity before summary or praise.
+  - Every finding cites file, diff, command output, artifact, or expected behavior evidence.
+  - No-issue reviews still name residual risk, missing tests, and independent review evidence if unavailable.
+  - Fix implementation, architecture follow-up, and CI/merge claims stay separate from the review result.
+- Recovery notes:
+  - If no diff, file set, PR, or artifact is available, inspect the requested target or ask one target question before reviewing.
+  - If tests fail or are missing, cite the exact command gap and do not approve the change as verified.
+  - If independent review evidence is unavailable, say so directly instead of implying a second reviewer passed it.
+- Required inputs:
+  - diff or files
+  - expected behavior
+  - test evidence
+- Expected outputs:
+  - ranked findings
+  - open questions
+  - test gaps
+- Artifact expectations:
+  - critic run record when review evidence is captured
+- Safety rules:
+  - Findings come before summaries.
+  - Cite concrete evidence for every finding.
+  - Say clearly when no issue is found.
+
+### ai-slop-cleaner
+
+[omj] Hermes AI slop cleaner workflow: behavior-preserving cleanup.
+
+- Category: `maintenance`
+- Phase: `cleanup`
+- Hermes role: `handoff-guide`
+- Quality tier: `regression-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Use Hermes to define cleanup scope and regression checks; route behavior-preserving edits to the selected coding runtime once tests are clear.
+- Why this exists: `ai-slop-cleaner` exists to keep `maintenance` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use for behavior-preserving cleanup with tests before and after edits.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `ai-slop-cleaner`, `$ai-slop-cleaner`, `cleanup`, `deslop`, `refactor`, `risky`, `behavior-preserving refactor`, `risk analysis`, `refactor workflow`, `legacy refactor`, `리팩터링`, `리팩토링`, `위험 분석`, `변경 범위 제한`, `회귀 테스트`
+- Good example:
+  - Prompt: $ai-slop-cleaner remove duplicated router branches and lock behavior with regression tests before refactoring.
+  - Expected behavior: Plan cleanup, preserve behavior, delete or simplify code, and prove it with targeted tests.
+  - Why: The request is maintenance cleanup with regression risk.
+- Bad example:
+  - Prompt: ai-slop-cleaner: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `ai-slop-cleaner`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Lock current behavior with regression checks before non-trivial cleanup.
+  - Prefer deletion, reuse, and boundary repair over new abstractions.
+  - Rerun verification after cleanup before claiming behavior is preserved.
+- Completion checklist:
+  - The selected coding or runtime owner is named before any implementation claim.
+  - Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
+  - The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+- Recovery notes:
+  - If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.
+  - If dispatch or result evidence is missing, keep the handoff prepared_not_observed and expose the next observable action.
+- Required inputs:
+  - target smell
+  - current behavior
+  - regression checks
+- Expected outputs:
+  - small cleanup diff
+  - before/after verification
+  - residual risk
+- Artifact expectations:
+  - cleanup plan and regression evidence for non-trivial work
+- Safety rules:
+  - Lock behavior with tests before risky cleanup.
+  - Prefer deletion and existing utilities over new layers.
+  - Do not add dependencies for cleanup unless explicitly requested.
+
+### best-practice-research
+
+[omj] Hermes adaptation for bounded official/upstream best-practice research.
+
+- Category: `research`
+- Phase: `evidence`
+- Hermes role: `researcher`
+- Quality tier: `source-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run as Hermes-side evidence gathering; hand coding to the selected executor/runtime only after source-backed guidance is summarized.
+- Why this exists: `best-practice-research` exists to keep `research` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when correctness depends on current official or upstream guidance.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `best-practice-research`, `best practice`, `official docs`, `upstream guidance`
+- Good example:
+  - Prompt: best-practice-research: check official docs and upstream examples before we choose the plugin packaging pattern.
+  - Expected behavior: Gather primary-source guidance, compare options, and separate evidence from recommendation.
+  - Why: The request needs citation-backed best-practice research before implementation.
+- Bad example:
+  - Prompt: best-practice-research: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `best-practice-research`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Use official or upstream sources first and name the version/environment assumptions.
+  - Map applicability to the user's local context before recommending action.
+  - Preserve residual uncertainty instead of overstating best practice.
+- Completion checklist:
+  - The research question, source boundaries, recency assumptions, and confidence level are named.
+  - Observed sources, inference, synthesis, and unresolved retrieval gaps are separated.
+  - Follow-up planning or handoff uses the research summary without calling it execution evidence.
+- Recovery notes:
+  - If sources cannot be accessed, state the retrieval gap and use only observed local context.
+  - If evidence is thin or one-sided, lower confidence and ask for a narrower source boundary.
+- Required inputs:
+  - chosen technology
+  - question
+  - version or environment constraints
+- Expected outputs:
+  - source-backed guidance
+  - applicability notes
+  - residual uncertainty
+- Artifact expectations:
+  - research notes or citations when the wrapper captures them
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### autoresearch-goal
+
+[omj] Hermes adaptation for durable research-goal execution.
+
+- Category: `research`
+- Phase: `durable-research`
+- Hermes role: `researcher`
+- Quality tier: `validator-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Keep durable research in Hermes-managed artifacts; do not convert to executor handoff unless the research produces an accepted coding task.
+- Why this exists: `autoresearch-goal` exists to keep `research` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use for validator-gated research that needs durable artifacts.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `autoresearch-goal`, `research goal`, `durable research`, `critic research`
+- Good example:
+  - Prompt: autoresearch-goal: keep researching AI agent memory practices until the evidence gaps are closed or logged.
+  - Expected behavior: Run a durable research loop with critic checks, source gaps, and a stop or checkpoint condition.
+  - Why: The request is research that needs persistence and review, not a one-shot brief.
+- Bad example:
+  - Prompt: autoresearch-goal: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `autoresearch-goal`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Define validator criteria before gathering evidence.
+  - Keep durable research artifacts separate from coding execution evidence.
+  - Stop with next questions or a source-backed synthesis when validation is incomplete.
+- Completion checklist:
+  - The research question, source boundaries, recency assumptions, and confidence level are named.
+  - Observed sources, inference, synthesis, and unresolved retrieval gaps are separated.
+  - Follow-up planning or handoff uses the research summary without calling it execution evidence.
+- Recovery notes:
+  - If sources cannot be accessed, state the retrieval gap and use only observed local context.
+  - If evidence is thin or one-sided, lower confidence and ask for a narrower source boundary.
+- Required inputs:
+  - research objective
+  - validator criteria
+  - source boundaries
+- Expected outputs:
+  - research artifact
+  - validator result
+  - next questions
+- Artifact expectations:
+  - durable research ledger or checklist
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### performance-goal
+
+[omj] Hermes adaptation for measurable performance-goal execution.
+
+- Category: `optimization`
+- Phase: `measurement`
+- Hermes role: `tracker`
+- Quality tier: `measurement-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Hermes can own baselines, benchmark plans, and status; optimization code changes should be selected executor/runtime handoffs.
+- Why this exists: `performance-goal` exists to keep `optimization` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use when the goal is measurable performance improvement with evaluator evidence.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `performance-goal`, `performance goal`, `latency`, `throughput`, `benchmark`
+- Good example:
+  - Prompt: performance-goal: benchmark recommendation latency, optimize hot paths safely, and prove no regressions.
+  - Expected behavior: Create a measurement-led optimization loop with baseline, change, verification, and regression evidence.
+  - Why: The request is performance optimization and needs measured before/after proof.
+- Bad example:
+  - Prompt: performance-goal: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `performance-goal`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name the metric, baseline, budget, and benchmark command before optimizing.
+  - Treat code-level optimization as executor work when edits are required.
+  - Report deltas only from observed benchmark evidence.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - metric
+  - baseline
+  - budget
+  - benchmark command
+- Expected outputs:
+  - measurement delta
+  - implementation summary
+  - benchmark evidence
+- Artifact expectations:
+  - baseline and final benchmark evidence
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### wiki
+
+[omj] Hermes adaptation for maintaining a project-local markdown wiki.
+
+- Category: `knowledge`
+- Phase: `capture`
+- Hermes role: `memory-keeper`
+- Quality tier: `knowledge-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run directly in Hermes as knowledge capture unless the note reveals a separate coding task.
+- Why this exists: `wiki` exists to keep `knowledge` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use to capture durable project knowledge in markdown artifacts.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `wiki`, `project wiki`, `memory`, `notes`
+- Good example:
+  - Prompt: wiki: capture the final router architecture decisions and retrieval hints in the project knowledge base.
+  - Expected behavior: Write durable project knowledge with source context, staleness notes, and follow-up links.
+  - Why: The request is knowledge capture rather than planning or execution.
+- Bad example:
+  - Prompt: wiki: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `wiki`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Capture durable facts with source evidence and retrieval hints.
+  - Mark stale or uncertain knowledge instead of presenting it as permanent truth.
+  - Extract separate coding tasks instead of burying them in notes.
+- Completion checklist:
+  - The durable fact, source evidence, retrieval hint, and staleness risk are recorded.
+  - Uncertain or conflicting knowledge is marked as review-needed rather than permanent truth.
+  - Separate coding or docs tasks are extracted instead of buried in notes.
+- Recovery notes:
+  - If source evidence conflicts, route to memory or knowledge review before writing durable guidance.
+  - If the fact may be stale, record the staleness warning and next refresh action.
+- Required inputs:
+  - project fact
+  - source evidence
+  - target topic
+- Expected outputs:
+  - markdown note
+  - retrieval hint
+  - staleness warning when needed
+- Artifact expectations:
+  - repo-local markdown knowledge artifact
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### ask
+
+[omj] Hermes adaptation for consulting an external advisor when configured.
+
+- Category: `review`
+- Phase: `external-advice`
+- Hermes role: `reviewer`
+- Quality tier: `evidence-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Use as optional advice gathering; evaluate the advice in Hermes and delegate coding changes separately.
+- Why this exists: `ask` exists to keep `review` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use only when an external advisor is configured and would materially improve the answer.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `ask`, `$ask`, `external advisor`, `claude`, `gemini`
+- Good example:
+  - Prompt: ask: ask Claude as an external advisor to critique this plugin bridge plan before implementation.
+  - Expected behavior: Prepare an advisor prompt, capture the response boundary, and summarize reusable critique.
+  - Why: The user wants outside review before committing to a direction.
+- Bad example:
+  - Prompt: ask: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `ask`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name the workflow target, constraints, validation evidence, and stop condition.
+  - Separate Hermes guidance from executor or wrapper behavior unless evidence proves the step happened.
+- Completion checklist:
+  - Findings or no-issue results are grounded in concrete file, artifact, command, or source evidence.
+  - Open questions, residual risk, and missing verification are named.
+  - Fixes or follow-up work are separate handoffs unless the user explicitly asked to implement them.
+- Recovery notes:
+  - If the reviewed target is missing, inspect the requested artifact or ask one target question.
+  - If independent verification is unavailable, report the gap and avoid an approval-style claim.
+- Required inputs:
+  - question
+  - context summary
+  - why external advice helps
+- Expected outputs:
+  - advisor summary
+  - accepted/rejected advice
+  - decision note
+- Artifact expectations:
+  - advisor transcript reference only when explicitly captured
+- Safety rules:
+  - Use only when configured and materially useful.
+  - Treat advisor output as evidence to evaluate, not authority.
+  - Do not send secrets or private prompts without explicit opt-in.
+
+### cancel
+
+[omj] Hermes adaptation for ending active workflow state cleanly.
+
+- Category: `operator`
+- Phase: `state-cleanup`
+- Hermes role: `tracker`
+- Quality tier: `evidence-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run directly in Hermes/runtime state; never delegate cancellation to a coding executor.
+- Why this exists: `cancel` exists to keep `operator` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use to cleanly end active adapted workflow state.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `cancel`, `$cancel`, `stop`, `abort`
+- Good example:
+  - Prompt: cancel: handle a operator request that needs explicit evidence boundaries and a clear stop condition.
+  - Expected behavior: Run `cancel` only after naming the target, evidence boundary, and stop condition.
+  - Why: The request matches the catalog use case and keeps observed evidence separate from prepared guidance.
+- Bad example:
+  - Prompt: cancel: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `cancel`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name the workflow target, constraints, validation evidence, and stop condition.
+  - Separate Hermes guidance from executor or wrapper behavior unless evidence proves the step happened.
+- Completion checklist:
+  - The local command, managed path, config surface, and state artifact inspected are named.
+  - Blocking issues, warnings, and optional surfaces are separated.
+  - The next repair action is explicit and does not claim a reload or runtime observation.
+- Recovery notes:
+  - If a managed path or config key is missing, route to setup/update repair instead of editing hidden state.
+  - If a reload or plugin load was not observed, keep the diagnostic result as local health evidence only.
+- Required inputs:
+  - active workflow state
+  - cancellation intent
+- Expected outputs:
+  - cleared state
+  - safe stop summary
+- Artifact expectations:
+  - state clear record when state exists
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### skill
+
+[omj] Hermes adaptation for managing local skills.
+
+- Category: `operator`
+- Phase: `skill-management`
+- Hermes role: `tracker`
+- Quality tier: `evidence-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Use Hermes for inventory and guidance; delegate only repository code changes to the selected coding executor.
+- Why this exists: `skill` exists to keep `operator` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+- Use when: Use for local skill listing, search, add, remove, or edit tasks.
+- Do not use when:
+  - The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+  - The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+- Strong routing signals: `skill`, `$skill`, `skills`, `manage skills`
+- Good example:
+  - Prompt: $skill list installed OMJ skills and show the catalog metadata for each workflow.
+  - Expected behavior: Manage or inspect the skill catalog without claiming runtime execution or external evidence.
+  - Why: The request is operator skill management, not a user workflow run.
+- Bad example:
+  - Prompt: skill: treat casual chat or unaccepted work as if this workflow already produced verified results.
+  - Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `skill`.
+  - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+- Quality bar:
+  - Name the workflow target, constraints, validation evidence, and stop condition.
+  - Separate Hermes guidance from executor or wrapper behavior unless evidence proves the step happened.
+- Completion checklist:
+  - The local command, managed path, config surface, and state artifact inspected are named.
+  - Blocking issues, warnings, and optional surfaces are separated.
+  - The next repair action is explicit and does not claim a reload or runtime observation.
+- Recovery notes:
+  - If a managed path or config key is missing, route to setup/update repair instead of editing hidden state.
+  - If a reload or plugin load was not observed, keep the diagnostic result as local health evidence only.
+- Required inputs:
+  - skill action
+  - target skill name or directory
+- Expected outputs:
+  - skill inventory or mutation result
+  - verification note
+- Artifact expectations:
+  - manifest update when managed skills change
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### doctor
+
+[omj] Hermes adaptation for diagnosing oh-my-jeo installation health.
+
+- Category: `operator`
+- Phase: `diagnostics`
+- Hermes role: `tracker`
+- Quality tier: `evidence-gated`
+- Exposure: `direct_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
+- Handoff policy: Run directly as local health inspection; propose executor work only when a repo fix is required.
+- Why this exists: `doctor` exists to turn confusing install/setup states into grouped, local health evidence and the next repair action without treating a check as a fix.
+- Use when: Use to diagnose OMJ installation and Hermes config registration.
+- Do not use when:
+  - The user is asking for a general product explanation rather than local health diagnostics.
+  - The requested change is a repository bug fix, not an installed-environment check.
+  - The wrapper wants to claim Hermes reload, skill execution, or plugin behavior that was not observed.
+- Strong routing signals: `doctor`, `$doctor`, `diagnose omj`, `installation health`
+- Good example:
+  - Prompt: doctor after omj update says setup is next but Hermes skills still look stale.
+  - Expected behavior: Inspect managed skills, Hermes registration, runtime state, and next repair action with explicit proof boundaries.
+  - Why: The issue is local installation health and needs grouped diagnostic evidence.
+- Bad example:
+  - Prompt: doctor implement a new uninstall command UX.
+  - Expected behavior: Route to planning or implementation instead of health diagnostics.
+  - Why: That is product development work, not a local health check.
+- Quality bar:
+  - Name the workflow target, constraints, validation evidence, and stop condition.
+  - Separate Hermes guidance from executor or wrapper behavior unless evidence proves the step happened.
+- Completion checklist:
+  - Command availability, managed skills, Hermes registration, runtime state, and optional surfaces are grouped separately.
+  - Blocking issues and warnings are separated, with one next repair action named for each blocking area.
+  - Plugin install, plugin import/register smoke, and Hermes runtime load are not collapsed into one claim.
+  - The final status says whether setup/update/doctor repaired anything or only observed health.
+- Recovery notes:
+  - If managed skills are stale, recommend omj update or omj setup depending on whether registration also needs repair.
+  - If skills.external_dirs or Hermes config is missing, route to setup repair rather than editing hidden runtime state.
+  - If plugin register smoke fails, reinstall the plugin bundle with setup --with-plugin --force before claiming plugin readiness.
+  - If omj is missing from PATH, use the installer-reported absolute command path and then re-run doctor.
+- Required inputs:
+  - omj home
+  - Hermes home
+  - observed issue
+- Expected outputs:
+  - health checks
+  - fix guidance
+  - known proof boundary
+- Artifact expectations:
+  - doctor state summary when runtime artifacts are writable
+- Safety rules:
+  - Do not imply hidden Hermes runtime behavior.
+  - Use the smallest verification that can prove the claim.
+
+### github-event-ops
+
+[omj] Hermes GitHub event operations workflow: route PR, issue, CI, and review webhook events into triage, review, or fix handoff cards.
+
+- Category: `github-ops`
+- Phase: `event-routing`
+- Hermes role: `operator`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `router_only`
+- Install visibility: `false`
+- Docs visibility: `compatibility_reference`
+- Compatibility alias: `true`
+- Preferred usage: Prefer natural-language Hermes routing into the GitHub event ops playbook/harness instead of showing this as a primary skill picker item.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `github-event-ops` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when Hermes receives or is asked to reason about GitHub PR, issue, review, or CI events and must choose review, triage, or fix-handoff without claiming a bot ran.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `github-event-ops`, `github event ops`, `pr opened`, `ci failed`, `issue opened`, `pull request webhook`, `github webhook`, `github issue`, `github issue to pr`, `auto review pr`, `label issue`, `ci analysis`, `깃허브`, `github issue 들어온`, `이슈 라벨`, `pr 리뷰`, `ci 실패`
+- Good example:
+  - Prompt: github-event-ops PR opened with failing CI; triage whether this needs review or fix handoff.
+  - Expected behavior: Produce `prepare_github_event_ops_card` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: github-event-ops prove the issue was labelled and CI was rerun.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - github-event-ops/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - github-event-ops/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A GitHub event ops card is not webhook delivery, GitHub API mutation, review completion, label application, CI rerun, or fix execution evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### agent-board
+
+[omj] Hermes agent board workflow: coordinate multiple Hermes profiles or agents with task, handoff, heartbeat, blocker, and completion states.
+
+- Category: `agent-coordination`
+- Phase: `board-status`
+- Hermes role: `tracker`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `agent_context`
+- Install visibility: `false`
+- Docs visibility: `agent_context_reference`
+- Compatibility alias: `true`
+- Preferred usage: Use as Hermes agent/context guidance for board-shaped collaboration; keep direct invocation compatibility only for existing references.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `agent-board` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when multiple Hermes profiles, agents, or targets need a board-shaped status contract for collaborative work.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `agent-board`, `agent board`, `kanban`, `multi agent board`, `multiple hermes agents`, `multiple hermes profiles`, `hermes profiles`, `task board`, `roles and board`, `role board`, `heartbeat`, `blocker`, `handoff board`, `칸반`, `여러 에이전트`, `Hermes agent 여러 명`, `여러 명이 같이 일`, `작업 보드`, `역할과 보드`, `역할 보드`
+- Good example:
+  - Prompt: agent-board coordinate PM, CTO, QA, and release agents on this launch checklist.
+  - Expected behavior: Produce `prepare_agent_board_card` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: agent-board mark the other agent complete without an observed heartbeat or result.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - agent-board/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - agent-board/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - An agent board card is not proof that another Hermes agent accepted, executed, heartbeat-ed, or completed work unless target-specific evidence exists.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### memory-curation-review
+
+[omj] Hermes memory curation workflow: review stale, conflicting, duplicate, or risky memories and skill notes through approve/reject/update actions.
+
+- Category: `memory`
+- Phase: `curation-review`
+- Hermes role: `memory-keeper`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when the user asks to review stale, duplicate, or conflicting memory and skill context.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `memory-curation-review` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when Hermes memory, USER/MEMORY files, or accumulated skill guidance needs human-approved cleanup.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `memory-curation-review`, `memory curation`, `memory review`, `memory inspect`, `memory context review`, `context review`, `context cleanup`, `context curation`, `curate memory`, `stale memory`, `stale project context`, `old project context`, `hermes remembers`, `conflicting memory`, `duplicate skill`, `MEMORY.md`, `USER.md`, `기억하고 있는`, `기억하고 있는 프로젝트 맥락`, `프로젝트 맥락`, `프로젝트 맥락이 오래된`, `오래된 맥락`, `오래된 기억`, `기억 점검`, `기억 정리`, `기억하는 맥락`, `메모리 정리`, `맥락 점검`, `맥락 정리`, `등록된 맥락`, `헤르메스 기억`, `중복 스킬`
+- Good example:
+  - Prompt: memory-curation-review inspect stale project memories and ask me what to keep.
+  - Expected behavior: Produce `prepare_memory_curation_review` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: memory-curation-review silently delete all conflicting memories.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - memory-curation-review/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - memory-curation-review/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A memory curation review is not Hermes internal memory, MEMORY.md, USER.md, or skill-file modification evidence until an approved write is observed.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### gateway-intent-card
+
+[omj] Hermes gateway intent workflow: normalize Discord, Slack, Telegram, and other gateway sessions into origin, thread, delivery, silent, attachment, and status-update policy.
+
+- Category: `gateway`
+- Phase: `intent-card`
+- Hermes role: `guide`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `router_only`
+- Install visibility: `false`
+- Docs visibility: `compatibility_reference`
+- Compatibility alias: `true`
+- Preferred usage: Prefer wrapper or Hermes natural-language routing into gateway intent policy instead of exposing this as a primary user skill.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `gateway-intent-card` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when Hermes needs platform-neutral gateway policy for a chat session, thread, delivery target, attachment, or status update.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `gateway-intent-card`, `gateway intent`, `discord thread`, `slack thread`, `telegram delivery`, `session delivery`, `silent update`, `attachment policy`, `status update policy`, `게이트웨이`, `디스코드`, `슬랙`, `텔레그램`
+- Good example:
+  - Prompt: gateway-intent-card route this Discord thread update silently unless action is needed.
+  - Expected behavior: Produce `prepare_gateway_intent_card` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: gateway-intent-card prove the Telegram attachment was sent.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - The origin platform, thread/session boundary, delivery target, and update policy are named.
+  - Prepared card or command output is separate from platform registration, send, attachment, or delivery evidence.
+  - The next wrapper action is explicit and platform-safe.
+- Recovery notes:
+  - If platform metadata is missing, keep the card platform-neutral and ask for the target surface.
+  - If send or registration evidence is unavailable, show the adapter-owned action instead of claiming delivery.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - gateway-intent-card/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - gateway-intent-card/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A gateway intent card is not platform login, message send, thread mutation, attachment upload, or delivery evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### executor-runtime-readiness
+
+[omj] Hermes executor runtime readiness workflow: compare Codex, Claude Code, Hermes coding, and oh-my runtimes by available tools, missing tools, and handoff mode.
+
+- Category: `executor-readiness`
+- Phase: `runtime-selection`
+- Hermes role: `handoff-guide`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `harness_only`
+- Install visibility: `false`
+- Docs visibility: `harness_reference`
+- Compatibility alias: `true`
+- Preferred usage: Use as a readiness harness/status surface when Hermes needs to compare executor/runtime options before handoff.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `executor-runtime-readiness` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when a user may choose Codex, Claude Code, Hermes coding, or another runtime and needs tool/credential gaps before handoff.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `executor-runtime-readiness`, `runtime readiness`, `codex readiness`, `claude code readiness`, `executor tools`, `missing tools`, `handoff mode`, `codex or claude`, `codex vs claude`, `codex로 넘길지 claude`, `claude code로 넘길지 codex`, `codex랑 claude`, `claude code 중`, `넘길지 codex`, `넘길지 claude`, `runtime migration`, `omx`, `omc`, `omo`, `코덱스`, `클로드 코드`, `실행 런타임`, `어떤 런타임`, `런타임으로 넘겨`
+- Good example:
+  - Prompt: executor-runtime-readiness can this task run in Codex, Claude Code, or Hermes coding?
+  - Expected behavior: Produce `prepare_executor_runtime_readiness` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: executor-runtime-readiness claim Codex already started the session.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - The selected coding or runtime owner is named before any implementation claim.
+  - Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
+  - The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+- Recovery notes:
+  - If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.
+  - If dispatch or result evidence is missing, keep the handoff prepared_not_observed and expose the next observable action.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - executor-runtime-readiness/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - executor-runtime-readiness/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - Runtime readiness is not executor dispatch, plugin load, tool invocation, repository mutation, review, CI, or merge evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### deliverable-package
+
+[omj] Hermes deliverable package workflow: track PPT, PDF, XLSX, DOCX, HWP, Markdown, and attachments through prepared, generated, QA, approved, and attached states.
+
+- Category: `deliverables`
+- Phase: `package-status`
+- Hermes role: `operator`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when the user asks for file deliverable packaging and attachment lifecycle status.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `deliverable-package` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when Hermes should prepare, request generation, QA, and report attachment status for user-visible file deliverables.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `deliverable-package`, `deliverable mode`, `file attachment`, `attach file`, `attachment status`, `file delivery`, `file deliverable status`, `generated file`, `자료`, `첨부`, `첨부 상태`, `전달 상태`
+- Good example:
+  - Prompt: deliverable-package turn this research into PPT and PDF with attachment status.
+  - Expected behavior: Produce `prepare_deliverable_package` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: deliverable-package claim the PDF was attached without observed file evidence.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - The deliverable type, audience, source inputs, QA ladder, and delivery boundary are named.
+  - Prepared generation, generated file, render QA, approval, attachment, and delivery are separate states.
+  - The next action says whether to generate, revise, QA, approve, attach, or deliver.
+- Recovery notes:
+  - If generation tooling is missing, prepare a prompt or package handoff and mark file output not_observed.
+  - If QA or attachment evidence is missing, keep generated/delivered states separate and show the next check.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - deliverable-package/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - deliverable-package/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A deliverable package card is not binary generation, render QA, formula recalculation, approval, upload, attachment, or delivery evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### voice-operator
+
+[omj] Hermes voice operator workflow: turn short voice or mobile commands into clarify, plan, status, handoff, or confirmation actions.
+
+- Category: `accessibility`
+- Phase: `voice-routing`
+- Hermes role: `guide`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `agent_context`
+- Install visibility: `false`
+- Docs visibility: `agent_context_reference`
+- Compatibility alias: `true`
+- Preferred usage: Use as Hermes voice/mobile context guidance that normalizes short commands before choosing a concrete workflow.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `voice-operator` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when Hermes receives terse voice/mobile-style requests and should produce concise clarification, plan, or status UX.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `voice-operator`, `voice operator`, `voice-first`, `mobile command`, `short command`, `spoken request`, `accessibility`, `hands free`, `음성`, `음성으로`, `음성 명령`, `모바일`, `접근성`, `짧은 명령`, `짧게 말한 요청`
+- Good example:
+  - Prompt: voice-operator 'release before lunch, check risky parts' from mobile.
+  - Expected behavior: Produce `prepare_voice_operator_card` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: voice-operator assume the user approved a destructive action from a vague voice note.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - The short-input or voice-like request is clarified enough to avoid accidental action.
+  - The next action is readable, reversible when possible, and confirmation-gated when risky.
+  - Delivery, notification, or platform behavior is not claimed without wrapper evidence.
+- Recovery notes:
+  - If transcript confidence or intent is weak, ask one short clarification before action.
+  - If platform delivery is unavailable, keep the response in chat and mark delivery not_observed.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - voice-operator/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - voice-operator/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A voice operator card is not speech recognition, mobile notification delivery, platform action, or accepted execution evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### toolbelt-readiness
+
+[omj] Hermes toolbelt readiness workflow: check which MCP servers, CLIs, APIs, credentials, and connectors a workflow needs before claiming it can run.
+
+- Category: `tools`
+- Phase: `readiness-check`
+- Hermes role: `tracker`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `harness_only`
+- Install visibility: `false`
+- Docs visibility: `harness_reference`
+- Compatibility alias: `true`
+- Preferred usage: Use as a readiness harness when Hermes needs to show missing MCP, CLI, API, credential, or connector requirements.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `toolbelt-readiness` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when a workflow depends on MCP, CLI, API credentials, or connectors and Hermes must show installed, missing, optional, and unsafe tools.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `toolbelt-readiness`, `mcp readiness`, `tool readiness`, `connector readiness`, `needed mcp`, `api credential`, `missing cli`, `toolbelt`, `외부 도구`, `mcp`, `커넥터`, `credential`
+- Good example:
+  - Prompt: toolbelt-readiness what MCP or CLI tools do I need for weekly Linear and GitHub triage?
+  - Expected behavior: Produce `prepare_toolbelt_readiness` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: toolbelt-readiness claim Gmail access works without an observed credential check.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - toolbelt-readiness/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - toolbelt-readiness/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A toolbelt readiness card is not MCP server installation, credential validation, API access, connector invocation, or successful workflow execution evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### ops-observability-card
+
+[omj] Hermes ops observability workflow: report wrapper-safe token, cost, latency, run history, queue, and failure-mode telemetry boundaries.
+
+- Category: `observability`
+- Phase: `telemetry-card`
+- Hermes role: `tracker`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `harness_only`
+- Install visibility: `false`
+- Docs visibility: `harness_reference`
+- Compatibility alias: `true`
+- Preferred usage: Use as a telemetry/status harness for token, cost, latency, run history, and failure-mode boundaries.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `ops-observability-card` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when automation, loops, gateway work, or executor handoffs need a safe status card for cost, latency, token, history, and failure-mode visibility.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `ops-observability-card`, `observability card`, `cost telemetry`, `latency telemetry`, `token telemetry`, `run history`, `loop telemetry`, `failure mode`, `monitor tokens`, `비용`, `토큰`, `지연시간`, `관측성`
+- Good example:
+  - Prompt: ops-observability-card show token, cost, latency, and last run status for this loop.
+  - Expected behavior: Produce `prepare_ops_observability_card` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: ops-observability-card claim exact provider billing from local estimates.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - The run or workflow scope, metric window, failure modes, and cost/latency boundary are named.
+  - Local telemetry, provider truth, billing truth, and completion evidence are separate states.
+  - Warnings name the next measurement or operator review action.
+- Recovery notes:
+  - If provider metrics are unavailable, report only local metadata and mark provider truth not_observed.
+  - If cost or latency looks risky, surface a warning plus the next measurement rather than a completion claim.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - ops-observability-card/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - ops-observability-card/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - An ops observability card is not billing truth, provider quota truth, complete tracing, performance proof, or successful workflow completion evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### agent-ops-review
+
+[omj] Hermes agent ops review workflow: help a manager inspect AI-agent research, coding, review, status, blockers, quality gates, and throughput levers.
+
+- Category: `operator`
+- Phase: `manager-review`
+- Hermes role: `tracker`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when a manager wants quality, blockers, next actions, and throughput guidance for AI-agent work.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `agent-ops-review` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use when Hermes should explain AI-agent work from a manager/operator perspective: quality gates, progress, blockers, next actions, and throughput opportunities across research, coding, review, and status.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `agent-ops-review`, `agent ops review`, `agent productivity`, `operator productivity`, `manager view`, `quality dashboard`, `throughput review`, `agent work quality`, `coding progress quality`, `coding progress`, `codex progress`, `codex status`, `coding agent status`, `where is codex`, `research coding review status`, `ai agent manager`, `third-party manager`, `관리자 입장`, `Codex 작업`, `Codex 작업이 어디까지`, `코덱스 작업`, `작업이 어디까지`, `진행됐는지`, `진행되었는지`, `작업 생산량`, `처리량`, `품질 퀄리티`, `작업 품질`, `진행상황`, `리서치 코딩 리뷰`
+- Good example:
+  - Prompt: agent-ops-review show me quality, blockers, and throughput for AI-agent research, coding, and review work.
+  - Expected behavior: Produce `prepare_agent_ops_review` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: agent-ops-review claim Codex finished and CI passed because a handoff exists.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - The local command, managed path, config surface, and state artifact inspected are named.
+  - Blocking issues, warnings, and optional surfaces are separated.
+  - The next repair action is explicit and does not claim a reload or runtime observation.
+- Recovery notes:
+  - If a managed path or config key is missing, route to setup/update repair instead of editing hidden state.
+  - If a reload or plugin load was not observed, keep the diagnostic result as local health evidence only.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - agent-ops-review/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - agent-ops-review/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - An agent ops review card is not source retrieval, executor dispatch, coding progress, implementation, review, verification, CI, merge-readiness, merge, platform delivery, provider billing, or live runtime telemetry evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+### workflow-learning
+
+[omj] Hermes workflow learning workflow: turn a completed or attempted workflow into a metadata-only trace, eval, improvement candidate, human review queue, non-applying patch proposal, regression case, readiness audit, repairable learning index, and redacted review export.
+
+- Category: `optimization`
+- Phase: `workflow-learning`
+- Hermes role: `tracker`
+- Quality tier: `workflow-surface-gated`
+- Exposure: `workflow_skill`
+- Install visibility: `true`
+- Docs visibility: `primary_workflow_skill`
+- Compatibility alias: `false`
+- Preferred usage: Use as an installed Hermes workflow skill when the user wants to learn from a workflow run, review an improvement candidate, create a regression case, or export a redacted review bundle.
+- Handoff policy: Keep this as Hermes-facing orchestration guidance first. Prepare executor, connector, gateway, or host-runtime handoff only when the user accepts that next step and observed evidence can be recorded.
+- Why this exists: `workflow-learning` exists so Hermes users can ask for this workflow in chat and receive a structured, evidence-bounded OMJ operating surface instead of ad hoc narration.
+- Use when: Use after a Hermes/OMJ workflow attempt when the user wants the process to become inspectable, evaluable, visible in a human review queue, auditable for learning readiness, reusable as a future regression, convertible into a human-reviewed patch handoff, exportable for review, repairable after local index drift, or captured as a missed-route signal without storing raw prompts.
+- Do not use when:
+  - The request is already handled by a narrower explicit skill with stronger evidence.
+  - The user asks OMJ to secretly run external platforms, connectors, schedulers, file exports, or runtime agents.
+  - The only safe answer is to ask for missing authority, credentials, target, or observed evidence first.
+- Strong routing signals: `workflow-learning`, `workflow learning`, `learning trace`, `learning audit`, `audit learning`, `learning review`, `review queue`, `learning readiness`, `learning export`, `export bundle`, `learning index`, `index rebuild`, `execution trace`, `skill improvement`, `improvement candidate`, `regression corpus`, `GEPA`, `VPRM`, `process supervision`, `why did this route`, `missed route`, `missed workflow`, `did not use OMJ`, `OMJ was not used`, `learn from this run`, `이번 실행 학습`, `스킬 개선`, `회귀 케이스`, `실행 기록`, `학습 기록`, `학습 점검`, `학습 준비 상태`, `학습 내보내기`, `OMJ 안 썼어`, `워크플로 누락`, `라우팅 누락`
+- Good example:
+  - Prompt: workflow-learning record that Hermes did not use OMJ here and create a missed-route review bundle.
+  - Expected behavior: Produce `record_workflow_learning_trace` with required context, wrapper actions, and not-evidence boundaries.
+  - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
+- Bad example:
+  - Prompt: workflow-learning silently patch the skill and claim future behavior is fixed.
+  - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
+  - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
+- Quality bar:
+  - Name the user-facing workflow objective, required context, next action, and stop condition.
+  - Separate prepared guidance from observed platform, runtime, connector, file, memory, or delivery evidence.
+  - Expose missing tools, credentials, targets, or observations as user-visible gaps.
+- Completion checklist:
+  - Confirm the workflow target, evidence boundary, and stop condition are named.
+  - Report which outputs are prepared, observed, blocked, or missing.
+  - Name the smallest next verification or handoff instead of claiming completion from narration.
+- Recovery notes:
+  - If required context is missing, ask one blocking question or route back to the narrower workflow.
+  - If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+- Required inputs:
+  - user request
+  - target context
+  - delivery or status expectation
+  - known missing evidence
+- Expected outputs:
+  - workflow-learning/v1 card or guidance
+  - next action
+  - prepared-vs-observed boundary
+- Artifact expectations:
+  - workflow-learning/v1 metadata-only runtime or wrapper card when recorded
+- Safety rules:
+  - A workflow learning trace, patch proposal, or export is process evidence for review. It is not automatic model training, skill mutation, execution, verification, CI, or merge evidence.
+  - Do not claim connector, gateway, runtime, file generation, memory mutation, or host automation evidence from prepared guidance.
+
+## Representative Harnesses
+
+### coding-handling
+
+Route implementation requests through scoped context, edit discipline, tests, review, and evidence.
+
+- Use when: Use when the user asks Hermes to write, modify, debug, refactor, or review code.
+- Quality tier: `handoff-gated`
+- Quality bar:
+  - Clarify scope before edits when target behavior, files, or verification are missing.
+  - Attach acceptance criteria, verification expectations, and review expectations to the prepared handoff.
+  - Report coding progress from lifecycle evidence, not from the existence of a prepared prompt.
+- Inputs:
+  - task statement
+  - repo context
+  - constraints
+  - target files or discovered touchpoints
+- Outputs:
+  - changed files
+  - verification evidence
+  - remaining risks
+- Stop conditions:
+  - requested behavior is implemented
+  - tests or checks pass
+  - known gaps are reported
+- Verification:
+  - run the smallest relevant tests
+  - inspect generated skill output when routing changed
+- Evidence ladder:
+  - `coding_delegation_prepared`
+  - `executor_dispatch_observed`
+  - `executor_result_observed`
+  - `verification_recorded`
+  - `review_ci_merge_recorded_when_required`
+- Wrapper actions:
+  - `accept_plan`
+  - `show_prompt_handoff`
+  - `copy_prompt_handoff`
+  - `show_runtime_handoff`
+  - `show_coding_team_path`
+  - `start_runtime`
+  - `start_hermes_coding`
+  - `prepare_worktree`
+  - `start_team`
+  - `start_swarm`
+  - `record_runtime_observation`
+  - `choose_executor`
+  - `send_to_executor`
+  - `send_to_codex`
+  - `show_status`
+  - `record_result`
+- Artifact events:
+  - `run_started`
+  - `coding_delegation_recorded`
+  - `verification_recorded`
+- Delegation expectation: Record prepared coding delegation with omj coding delegate; record observed execution only when Hermes exposes a separate coding, review, or verification lane.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A prepared coding_delegation.json is not implementation evidence.
+  - Executor completion is not review, CI, merge-readiness, or merge evidence.
+- Fallback: If the request is underspecified, ask one concise clarification question before editing.
+
+### goal-execution
+
+Keep long-running work tied to explicit goals, checkpoints, and durable evidence.
+
+- Use when: Use when the task has multiple milestones, durable state, or finish-until-done pressure.
+- Quality tier: `checkpoint-gated`
+- Quality bar:
+  - Create or reference a durable goal artifact before long-running progress claims.
+  - Checkpoint complete, blocked, and failed states with evidence.
+  - Use summary-only rejection when a goal_completion_gate/v1 blocks completion.
+  - Surface continue_goal, show_status, record_checkpoint, record_blocker, or record_completion as the next action.
+  - Run final verification and review gates before reporting a goal complete.
+- Inputs:
+  - goal statement
+  - acceptance criteria
+  - current checkpoint
+  - blocked or pending stories
+  - linked runtime run ids when coding evidence is explicitly required
+- Outputs:
+  - goal_ledger/v1 updates
+  - checkpoint evidence
+  - goal_completion_gate/v1 result
+  - goal_status_card/v1 or goal_continuation/v1 next action
+- Stop conditions:
+  - current goal is complete or explicitly blocked
+  - checkpoint evidence is recorded
+  - completion gate is ready before final completion copy
+- Verification:
+  - compare artifacts against acceptance criteria
+  - record fresh evidence before completion
+  - inspect explicitly linked runtime runs before treating coding work as observed
+- Evidence ladder:
+  - `goal_created`
+  - `story_started`
+  - `checkpoint_recorded`
+  - `quality_gate_recorded`
+  - `goal_closed`
+- Wrapper actions:
+  - `continue_goal`
+  - `show_status`
+  - `record_checkpoint`
+  - `record_blocker`
+  - `record_completion`
+- Artifact events:
+  - `goal_started`
+  - `checkpoint_recorded`
+  - `goal_completed_or_blocked`
+- Delegation expectation: Record goal/delegation participants only when the active Hermes runtime exposes them.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A goal ledger entry is not proof that executor work ran.
+  - Prepared or unlinked runtime artifacts cannot satisfy a coding-linked goal unless the goal explicitly references that run.
+  - Intermediate checkpoints cannot replace final verification and review evidence.
+- Fallback: If Hermes has no goal tool, use a local checklist or file-backed ledger and still name the next action.
+
+### planning
+
+Turn clarified requirements into an execution-ready plan with tradeoffs and tests.
+
+- Use when: Use before implementation when architecture, sequencing, or validation shape matters.
+- Quality tier: `acceptance-gated`
+- Quality bar:
+  - Make goals, non-goals, decision drivers, options, risks, and test strategy explicit.
+  - Record at least one rejected option and why it lost before presenting the preferred path.
+  - Tie every acceptance criterion to a validation command, artifact, or explicit manual evidence gap.
+  - Keep draft plans unapproved until a user or wrapper accepts them.
+  - Prepare coding handoff guidance only after acceptance.
+- Inputs:
+  - requirements
+  - constraints
+  - known facts
+  - non-goals
+- Outputs:
+  - PRD or plan
+  - test strategy
+  - handoff guidance
+- Stop conditions:
+  - plan has acceptance criteria
+  - risks and alternatives are explicit
+- Verification:
+  - review option consistency
+  - verify testability before execution
+- Evidence ladder:
+  - `request_clarified`
+  - `plan_drafted`
+  - `option_tradeoffs_recorded`
+  - `test_strategy_recorded`
+  - `acceptance_recorded`
+  - `handoff_ready`
+- Wrapper actions:
+  - `accept_plan`
+  - `revise_plan`
+  - `cancel`
+  - `prepare_handoff`
+- Artifact events:
+  - `plan_started`
+  - `options_reviewed`
+  - `handoff_recorded`
+- Delegation expectation: Record planner, architect, or reviewer delegation only when observed in Hermes metadata or wrapper logs.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A draft plan is not execution or review evidence.
+  - Unobserved architect or critic review stays not_observed.
+- Fallback: If consensus review is unavailable, do a sequential planner -> reviewer pass.
+
+### research
+
+Gather current or source-backed evidence before planning or coding handoff.
+
+- Use when: Use when the request needs web/current/official source evidence or source comparison.
+- Quality tier: `source-gated`
+- Quality bar:
+  - Scope the research question, source boundaries, recency, and jurisdiction or version assumptions before retrieval.
+  - Use official or primary sources first when they can answer the question.
+  - Record source quality, source diversity, conflicting evidence, and retrieval gaps before synthesis.
+  - Separate source evidence, citation links, inference, confidence, and retrieval limits.
+  - Record dates or version boundaries for unstable facts.
+- Inputs:
+  - research question
+  - source boundaries
+  - freshness, jurisdiction, version, or environment constraints
+- Outputs:
+  - source-backed synthesis
+  - links or citations
+  - source-quality notes
+  - confidence and residual uncertainty
+- Stop conditions:
+  - claims are source-backed
+  - source diversity is checked when relevant
+  - retrieval limits and dates are explicit
+- Verification:
+  - prefer official or primary sources
+  - check source diversity and conflicts
+  - separate evidence from inference
+- Evidence ladder:
+  - `research_question_scoped`
+  - `source_boundaries_recorded`
+  - `primary_sources_checked`
+  - `source_diversity_checked`
+  - `conflicts_checked`
+  - `evidence_synthesized`
+  - `uncertainty_recorded`
+- Wrapper actions:
+  - `show_sources`
+  - `ask_followup`
+  - `record_source`
+  - `prepare_plan`
+- Artifact events:
+  - `research_started`
+  - `source_boundary_recorded`
+  - `source_checked`
+  - `synthesis_recorded`
+- Delegation expectation: Record a research lane only when Hermes or the wrapper exposes source/research evidence; otherwise summarize retrieval limits explicitly.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - Research synthesis is not implementation evidence.
+  - Unavailable web access must be reported as a retrieval gap.
+  - A source plan is not observed source retrieval until URLs, citations, or supplied source notes are recorded.
+- Fallback: If web access is unavailable, state the retrieval gap and fall back to best available local evidence.
+
+### business-research
+
+Prepare source-backed business research briefs with evidence and inference boundaries.
+
+- Use when: Use when a business, market, customer, or operational question needs source-scoped research before strategy, meetings, or handoff.
+- Quality tier: `source-gated`
+- Quality bar:
+  - Scope the business question and source boundary before synthesis.
+  - Separate observed sources, source quality, source diversity, inferred trends, confidence, and uncertainty.
+  - Feed strategy or meeting work without treating the research brief as execution evidence.
+- Inputs:
+  - business question
+  - source boundary
+  - recency or market scope
+- Outputs:
+  - evidence table
+  - inference summary
+  - confidence and residual uncertainty
+- Stop conditions:
+  - source boundaries are explicit
+  - evidence and inference are separated
+  - uncertainty is recorded
+- Verification:
+  - check source quality
+  - record missing-source gaps
+  - separate observed evidence from synthesis
+- Evidence ladder:
+  - `business_question_scoped`
+  - `source_boundary_recorded`
+  - `source_quality_recorded`
+  - `source_evidence_recorded`
+  - `business_synthesis_recorded`
+  - `uncertainty_recorded`
+- Wrapper actions:
+  - `show_sources`
+  - `ask_followup`
+  - `prepare_strategy_brief`
+  - `show_status`
+- Artifact events:
+  - `business_research_scoped`
+  - `business_source_checked`
+  - `business_synthesis_recorded`
+- Delegation expectation: Record business research only when Hermes or the wrapper observes sources or captures a research brief.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A research brief is not proof that sources were fetched unless source evidence is observed.
+  - Research synthesis is not a decision, implementation, or verification result.
+- Fallback: If sources are not available, label the result as a research plan or local-context synthesis rather than observed research.
+
+### strategy-synthesis
+
+Turn goals and evidence into strategy options, tradeoffs, and decision-ready notes.
+
+- Use when: Use when the request asks for strategy, recommendations, decision notes, or leadership-ready synthesis.
+- Quality tier: `decision-gated`
+- Quality bar:
+  - Name the decision, drivers, options, tradeoffs, recommendation, and assumptions.
+  - Keep draft recommendations separate from accepted decisions.
+  - Convert implementation follow-ups into explicit later plans or handoffs.
+- Inputs:
+  - goal
+  - evidence summary
+  - constraints
+  - decision owner
+- Outputs:
+  - options
+  - tradeoffs
+  - recommendation
+  - decision note
+- Stop conditions:
+  - decision scope is explicit
+  - tradeoffs are named
+  - assumptions and follow-ups are recorded
+- Verification:
+  - compare options
+  - tie recommendation to evidence
+  - record rejected alternatives
+- Evidence ladder:
+  - `decision_scope_recorded`
+  - `options_recorded`
+  - `tradeoffs_recorded`
+  - `recommendation_recorded`
+  - `decision_status_recorded`
+- Wrapper actions:
+  - `show_brief`
+  - `revise_brief`
+  - `record_decision`
+  - `show_status`
+- Artifact events:
+  - `strategy_scope_recorded`
+  - `options_recorded`
+  - `decision_note_recorded`
+- Delegation expectation: Record strategy synthesis as Hermes-retained work; record execution only after a later accepted handoff is observed.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A strategy brief is not an accepted decision.
+  - A recommendation is not implementation, review, CI, or merge evidence.
+- Fallback: If decision authority or evidence is missing, produce assumptions and next questions instead of a final decision.
+
+### meeting-facilitation
+
+Prepare agendas, discussion prompts, decisions, and record templates.
+
+- Use when: Use when the request asks Hermes to prepare a meeting, agenda, discussion guide, or follow-up record template.
+- Quality tier: `facilitation-gated`
+- Quality bar:
+  - Prepare agenda topics, prompts, decisions needed, and a record template from available context.
+  - Keep proposed agenda and action items separate from observed meeting outcomes.
+  - Ask for missing context that would change participants, decisions, or timing.
+- Inputs:
+  - meeting goal
+  - audience
+  - context
+  - decision topics
+- Outputs:
+  - agenda
+  - discussion prompts
+  - decisions needed
+  - record template
+- Stop conditions:
+  - agenda is coherent
+  - decisions needed are explicit
+  - actual outcomes remain unobserved
+- Verification:
+  - check missing context
+  - separate prep from outcomes
+  - include record template
+- Evidence ladder:
+  - `meeting_goal_scoped`
+  - `agenda_recorded`
+  - `discussion_prompts_recorded`
+  - `decisions_needed_recorded`
+  - `record_template_ready`
+- Wrapper actions:
+  - `show_agenda`
+  - `revise_brief`
+  - `record_decision`
+  - `show_status`
+- Artifact events:
+  - `meeting_context_scoped`
+  - `agenda_recorded`
+  - `record_template_recorded`
+- Delegation expectation: Record meeting prep only as prepared content unless observed meeting notes or decisions are supplied.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A prepared agenda is not evidence that a meeting happened.
+  - Draft action items are not observed decisions.
+- Fallback: If the meeting already happened, ask for observed notes before treating decisions as outcomes.
+
+### customer-insight-triage
+
+Cluster customer feedback and choose the next workflow without defaulting to coding.
+
+- Use when: Use when feedback, bugs, feature asks, or customer signals need classification before planning or implementation.
+- Quality tier: `triage-gated`
+- Quality bar:
+  - Scope the feedback source before clustering.
+  - Separate bug signals, feature asks, severity, opportunity, and evidence gaps.
+  - Recommend research, strategy, planning, or coding only as a next workflow, not as observed execution.
+- Inputs:
+  - feedback items or summary
+  - source boundary
+  - product area
+- Outputs:
+  - clusters
+  - severity or opportunity ranking
+  - next workflow recommendation
+- Stop conditions:
+  - source boundary is explicit
+  - clusters are labeled
+  - next workflow is conservative
+- Verification:
+  - separate bug signals from feature asks
+  - rank severity and opportunity
+  - avoid default coding handoff
+- Evidence ladder:
+  - `feedback_source_scoped`
+  - `clusters_recorded`
+  - `severity_opportunity_recorded`
+  - `next_workflow_recommended`
+- Wrapper actions:
+  - `show_triage`
+  - `ask_followup`
+  - `prepare_plan`
+  - `show_status`
+- Artifact events:
+  - `feedback_source_scoped`
+  - `feedback_cluster_recorded`
+  - `next_workflow_recorded`
+- Delegation expectation: Record feedback triage as Hermes-retained analysis; record coding handoff only after explicit accepted coding intent.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - Feedback triage is not a roadmap, implementation plan, or coding handoff by default.
+  - A bug signal is not proof that a fix was implemented or verified.
+- Fallback: If feedback items are too vague, ask for source or sample items before ranking severity.
+
+### ops-review
+
+Summarize observed operating status, risks, blockers, priorities, and follow-up actions.
+
+- Use when: Use when recurring work needs a weekly/status/operating review with evidence boundaries.
+- Quality tier: `status-gated`
+- Quality bar:
+  - Tie status claims to observed evidence or mark them as unknown.
+  - Separate risks, blockers, priorities, and follow-up actions.
+  - Do not infer review, CI, release, or merge readiness from an ops summary alone.
+- Inputs:
+  - status evidence
+  - scope
+  - time window
+  - known risks
+- Outputs:
+  - status summary
+  - risks
+  - blockers
+  - priorities
+  - follow-up actions
+- Stop conditions:
+  - status claims are evidence-bound
+  - risks and blockers are separated
+  - follow-ups are explicit
+- Verification:
+  - check evidence gaps
+  - separate facts from risks
+  - record follow-up ownership when known
+- Evidence ladder:
+  - `review_scope_recorded`
+  - `status_evidence_recorded`
+  - `risks_blockers_recorded`
+  - `priorities_recorded`
+  - `followups_recorded`
+- Wrapper actions:
+  - `show_status`
+  - `record_blocker`
+  - `record_checkpoint`
+  - `prepare_plan`
+- Artifact events:
+  - `ops_scope_recorded`
+  - `status_recorded`
+  - `followups_recorded`
+- Delegation expectation: Record ops review as Hermes-retained status work; execution evidence requires later observed task records.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - An ops review is not release, CI, review, merge, or implementation evidence.
+  - Missing evidence must stay unknown, not inferred green.
+- Fallback: If evidence is missing, produce a review scaffold and mark unknowns instead of claiming status.
+
+### operating-rhythm
+
+Maintain meeting, scrum, sprint, retro, decision, and follow-up history with prepared-vs-observed boundaries.
+
+- Use when: Use when recurring operating cadence records need durable structure or history.
+- Quality tier: `operations-gated`
+- Quality bar:
+  - Name cadence, audience, time window, known notes, and missing evidence before producing a record.
+  - Separate templates from observed minutes, decisions, and action items.
+  - Keep follow-up implementation outside the operating record until a separate handoff is accepted.
+- Inputs:
+  - cadence or meeting type
+  - audience or participants
+  - time window
+  - source notes or missing-notes boundary
+- Outputs:
+  - operation artifact
+  - decision log
+  - action item history
+  - observed/prepared boundary
+- Stop conditions:
+  - record structure is ready
+  - observed notes are separated from prepared shells
+  - unknown owners or decisions stay explicit
+- Verification:
+  - validate operation_artifact/v1
+  - check not_evidence_until_observed
+  - separate decisions from action items
+- Evidence ladder:
+  - `operation_rhythm_scoped`
+  - `record_structure_prepared`
+  - `decisions_actions_recorded`
+  - `status_boundary_recorded`
+- Wrapper actions:
+  - `show_record`
+  - `record_decision`
+  - `record_action`
+  - `export_markdown`
+  - `show_status`
+- Artifact events:
+  - `operation_rhythm_scoped`
+  - `record_structure_prepared`
+  - `decisions_actions_recorded`
+  - `status_boundary_recorded`
+- Delegation expectation: Record operating rhythm as Hermes-retained operations work; record implementation only from later accepted task records.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A prepared operating record is not evidence that a meeting, scrum, sprint, or retro happened.
+  - Draft decisions and action items are not accepted outcomes without supplied evidence.
+- Fallback: If notes are missing, create a prepared record shell and mark meeting outcomes not_observed.
+
+### report-package
+
+Package supplied inputs into reports, executive briefs, and PPT-ready Markdown/JSON outlines.
+
+- Use when: Use when report, deck, or upload-package work needs structured outputs without reliability coupling.
+- Quality tier: `report-gated`
+- Quality bar:
+  - Name audience, period, sections, supplied facts, assumptions, and missing data.
+  - Keep report packaging independent from SLO, incident, or error-budget review unless explicitly requested.
+  - Export only Markdown/JSON outline artifacts unless a presentation generator observes binary deck creation.
+- Inputs:
+  - audience
+  - reporting period or scope
+  - supplied facts
+  - assumptions or missing data
+- Outputs:
+  - report package
+  - PPT-ready Markdown or JSON outline
+  - assumptions and missing-input list
+- Stop conditions:
+  - audience and sections are explicit
+  - facts and assumptions are separated
+  - export scope is bounded
+- Verification:
+  - validate operation_artifact/v1
+  - check assumptions
+  - export Markdown/JSON only unless another tool makes a deck
+- Evidence ladder:
+  - `report_scope_recorded`
+  - `inputs_organized`
+  - `package_outline_prepared`
+  - `approval_boundary_recorded`
+- Wrapper actions:
+  - `show_report`
+  - `export_markdown`
+  - `export_json`
+  - `record_approval`
+  - `show_status`
+- Artifact events:
+  - `report_scope_recorded`
+  - `inputs_organized`
+  - `package_outline_prepared`
+  - `approval_boundary_recorded`
+- Delegation expectation: Record report packaging as Hermes-retained operations work; record stakeholder approval or presentation delivery only when observed.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A report package is not source-review completion, stakeholder approval, or presentation delivery evidence.
+  - A PPT-ready outline is not a binary PPTX export.
+  - Report packaging does not require reliability evidence unless the user asks for reliability review.
+- Fallback: If inputs are missing, produce a report scaffold and missing-data list instead of fabricating numbers.
+
+### materials-package
+
+Plan, hand off, and verify material-processing work across decks, PDFs, spreadsheets, documents, HWP, Markdown, and binary exports.
+
+- Use when: Use when a Hermes request needs target-format selection, source-input packaging, document-generation handoff, export tracking, or render/formula QA.
+- Quality tier: `material-gated`
+- Quality bar:
+  - Name audience, source inputs, target formats, outline sections, missing inputs, assumptions, and output owner.
+  - Represent Markdown/JSON outline, binary export, render QA, spreadsheet formula checks, approval, and delivery as separate stages.
+  - Keep PPTX, PDF, Keynote, DOCX, XLSX, HWP, upload, and delivery claims unavailable until observed file or wrapper evidence exists.
+- Inputs:
+  - audience or recipient
+  - source inputs
+  - target format(s)
+  - outline sections
+  - missing inputs or assumptions
+- Outputs:
+  - material_artifact/v1 plan
+  - format-specific QA ladder
+  - generation handoff when needed
+  - observed export boundary
+- Stop conditions:
+  - target formats are explicit
+  - missing inputs are recorded
+  - binary export and QA stay observed-only
+- Verification:
+  - validate material_artifact/v1
+  - check target format QA ladder
+  - record binary export only from observed files
+  - record approval or delivery only from observed evidence
+- Evidence ladder:
+  - `material_scope_recorded`
+  - `source_inputs_organized`
+  - `format_qa_ladder_prepared`
+  - `generation_handoff_prepared_if_needed`
+  - `export_qa_observed_when_available`
+- Wrapper actions:
+  - `show_material_plan`
+  - `choose_target_format`
+  - `prepare_generation_handoff`
+  - `record_export`
+  - `record_qa`
+  - `record_approval`
+  - `show_status`
+- Artifact events:
+  - `material_scope_recorded`
+  - `source_inputs_organized`
+  - `format_qa_ladder_prepared`
+  - `generation_handoff_prepared_if_needed`
+  - `export_qa_observed_when_available`
+- Delegation expectation: Record material packaging as Hermes-retained planning work; record file generation, QA, approval, upload, or delivery only when a wrapper/operator observes evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A material_artifact/v1 plan is not binary PPTX, PDF, Keynote, DOCX, XLSX, HWP, or upload evidence.
+  - Planned QA checks are not render QA, formula recalculation, approval, or delivery evidence.
+- Fallback: If source data or target format is missing, create a material scaffold and ask for the smallest missing input before generation.
+
+### img-summary
+
+Prepare source-specific, premium domain-aware, and poster-archetype-aware visual prompt cards for meetings, reports, PRs, issue feedback, research briefings, and release announcements without claiming image generation.
+
+- Use when: Use when Hermes should turn supplied source or structured card fields into a provider-neutral image-generation prompt card with an appropriate format profile, domain theme, poster archetype, premium background plate/texture/camera direction, and stable OMJ generated mark.
+- Quality tier: `visual-card-gated`
+- Quality bar:
+  - Use meeting, PR, issue, research, report, and release format profiles instead of one fixed grid.
+  - Use domain-aware premium background plates, real-feeling textures, camera treatment, lighting, and motifs so security looks like a security system, sports looks athletic, fashion looks editorial, and commerce looks retail/product-led.
+  - Use poster archetypes as distinct visual grammar, not color presets: sports_event should feel like an event poster, luxury_lookbook like a lookbook, technical_brutalist like a systems poster, and data_infographic like an analysis poster.
+  - Reject color-only restyling; require a rich photographed, cinematic, or high-end 3D environment under the readable modules rather than flat template variants.
+  - Keep the OMJ generated mark, evidence footer, and source badge stable even when the visual style changes.
+  - Keep visual card copy source-faithful and readable at the selected aspect ratio; extend the canvas when content needs more room.
+  - Represent structured sections and extractive drafts separately.
+  - Never treat connected image capability as generated image evidence.
+  - Keep generated image, visual QA, and delivery as separate observed records.
+- Inputs:
+  - source kind
+  - visual format
+  - poster archetype
+  - aspect ratio
+  - audience
+  - language mode
+  - headline or source text
+  - structured sections or extractive source excerpts
+- Outputs:
+  - visual_prompt_card/v1
+  - source-specific visual format
+  - detected domain_key
+  - domain-aware visual theme
+  - poster_archetype/v1
+  - poster archetype visual grammar
+  - premium background plate/scene/texture/camera/lighting direction
+  - image-safe card copy
+  - generation prompt
+  - negative prompt
+  - quality checks
+  - available wrapper actions
+- Stop conditions:
+  - prompt card is prepared
+  - copy mode is explicit
+  - format profile is source-specific
+  - visual theme is domain-aware
+  - poster archetype is explicit
+  - image generation, visual QA, and delivery remain observed-only
+- Verification:
+  - validate visual_prompt_card/v1
+  - check source kind and language mode
+  - check visual format and aspect ratio
+  - check top-level visual_theme and style_direction domain_key mirrors
+  - check visual_theme and OMJ generated format contract
+  - check poster_archetype/v1 and source/domain/archetype separation
+  - check scene_quality/background_plate/material_texture/depth_lighting/camera_treatment guidance
+  - ensure raw source uses extractive_draft copy mode
+  - record visual_observation/v1 only for supplied generated image, QA, or delivery evidence
+- Evidence ladder:
+  - `source_kind_selected`
+  - `visual_format_selected`
+  - `poster_archetype_selected`
+  - `card_copy_prepared`
+  - `prompt_card_prepared`
+  - `image_generation_capability_checked`
+  - `generated_image_observed_when_available`
+  - `visual_qa_observed_when_available`
+  - `delivery_observed_when_available`
+- Wrapper actions:
+  - `show_visual_prompt_card`
+  - `copy_visual_prompt`
+  - `revise_visual_card`
+  - `change_visual_language`
+  - `choose_image_generator`
+  - `setup_image_generator`
+  - `generate_visual_image`
+  - `record_visual_image`
+  - `record_visual_qa`
+  - `record_visual_delivery`
+  - `show_visual_status`
+- Artifact events:
+  - `visual_card_prepared`
+  - `generation_action_available_when_connected`
+  - `visual_observation_recorded_when_available`
+- Delegation expectation: Record img-summary as Hermes-retained prompt-card preparation; record image generation, visual QA, and delivery only from visual_observation/v1 evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A visual_prompt_card/v1 artifact is not generated image, visual QA, sharing, posting, attachment, or delivery evidence.
+  - An image_generation_setup/v1 fallback is connector preparation only, not generated image evidence.
+  - A connected image-generation capability changes available actions only; it is not execution evidence.
+  - A generated image observation does not prove visual QA or delivery.
+- Fallback: If image capability is unavailable, show choose/setup image tool fallback actions plus copy/revise/status actions, and keep generation prompt-only until capability is connected.
+
+### source-finder
+
+Prepare typed source candidates, acquisition states, observation provenance, and downstream workflow choices without doing network acquisition.
+
+- Use when: Use when Hermes should find, classify, or intake source candidates such as papers, links, datasets, GitHub repos, presentations, docs/specs, or unknown sources before downstream processing.
+- Quality tier: `source-acquisition-gated`
+- Quality bar:
+  - Keep source acquisition separate from current-source synthesis, paper explanation, recurring monitoring, materials export, and image cards.
+  - Use source_candidate_set/v1 instead of research-department's source_inbox/v1.
+  - Require observation provenance before reporting an observed acquisition state.
+  - Recommend a downstream workflow without claiming it already ran.
+- Inputs:
+  - source target or topic
+  - desired source kinds
+  - source boundaries or exclusions
+  - downstream intent when known
+- Outputs:
+  - source_finder_plan/v1
+  - source_candidate/v1
+  - source_candidate_set/v1
+  - source_acquisition_status/v1
+  - downstream workflow recommendation
+  - not-evidence boundary
+- Stop conditions:
+  - source kind and acquisition scope are named
+  - source candidates are prepared or observed with provenance
+  - downstream workflow is selected or explicitly unknown
+  - not-observed acquisition and verification gaps are listed
+- Verification:
+  - validate source_finder_plan/v1
+  - check source kind enum
+  - check acquisition state enum
+  - check observation provenance before observed claims
+  - verify not_evidence_until_observed lists search, download, extraction, license, verification, and downstream gaps
+- Evidence ladder:
+  - `source_scope_named`
+  - `source_kind_selected`
+  - `candidate_set_prepared`
+  - `acquisition_status_prepared`
+  - `observed_source_evidence_recorded_when_available`
+  - `downstream_workflow_selected`
+- Wrapper actions:
+  - `prepare_source_finder_plan`
+  - `show_source_candidates`
+  - `record_source_candidate`
+  - `record_source_link_observed`
+  - `record_download_observed`
+  - `record_file_hash`
+  - `record_text_extraction_observed`
+  - `record_license_check`
+  - `choose_source`
+  - `route_to_downstream_workflow`
+  - `show_acquisition_status`
+  - `show_status`
+- Artifact events:
+  - `source_scope_named`
+  - `source_kind_selected`
+  - `candidate_set_prepared`
+  - `acquisition_status_prepared`
+  - `observed_source_evidence_recorded_when_available`
+  - `downstream_workflow_selected`
+- Delegation expectation: Record source-finder as Hermes-retained acquisition planning; record search, download, clone, extraction, license, verification, and downstream processing only from observed evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A source_finder_plan/v1 artifact is not web search, download, clone, extraction, license check, source verification, or downstream processing evidence.
+  - A source candidate is not proof the source exists, is accessible, is licensed, or supports the user's claim until observed evidence exists.
+  - A downstream workflow recommendation is not proof that paper-learning, web-research, materials-package, research-department, or ultraprocess ran.
+- Fallback: If a request asks for current facts, citations, explanation, recurring monitoring, file packaging, or image-card generation, route to the narrower downstream workflow.
+
+### paper-learning
+
+Explain supplied papers or paper PDFs at a chosen level with full section coverage, source-state evidence, and observed-only validation boundaries.
+
+- Use when: Use when Hermes should tutor a user through a supplied paper, arXiv paper, paper PDF, pasted excerpt, or extracted paper text without reducing substantive content.
+- Quality tier: `paper-learning-gated`
+- Quality bar:
+  - Choose or ask for very_easy, moderate, or expert before drafting the explanation.
+  - Treat metadata, excerpt text, file extraction, and full text as separate source states.
+  - Preserve coverage with `coverage_preserving_not_lossy_summary` and a section ledger.
+  - Use chunked section-by-section explanation for long papers; never call an excerpt a full-paper explanation.
+  - Keep validation and correctness claims unavailable until observed evidence exists.
+- Inputs:
+  - paper identity or attachment reference
+  - observed text scope or extraction evidence
+  - explanation level
+  - coverage scope
+  - output language
+- Outputs:
+  - paper_learning_card/v1
+  - source_state boundary
+  - level contract
+  - coverage ledger
+  - section-by-section explanation outline
+  - missing-section and not-observed list
+- Stop conditions:
+  - level is selected or choose-level action is visible
+  - source/extraction state is recorded
+  - coverage ledger separates observed, missing, and prepared sections
+  - validation and extraction claims stay observed-only
+- Verification:
+  - validate paper_learning_card/v1
+  - check level and source_state enums
+  - check coverage ledger status for every section
+  - verify not_observed lists extraction, figure OCR, citation check, math validation, reproduction, and peer review gaps
+- Evidence ladder:
+  - `paper_source_scoped`
+  - `explanation_level_selected`
+  - `extraction_state_recorded`
+  - `coverage_ledger_prepared`
+  - `section_explanation_prepared`
+  - `user_review_or_revision_recorded_when_available`
+- Wrapper actions:
+  - `choose_explanation_level`
+  - `show_paper_source_requirements`
+  - `record_paper_metadata`
+  - `record_paper_excerpt_observed`
+  - `record_file_text_extraction_observed`
+  - `show_paper_learning`
+  - `continue_next_section`
+  - `revise_explanation_level`
+  - `show_coverage_ledger`
+  - `record_user_review`
+  - `show_status`
+- Artifact events:
+  - `paper_source_scoped`
+  - `explanation_level_selected`
+  - `extraction_state_recorded`
+  - `coverage_ledger_prepared`
+  - `section_explanation_prepared`
+  - `user_review_or_revision_recorded_when_available`
+- Delegation expectation: Record paper-learning as Hermes-retained explanation planning; record PDF extraction, OCR, external citation checks, math validation, reproduction, peer review, and user approval only from observed evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A paper_learning_card/v1 artifact is not full PDF extraction, figure OCR, citation checking, math validation, code reproduction, peer review, or proof that paper claims are true.
+  - A pasted abstract, title, DOI, arXiv id, or filename is not full-paper coverage.
+  - Expert-level explanation is not correctness validation.
+- Fallback: If only metadata exists, prepare the learning card and ask for observed text, attachment extraction evidence, or the next section before explaining full-paper coverage.
+
+### scheduled-ops-blueprint
+
+Prepare recurring Hermes operations as schedule/delivery/silence blueprints without claiming runtime execution.
+
+- Use when: Use when recurring, cron-like, digest, monitoring, or platform-delivery requests need a Hermes-native setup plan and status card.
+- Quality tier: `ops-blueprint-gated`
+- Quality bar:
+  - Name cadence, timezone uncertainty, delivery target, silence policy, selected skills, context chain, and missing decisions.
+  - Separate prepared host schedule guidance from observed Hermes automation or cron evidence.
+  - Separate delivery intent from gateway/platform delivery proof.
+  - Expose no-agent suitability only as a candidate classification unless no-agent runtime evidence is observed.
+- Inputs:
+  - recurring request
+  - cadence or schedule hint
+  - delivery target
+  - silence/no-change policy
+- Outputs:
+  - hermes_ops_blueprint/v1
+  - schedule/delivery/silence policy
+  - skill context chain
+  - not-evidence boundary
+- Stop conditions:
+  - blueprint is prepared
+  - missing schedule/delivery decisions are explicit
+  - runtime and delivery claims remain observed-only
+- Verification:
+  - validate hermes_ops_blueprint/v1
+  - check schedule/delivery/silence fields
+  - verify not_evidence_until_observed lists runtime and gateway claims
+- Evidence ladder:
+  - `blueprint_scope_recorded`
+  - `schedule_policy_prepared`
+  - `delivery_policy_prepared`
+  - `silence_policy_prepared`
+  - `context_chain_prepared`
+  - `runtime_observed_when_available`
+- Wrapper actions:
+  - `show_blueprint`
+  - `revise_schedule`
+  - `confirm_delivery_policy`
+  - `prepare_host_schedule`
+  - `record_observed_runtime`
+  - `show_status`
+- Artifact events:
+  - `blueprint_scope_recorded`
+  - `schedule_policy_prepared`
+  - `delivery_policy_prepared`
+  - `status_boundary_recorded`
+- Delegation expectation: Record scheduled ops blueprints as Hermes-retained projection metadata; record host automation, delivery, retrieval, or no-agent execution only from observed runtime evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A hermes_ops_blueprint/v1 artifact is not host cron creation, Hermes automation, gateway delivery, source retrieval, no-agent execution, plugin load, or connector evidence.
+  - A silence policy is not proof that a run happened or that there were no changes.
+  - No-agent suitability is only a design hint until a no-agent runtime record exists.
+- Fallback: If cadence, delivery, or silence policy is missing, prepare the blueprint and ask for the smallest missing confirmation.
+
+### research-department
+
+Prepare Scout, Analyst, and Briefer research operations with source inbox and briefing status boundaries.
+
+- Use when: Use when recurring or durable market, competitor, paper, news, or source-monitoring research should become a Hermes workflow pack.
+- Quality tier: `research-ops-gated`
+- Quality bar:
+  - Name topic, source boundaries, cadence, delivery target, knowledge-store destination, and synthesis-tool readiness.
+  - Map Scout, Analyst, and Briefer lanes to concrete OMJ skills and source inbox buckets.
+  - Expose collected, synthesized, briefed, conflict, and verification counts as status, not execution proof.
+  - List required evidence before claiming retrieval, synthesis-tool, knowledge-store, delivery, or verification.
+- Inputs:
+  - topic or watch area
+  - source boundaries
+  - cadence
+  - delivery target
+  - knowledge-store preference
+  - synthesis-tool preference
+- Outputs:
+  - research_department_plan/v1
+  - source_inbox/v1
+  - briefing_status/v1
+  - not-evidence boundary
+- Stop conditions:
+  - research lanes are prepared
+  - source inbox buckets are separated
+  - retrieval, synthesis, storage, delivery, and verification claims remain observed-only
+- Verification:
+  - validate research_department_plan/v1
+  - check Scout/Analyst/Briefer lane mapping
+  - verify not_evidence_until_observed lists retrieval, synthesis-tool, knowledge-store, scheduler, and delivery claims
+- Evidence ladder:
+  - `research_plan_scope_recorded`
+  - `source_inbox_prepared`
+  - `briefing_status_prepared`
+  - `tooling_readiness_prepared`
+  - `observed_evidence_recorded_when_available`
+- Wrapper actions:
+  - `show_research_department_plan`
+  - `revise_research_sources`
+  - `confirm_cadence_delivery_tooling`
+  - `record_source_observation`
+  - `show_status`
+- Artifact events:
+  - `research_plan_scope_recorded`
+  - `source_inbox_prepared`
+  - `briefing_status_prepared`
+  - `tooling_readiness_prepared`
+- Delegation expectation: Record research department plans as Hermes-retained projection metadata; record source retrieval, synthesis-tool output, knowledge-store writes, delivery, and verification only from observed evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A research_department_plan/v1 artifact is not source retrieval, synthesis-tool execution, knowledge-store writes, host cron creation, gateway delivery, or verification evidence.
+  - Source inbox buckets are not proof that source content was fetched or processed.
+  - Briefing status counts are only prepared status until matching source, synthesis, storage, delivery, or review evidence exists.
+- Fallback: If topic, sources, cadence, delivery, knowledge-store, or synthesis-tool preferences are missing, prepare the plan and ask for the smallest missing confirmation.
+
+### reliability-review
+
+Review incidents, SLOs, error budgets, and remediation follow-ups with strict observed evidence boundaries.
+
+- Use when: Use when SRE-style incident, postmortem, SLO, error-budget, or service reliability review is requested.
+- Quality tier: `reliability-gated`
+- Quality bar:
+  - Name service, incident/time window, SLO/error-budget target, source references, and missing observations.
+  - Separate supplied metrics, incident notes, assumptions, and remediation follow-ups.
+  - Keep SLO pass, error-budget health, incident closure, and remediation completion unobserved until evidence is supplied.
+- Inputs:
+  - service or incident scope
+  - time window
+  - metric/source references
+  - known remediation items or gaps
+- Outputs:
+  - reliability review
+  - evidence and missing-evidence list
+  - remediation follow-up boundary
+- Stop conditions:
+  - source or metric boundary is explicit
+  - missing evidence is recorded
+  - closure claims remain observed-only
+- Verification:
+  - validate operation_artifact/v1
+  - require source/metric/reference for observed claims
+  - check remediation status separately
+- Evidence ladder:
+  - `reliability_scope_recorded`
+  - `evidence_boundary_recorded`
+  - `review_prepared_or_observed`
+  - `remediation_boundary_recorded`
+- Wrapper actions:
+  - `show_evidence`
+  - `record_gap`
+  - `prepare_handoff`
+  - `record_metric`
+  - `show_status`
+- Artifact events:
+  - `reliability_scope_recorded`
+  - `evidence_boundary_recorded`
+  - `review_prepared_or_observed`
+  - `remediation_boundary_recorded`
+- Delegation expectation: Record reliability review as Hermes-retained evidence work; record remediation implementation only from later accepted executor evidence.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A reliability review is not SLO pass, healthy error-budget, incident closure, or remediation completion evidence.
+  - Remediation code changes require a separate accepted executor handoff and verification evidence.
+- Fallback: If metric or incident evidence is unavailable, produce a prepared review scaffold and mark closure evidence not_observed.
+
+### app-delivery-loop
+
+Run complete app operation loops from idea through decision, handoff, release, deploy, and monitor status.
+
+- Use when: Use when a Hermes wrapper needs a finished-product-feeling path for idea-to-deploy, CTO loops, or deploy-and-monitor work without hidden coding or infrastructure execution.
+- Quality tier: `delivery-gated`
+- Quality bar:
+  - Name the product or release objective, user/customer value, success metric, non-goals, and owner.
+  - Represent idea, decision, plan, handoff, verification, release, deploy, and monitor as separate stages.
+  - Keep coding work executor/runtime-neutral until a selected executor, runtime, or Hermes coding owner is chosen and a handoff is accepted.
+  - Keep deploy, monitoring, rollback, incident, review, CI, and merge claims unavailable until observed evidence exists.
+- Inputs:
+  - idea or release request
+  - success metric
+  - scope constraints
+  - evidence sources
+- Outputs:
+  - stage rail
+  - decision gates
+  - handoff or retained-work plan
+  - deploy/monitor status boundary
+- Stop conditions:
+  - next stage is accepted or blocked
+  - unobserved deploy/monitor claims stay explicit
+  - coding work has selected executor/runtime guidance when needed
+- Verification:
+  - check every stage has an owner
+  - separate prepared from observed
+  - record deploy and monitor only from evidence
+- Evidence ladder:
+  - `loop_scope_recorded`
+  - `decision_gate_recorded`
+  - `plan_or_release_gate_accepted`
+  - `handoff_prepared_if_needed`
+  - `verification_release_gate_recorded`
+  - `deploy_monitor_observed_when_available`
+- Wrapper actions:
+  - `show_delivery_loop`
+  - `accept_plan`
+  - `choose_executor`
+  - `prepare_handoff`
+  - `record_deploy`
+  - `record_monitor_signal`
+  - `show_status`
+- Artifact events:
+  - `delivery_loop_scoped`
+  - `decision_gate_recorded`
+  - `handoff_or_release_status_recorded`
+- Delegation expectation: Record app delivery loop evidence only when Hermes, a wrapper, or an operator observes stage acceptance, handoff, deploy, or monitoring events.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A prepared app delivery loop is not implementation, deploy, monitor, rollback, incident, review, CI, merge-readiness, or merge evidence.
+  - A CTO loop recommendation is not an accepted decision unless decision evidence is recorded.
+  - A health watchlist is not observed health evidence.
+- Fallback: If release scope, owner, or evidence is missing, show the loop scaffold and ask for the smallest missing decision before advancing.
+
+### goal-loop
+
+Run explicit loop invocations through agentic interviewer -> planner -> researcher -> builder -> reviewer -> loop-controller cycles, with task/project/ambition classification, bounded goal shaping, runtime ticks, handoff, feedback, waiting, and resumable status without hidden execution.
+
+- Use when: Use when a direct loop invocation or explicit long-horizon goal should keep progressing until a real gate, while still deciding whether the current item is a task, ambition, external wait, or truly loopable work over automation, worktree, skill, connector, subagent, and verification building blocks.
+- Quality tier: `loop-gated`
+- Quality bar:
+  - Confirm the direct loop trigger as a start/continue signal and do not stop at a picker or passive clarification card.
+  - Classify whether the goal is a task, project, ambition, external-wait outcome, or unclear request inside the running loop before choosing the next lane.
+  - Make the agentic role chain visible: interviewer, planner, researcher, builder, reviewer, and loop controller.
+  - Route direct tasks away from loop overhead and convert ambitions into a north star plus one bounded current loop goal.
+  - Confirm north-star goal, bounded arena, observable problem, next verification, reframe, success criteria, and permission profile before cycling.
+  - Separate implementable internal work from external outcomes such as stars, market reaction, adoption, or social distribution.
+  - Continue automatically only inside the selected authority envelope; otherwise surface a permission action.
+  - Use runtime ticks with deterministic queue shapes to prepare automation, worktree, skill, connector, subagent, and verification states, but require separate observed evidence before claiming those steps ran.
+  - Keep loop_engineering/v1 focused on bounded state and evidence refs rather than dumping large intermediate context into the parent loop.
+  - Use fan-out, adversarial verification, tournament, or triage-batch workflow patterns for research validation, support triage, or implementation review only when the extra lanes add evidence value.
+  - Keep the schema scaffold stable for repeated ticks and avoid re-scanning or re-emitting large context when evidence refs are enough.
+  - Use inner-loop checks for frequent cheap confidence and outer-loop checks for expensive semantic or integration confidence.
+  - Surface verification_gap, comprehension_debt, and cognitive_surrender before the loop continues without enough judgment.
+  - Keep small-loop guidance visible: test as stop signal, plan -> execute -> verify, one task at a time.
+  - Treat feedback as a gate: clear internal actionable gaps continue the loop; external waiting records a wait state.
+  - Never report goal completion from loop state unless linked goal_ledger/v1 completion evidence is ready.
+- Inputs:
+  - loopability assessment
+  - north-star goal summary when present
+  - bounded arena
+  - observable problem
+  - next verification
+  - reframed implementable target
+  - success criteria
+  - permission profile
+  - feedback or wait signal
+- Outputs:
+  - loopability_assessment/v1
+  - loop_start_card/v1 setup card
+  - loop_cycle/v1 artifact
+  - loop_engineering/v1 pipeline/building-block snapshot
+  - loop verification_policy for inner and outer checks
+  - loop_runtime/v1 queue entry with verification_plan
+  - loop_queue_handoff/v1 actionable handoff
+  - loop_subagent_result_contract/v1 when a subagent is planned
+  - loop_status_card/v1 next action with failure_mode_summary
+  - small_loop_guidance
+  - permission envelope
+  - linked goal or runtime evidence references when available
+- Stop conditions:
+  - goal is classified as task/project/ambition/external-wait/unclear
+  - next loop step is clear
+  - runtime tick queue is prepared, observed, or blocked with a reason
+  - automation/worktree/skill/connector/subagent block states are visible
+  - verification tier and stop signal are explicit
+  - failure-mode warnings are visible
+  - permission boundaries are explicit
+  - external waiting and context exhaustion are recorded
+  - goal completion claims are delegated to goal_ledger/v1
+- Verification:
+  - validate loopability_assessment/v1
+  - validate loop_cycle/v1
+  - inspect loop_engineering/v1 snapshot
+  - inspect loop_runtime/v1 queue verification_plan
+  - inspect loop_status_card/v1 failure_mode_summary
+  - inspect loop_queue_handoff/v1 when a queued item is actionable
+  - check linked goal_completion_gate/v1 before completion copy
+- Evidence ladder:
+  - `loop_triggered`
+  - `loopability_assessed`
+  - `goal_reframed`
+  - `permission_profile_recorded`
+  - `runtime_tick_queued`
+  - `verification_plan_attached`
+  - `research_plan_handoff_cycle_recorded`
+  - `feedback_gate_evaluated`
+  - `failure_modes_checked`
+  - `wait_or_resume_boundary_recorded`
+- Wrapper actions:
+  - `assess_loopability`
+  - `convert_to_loop_goal`
+  - `route_direct_task`
+  - `choose_permission_profile`
+  - `start_loop`
+  - `run_loop_once`
+  - `run_loop_tick`
+  - `show_loop_queue`
+  - `prepare_loop_handoff`
+  - `observe_loop_queue`
+  - `block_loop_queue`
+  - `show_loop_status`
+  - `prepare_handoff`
+  - `choose_executor`
+  - `show_status`
+- Artifact events:
+  - `loop_started`
+  - `permission_profile_recorded`
+  - `feedback_gate_recorded`
+  - `loop_status_card_rendered`
+- Delegation expectation: Record loop state as Hermes-retained orchestration; record executor/runtime dispatch, implementation, review, CI, merge, and external publication only when observed by a linked runtime or operator artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A loop_cycle/v1 artifact is not proof that coding, review, CI, merge, or external publication happened.
+  - A loop_runtime/v1 tick is not proof that a worktree, subagent, connector, or executor actually ran.
+  - A loop verification_plan is not proof that verification passed.
+  - A full-loop permission profile is still bounded by observed evidence and explicit external-production authority.
+  - External outcomes stay waiting_external_observation until evidence is recorded.
+- Fallback: If no wrapper or CLI artifact is available, keep a visible checklist with the same permission profile and evidence boundaries.
+
+### deep-interview
+
+Clarify intent and boundaries one question at a time before planning or execution.
+
+- Use when: Use when intent, scope, non-goals, or decision authority are unclear.
+- Quality tier: `clarity-gated`
+- Quality bar:
+  - Name the missing decision, why it matters, and the smallest answer that would unblock the next step.
+  - Ask one blocking question tied to a missing decision.
+  - Use discovered facts before asking the user for information already available locally.
+  - Produce a clarified brief with non-goals, acceptance criteria, and remaining unknowns before planning or handoff.
+- Inputs:
+  - initial idea
+  - current ambiguity
+  - known repo facts
+- Outputs:
+  - clarified spec
+  - non-goals
+  - decision boundaries
+  - acceptance criteria
+- Stop conditions:
+  - ambiguity is low enough
+  - non-goals and decision boundaries are explicit
+- Verification:
+  - pressure-test assumptions
+  - capture transcript or summary
+- Evidence ladder:
+  - `ambiguity_identified`
+  - `blocking_question_asked`
+  - `answer_recorded`
+  - `clarified_brief_ready`
+- Wrapper actions:
+  - `answer:clarify`
+  - `cancel`
+  - `rerun_plan`
+- Artifact events:
+  - `interview_started`
+  - `question_asked`
+  - `clarity_recorded`
+- Delegation expectation: Record a delegated interviewer only when Hermes exposes that lane; otherwise record sequential clarification.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A clarification question is not a plan approval.
+  - Do not start a handoff while the blocking decision is unanswered.
+- Fallback: If structured question UI is unavailable, ask one direct question in the current surface.
+
+### architect
+
+Evaluate system boundaries, integration choices, and long-term maintainability.
+
+- Use when: Use when a plan touches architecture, runtime integration, extension boundaries, or shared contracts.
+- Quality tier: `boundary-gated`
+- Quality bar:
+  - Check the proposed change against documented product and module boundaries.
+  - Name rejected alternatives and long-term maintenance tradeoffs.
+  - Require clear approval or concrete requested changes before implementation.
+- Inputs:
+  - plan
+  - context
+  - constraints
+  - existing architecture evidence
+- Outputs:
+  - architecture verdict
+  - tradeoff tension
+  - required changes or clear approval
+- Stop conditions:
+  - boundary risks are addressed
+  - chosen approach fits current architecture
+- Verification:
+  - steelman the strongest antithesis
+  - check integration claims against evidence
+- Evidence ladder:
+  - `architecture_context_loaded`
+  - `tradeoffs_recorded`
+  - `boundary_verdict_recorded`
+- Wrapper actions:
+  - `show_review`
+  - `revise_plan`
+  - `approve_plan`
+- Artifact events:
+  - `architecture_review_started`
+  - `tradeoff_recorded`
+  - `verdict_recorded`
+- Delegation expectation: Record architect delegation only when Hermes exposes an architect lane or wrapper-side role result.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - Sequential self-review is not observed architect delegation.
+  - Architecture approval does not imply implementation or test success.
+- Fallback: If delegation is unavailable, run a separate self-review pass before coding.
+
+### critic
+
+Challenge plan consistency, quality criteria, and missing verification.
+
+- Use when: Use after planning or before release when a bad assumption would be costly.
+- Quality tier: `finding-gated`
+- Quality bar:
+  - Challenge plan consistency, missing verification, and weak acceptance criteria.
+  - Rank concrete findings before summaries.
+  - Approve only when residual risks and test gaps are explicit.
+- Inputs:
+  - plan
+  - test spec
+  - architect review
+  - user constraints
+- Outputs:
+  - approval or requested changes
+  - critical findings
+  - residual risks
+- Stop conditions:
+  - quality criteria are testable
+  - risks have mitigations
+  - alternatives are fair
+- Verification:
+  - check principle-option consistency
+  - reject vague acceptance criteria
+- Evidence ladder:
+  - `review_scope_loaded`
+  - `findings_recorded`
+  - `verdict_recorded`
+  - `residual_risk_recorded`
+- Wrapper actions:
+  - `show_findings`
+  - `request_changes`
+  - `approve_plan`
+- Artifact events:
+  - `critic_review_started`
+  - `finding_recorded`
+  - `verdict_recorded`
+- Delegation expectation: Record critic delegation only when Hermes exposes a critic lane or wrapper-side role result.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A critic verdict is not code-review evidence unless tied to actual diff/files.
+  - Approval cannot erase missing downstream verification.
+- Fallback: If no critic role exists, do a bug-first checklist review and cite concrete evidence.
+
+### qa-specialist
+
+Design adversarial scenarios and verify user-visible behavior before completion.
+
+- Use when: Use when changes affect workflows, installer behavior, docs examples, or routing claims.
+- Quality tier: `scenario-gated`
+- Quality bar:
+  - Derive adversarial scenarios from user-visible behavior and changed surfaces.
+  - Record pass/fail evidence for critical scenarios.
+  - Turn discovered code fixes into executor handoffs.
+- Inputs:
+  - acceptance criteria
+  - changed behavior
+  - fixtures or runnable commands
+- Outputs:
+  - test matrix
+  - hostile scenarios
+  - pass/fail evidence
+- Stop conditions:
+  - critical scenarios pass
+  - known manual gaps are listed
+- Verification:
+  - run targeted tests
+  - cover failure modes and recovery paths
+- Evidence ladder:
+  - `scenario_matrix_defined`
+  - `checks_run`
+  - `pass_fail_recorded`
+  - `fix_followup_recorded_if_needed`
+- Wrapper actions:
+  - `show_status`
+  - `record_check`
+  - `record_blocker`
+- Artifact events:
+  - `qa_started`
+  - `scenario_recorded`
+  - `pass_fail_recorded`
+- Delegation expectation: Record QA delegation only when Hermes exposes a QA lane or wrapper-side QA result.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A scenario list is not pass evidence.
+  - Failed QA cannot be summarized as complete without a blocker or fix record.
+- Fallback: If runtime automation is unavailable, use fixtures and document manual checks.
+
+### docs-specialist
+
+Keep public docs accurate, installable, and aligned with actual behavior.
+
+- Use when: Use whenever user-facing commands, routing behavior, examples, or release posture change.
+- Quality tier: `claim-gated`
+- Quality bar:
+  - Check public claims against implemented behavior and known limitations.
+  - Keep examples reproducible and avoid presenting roadmap as current capability.
+  - Regenerate generated references from catalog data instead of hand-editing them.
+- Inputs:
+  - changed behavior
+  - commands
+  - limitations
+  - audience
+- Outputs:
+  - README/docs updates
+  - examples
+  - troubleshooting notes
+- Stop conditions:
+  - docs match behavior
+  - claims are conservative
+  - examples are reproducible
+- Verification:
+  - run public-content scans
+  - verify commands and file references
+- Evidence ladder:
+  - `claims_scoped`
+  - `docs_updated`
+  - `generated_docs_checked`
+  - `public_claims_verified`
+- Wrapper actions:
+  - `show_docs`
+  - `record_claim_check`
+  - `show_status`
+- Artifact events:
+  - `docs_review_started`
+  - `claim_checked`
+  - `docs_updated`
+- Delegation expectation: Record docs delegation only when Hermes exposes a docs lane or wrapper-side docs result.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - Documentation of a future surface is not proof that evidence was observed.
+  - Generated docs must match catalog data before release claims are made.
+- Fallback: If behavior is not implemented yet, label it as roadmap instead of current capability.
+
+### github-event-ops
+
+Route GitHub PR, issue, CI, and review events into triage, review, labeling, or fix-handoff guidance.
+
+- Use when: Use when a GitHub event payload or copied event summary should become a Hermes workflow card.
+- Quality tier: `event-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - event type
+  - repository or project
+  - event summary
+  - desired automation boundary
+- Outputs:
+  - github_event_ops/v1
+  - route decision
+  - label/review/fix-handoff candidates
+  - not-evidence list
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `event_received`
+  - `event_classified`
+  - `route_card_prepared`
+  - `mutation_observed_when_available`
+- Wrapper actions:
+  - `show_event_card`
+  - `prepare_review`
+  - `prepare_label`
+  - `prepare_fix_handoff`
+  - `record_github_observation`
+- Artifact events:
+  - `github-event-ops_scoped`
+  - `github-event-ops_card_prepared`
+  - `github-event-ops_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A GitHub event card is not webhook delivery, API mutation, label application, review completion, CI rerun, or fix execution evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### agent-board
+
+Coordinate multi-Hermes-agent or profile work as board cards with task, handoff, heartbeat, blocker, and completion states.
+
+- Use when: Use when target topology or team profile work needs board-style status rather than plain chat summaries.
+- Quality tier: `board-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - board scope
+  - known agents or profiles
+  - task cards
+  - current target/thread
+- Outputs:
+  - agent_board/v1
+  - card states
+  - target-scoped status
+  - blocked or complete evidence boundary
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `board_scoped`
+  - `cards_prepared`
+  - `heartbeat_recorded_when_available`
+  - `completion_recorded_when_available`
+- Wrapper actions:
+  - `show_board`
+  - `move_card`
+  - `record_heartbeat`
+  - `record_blocker`
+  - `record_completion`
+- Artifact events:
+  - `agent-board_scoped`
+  - `agent-board_card_prepared`
+  - `agent-board_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A board state is not proof that another Hermes target accepted, worked, heartbeat-ed, or completed unless target-specific evidence exists.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### memory-curation-review
+
+Review stale, conflicting, duplicate, or risky memory and skill guidance with explicit approve/reject/update actions.
+
+- Use when: Use when accumulated memory, USER/MEMORY files, or skill notes need human-approved cleanup.
+- Quality tier: `curation-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - memory source summary
+  - candidate memories or skills
+  - staleness/conflict signal
+  - review owner
+- Outputs:
+  - memory_curation_review/v1
+  - approve/reject/update candidates
+  - conflicts
+  - write boundary
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `memory_candidates_scoped`
+  - `conflicts_ranked`
+  - `review_actions_prepared`
+  - `approved_write_observed_when_available`
+- Wrapper actions:
+  - `show_memory_review`
+  - `approve_update`
+  - `reject_update`
+  - `record_memory_write`
+  - `show_status`
+- Artifact events:
+  - `memory-curation-review_scoped`
+  - `memory-curation-review_card_prepared`
+  - `memory-curation-review_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A memory review is not Hermes internal memory, MEMORY.md, USER.md, or skill-file modification evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### gateway-intent-card
+
+Normalize gateway session policy for origin, thread, delivery, silent updates, attachments, and status updates.
+
+- Use when: Use when Discord, Slack, Telegram, or another gateway wrapper needs platform-neutral intent before delivery.
+- Quality tier: `gateway-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - origin platform
+  - thread/session id or boundary
+  - delivery target
+  - silence and attachment policy
+- Outputs:
+  - gateway_intent_card/v1
+  - delivery policy
+  - status-update policy
+  - not-evidence list
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `origin_scoped`
+  - `thread_policy_prepared`
+  - `delivery_policy_prepared`
+  - `delivery_observed_when_available`
+- Wrapper actions:
+  - `show_gateway_card`
+  - `confirm_delivery`
+  - `record_delivery`
+  - `record_attachment`
+  - `show_status`
+- Artifact events:
+  - `gateway-intent-card_scoped`
+  - `gateway-intent-card_card_prepared`
+  - `gateway-intent-card_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A gateway intent card is not login, platform send, thread mutation, attachment upload, or delivery evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### executor-runtime-readiness
+
+Compare executor/runtime options by available tools, missing tools, credentials, authority, and handoff mode.
+
+- Use when: Use before choosing Codex, Claude Code, Hermes coding, or an oh-my runtime for coding or tool-backed work.
+- Quality tier: `runtime-readiness-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - task shape
+  - candidate runtime
+  - available tools
+  - missing credentials or authority
+- Outputs:
+  - executor_runtime_readiness/v1
+  - runtime matrix
+  - handoff mode
+  - missing tool list
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `task_runtime_scoped`
+  - `tool_matrix_prepared`
+  - `handoff_mode_selected`
+  - `runtime_dispatch_observed_when_available`
+- Wrapper actions:
+  - `show_runtime_matrix`
+  - `choose_executor`
+  - `prepare_handoff`
+  - `record_dispatch`
+  - `show_status`
+- Artifact events:
+  - `executor-runtime-readiness_scoped`
+  - `executor-runtime-readiness_card_prepared`
+  - `executor-runtime-readiness_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - Runtime readiness is not executor dispatch, plugin load, tool invocation, code execution, review, CI, or merge evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### deliverable-package
+
+Track file deliverables through prepared, generated, QA, approved, attached, and delivered states.
+
+- Use when: Use when Hermes should prepare or status a PPT/PDF/XLSX/DOCX/HWP/Markdown deliverable in chat.
+- Quality tier: `deliverable-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - source inputs
+  - target formats
+  - audience
+  - delivery or attachment target
+- Outputs:
+  - deliverable_package/v1
+  - format plan
+  - QA ladder
+  - attachment/delivery state
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `deliverable_scoped`
+  - `format_plan_prepared`
+  - `generation_handoff_prepared`
+  - `file_observed_when_available`
+  - `attachment_observed_when_available`
+- Wrapper actions:
+  - `show_deliverable_card`
+  - `choose_format`
+  - `prepare_generation_handoff`
+  - `record_file`
+  - `record_attachment`
+- Artifact events:
+  - `deliverable-package_scoped`
+  - `deliverable-package_card_prepared`
+  - `deliverable-package_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A deliverable package card is not binary generation, render QA, formula recalculation, approval, upload, attachment, or delivery evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### voice-operator
+
+Convert terse voice/mobile requests into safe clarify, plan, status, handoff, or confirmation actions.
+
+- Use when: Use when the input is short, ambiguous, mobile, voice-like, or accessibility-sensitive.
+- Quality tier: `accessibility-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - voice/mobile transcript
+  - confidence or ambiguity
+  - current thread context
+  - risk level
+- Outputs:
+  - voice_operator/v1
+  - clarification or action card
+  - confirmation requirement
+  - status copy
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `voice_request_received`
+  - `ambiguity_checked`
+  - `safe_action_prepared`
+  - `confirmation_observed_when_required`
+- Wrapper actions:
+  - `ask_clarification`
+  - `confirm_action`
+  - `show_status`
+  - `prepare_handoff`
+- Artifact events:
+  - `voice-operator_scoped`
+  - `voice-operator_card_prepared`
+  - `voice-operator_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A voice operator card is not speech recognition proof, mobile notification delivery, platform action, or accepted execution evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### toolbelt-readiness
+
+Check required MCP servers, CLIs, APIs, credentials, connectors, and local tools for a workflow.
+
+- Use when: Use when a workflow may require external tools and the user needs installed, missing, optional, and unsafe tool state.
+- Quality tier: `tool-readiness-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - workflow goal
+  - required tools
+  - known environment
+  - credential policy
+- Outputs:
+  - toolbelt_readiness/v1
+  - tool matrix
+  - missing credentials
+  - safe next action
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `workflow_tools_scoped`
+  - `tool_requirements_listed`
+  - `installed_state_recorded_when_available`
+  - `credential_gaps_recorded`
+- Wrapper actions:
+  - `show_toolbelt`
+  - `open_setup`
+  - `record_tool_check`
+  - `prepare_handoff`
+  - `show_status`
+- Artifact events:
+  - `toolbelt-readiness_scoped`
+  - `toolbelt-readiness_card_prepared`
+  - `toolbelt-readiness_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A toolbelt readiness card is not MCP installation, credential validation, API access, connector invocation, or successful workflow execution evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### ops-observability-card
+
+Report wrapper-safe token, cost, latency, run history, queue, and failure-mode telemetry boundaries.
+
+- Use when: Use when automation, loops, gateway work, or executor sessions need safe observability and cost/status narration.
+- Quality tier: `observability-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - workflow/run id
+  - available telemetry
+  - cost/token policy
+  - history window
+- Outputs:
+  - ops_observability_card/v1
+  - telemetry summary
+  - cost/latency boundary
+  - failure-mode warnings
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `telemetry_scope_recorded`
+  - `local_metrics_summarized`
+  - `failure_modes_checked`
+  - `provider_truth_observed_when_available`
+- Wrapper actions:
+  - `show_observability`
+  - `record_metric`
+  - `record_failure_mode`
+  - `show_status`
+- Artifact events:
+  - `ops-observability-card_scoped`
+  - `ops-observability-card_card_prepared`
+  - `ops-observability-card_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - An ops observability card is not billing truth, provider quota truth, complete tracing, performance proof, or workflow completion evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### agent-ops-review
+
+Prepare a manager-facing quality and throughput review for AI-agent research, coding, review, and status work.
+
+- Use when: Use when a third-party operator or team lead wants to understand progress, blockers, quality gates, next actions, and safe throughput levers without running shell catalog commands.
+- Quality tier: `manager-review-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - manager request
+  - work context or run/session references when available
+  - target outcome
+  - known evidence gaps
+- Outputs:
+  - agent_operator_productivity/v1
+  - agent_operator_status_card/v1
+  - quality lanes
+  - blockers
+  - next action
+  - throughput levers
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `manager_scope_recorded`
+  - `quality_lanes_prepared`
+  - `evidence_gaps_named`
+  - `next_action_selected`
+  - `runtime_observation_recorded_when_available`
+- Wrapper actions:
+  - `show_agent_ops_review`
+  - `choose_ops_lane`
+  - `prepare_research_lane`
+  - `prepare_coding_lane`
+  - `prepare_review_lane`
+  - `refresh_agent_ops_status`
+  - `record_agent_ops_observation`
+- Artifact events:
+  - `agent-ops-review_scoped`
+  - `agent-ops-review_card_prepared`
+  - `agent-ops-review_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - An agent ops review card is not source retrieval, executor dispatch, implementation, verification, review, CI, merge, delivery, provider billing, or live telemetry evidence.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.
+
+### workflow-learning
+
+Record workflow attempts as metadata-only learning traces, deterministic evals, missed-route review bundles, review-only improvement candidates, non-applying patch proposals, regression cases, readiness audits, a repairable learning index, and redacted review exports.
+
+- Use when: Use after chat routing, wrapper sessions, runtime runs, or manual feedback should improve future workflow behavior without hidden self-modification, when Hermes did not use the expected OMJ workflow, when local learning readiness needs audit, when a reviewer needs the candidate/proposal queue, when an approved candidate needs a patch handoff proposal, when the local learning index needs check/rebuild, or when a reviewer needs a metadata-only learning bundle.
+- Quality tier: `learning-gated`
+- Quality bar:
+  - Name the workflow objective, owner, input boundary, next action, and stop condition.
+  - Represent prepared, observed, blocked, and missing evidence as separate states.
+  - Never upgrade a card, blueprint, or readiness check into external execution proof.
+- Inputs:
+  - source trace or run id
+  - selected workflow
+  - observed evidence refs when available
+  - feedback or failure summary
+- Outputs:
+  - workflow_learning_trace/v1
+  - workflow_eval_result/v1
+  - learning_missed_route_result/v1
+  - improvement_candidate/v1
+  - improvement_candidate_review_card/v1
+  - workflow_learning_review_queue/v1
+  - improvement_patch_proposal/v1
+  - regression_case/v1
+  - workflow_learning_audit/v1
+  - learning_audit_card/v1
+  - workflow_learning_export/v1
+- Stop conditions:
+  - card is prepared or a missing decision is surfaced
+  - observed evidence is separated from prepared guidance
+- Verification:
+  - validate required fields
+  - check not-evidence boundaries
+  - record only observed external actions
+- Evidence ladder:
+  - `trace_recorded`
+  - `eval_recorded`
+  - `improvement_candidate_reviewed`
+  - `regression_case_recorded`
+  - `learning_readiness_audited`
+  - `learning_index_checked`
+  - `learning_export_recorded`
+  - `future_replay_passed_when_available`
+- Wrapper actions:
+  - `record_workflow_learning_trace`
+  - `record_missed_route`
+  - `show_learning_review_queue`
+  - `show_learning_eval`
+  - `propose_skill_improvement`
+  - `review_improvement`
+  - `approve_improvement`
+  - `revise_improvement`
+  - `reject_improvement`
+  - `prepare_patch_proposal`
+  - `show_patch_proposal`
+  - `copy_patch_handoff`
+  - `add_regression_case`
+  - `audit_learning_readiness`
+  - `export_learning_bundle`
+  - `replay_regression_cases`
+  - `check_learning_index`
+  - `rebuild_learning_index`
+  - `show_status`
+- Artifact events:
+  - `workflow-learning_scoped`
+  - `workflow-learning_card_prepared`
+  - `workflow-learning_status_recorded`
+- Delegation expectation: Record this harness as Hermes-retained orchestration; external runtime/platform/file/memory/connector evidence requires a separate observed artifact.
+- Privacy default: `metadata_only`
+- Overclaim guards:
+  - A workflow learning artifact or export bundle is not automatic model training, skill mutation, execution, verification, review, CI, merge, or proof that future behavior is fixed.
+- Fallback: If a required target, credential, runtime, or observation is missing, show a blocker or confirmation action instead of claiming completion.

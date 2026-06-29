@@ -1,0 +1,44 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+.env
+.env.*
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.whl
+
+# Local agent/runtime artifacts
+.hermes/
+.omh/
+.omc/
+.loop/
+
+# Agent / workflow runtime artifacts (not part of the shipped product)
+.jeo/
+.ouroboros/
+.codegraph/
+graphify-out/
+
+# Local resolver artifacts
+uv.lock
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp

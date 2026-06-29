@@ -1,0 +1,24 @@
+oh-my-jeo
+=========
+
+oh-my-jeo is a derivative work of oh-my-hermes.
+
+Upstream project : oh-my-hermes
+Upstream author  : @rlaope and the oh-my-hermes contributors
+Upstream source  : https://github.com/rlaope/oh-my-hermes
+Upstream license : MIT License (see LICENSE)
+
+The oh-my-hermes engine, skill catalog, command surface, plugin bundle, and
+documentation corpus are inherited under the terms of the MIT License. The
+original copyright notice is retained in LICENSE.
+
+Changes made in oh-my-jeo:
+  - oh-my-jeo brand identity, README, and architecture/workflow visualization
+    (assets/oh-my-jeo-architecture.svg).
+  - oh-my-jeo agent specification (docs/OH_MY_JEO_AGENT_SPEC.md) describing an
+    independent coding-agent profile layered on the inherited contract engine.
+  - Framework analysis filed to the shared llm-wiki knowledge vault.
+
+The Python package import namespace and CLI entry point (`omj`) are retained
+from upstream for binary/skill-catalog compatibility; the `omj` brand is layered
+on top. See README.md ("Origin & attribution") for details.

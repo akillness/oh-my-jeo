@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oh-my-jeo"
+version = "1.0.1"
+description = "Install a Hermes-native skill and workflow pack for the oh-my-jeo coding agent."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "oh-my-jeo maintainers" }]
+dependencies = []
+keywords = ["hermes", "agent", "skills", "workflow", "automation"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Software Development",
+]
+
+[project.scripts]
+omj = "omj.cli:main"
+omh = "omj.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/akillness/oh-my-jeo"
+Issues = "https://github.com/akillness/oh-my-jeo/issues"
+Repository = "https://github.com/akillness/oh-my-jeo"
+
+[tool.setuptools]
+packages = [
+  "omj",
+  "omh",
+  "omj.capabilities",
+  "omj.catalogs",
+  "omj.cli",
+  "omj.codegraph",
+  "omj.coding",
+  "omj.commands",
+  "omj.core",
+  "omj.install",
+  "omj.maintenance",
+  "omj.mcp",
+  "omj.plugin_bundle",
+  "omj.plugin_bundle.omj",
+  "omj.plugin_bundle.omj.hooks",
+  "omj.plugin_bundle.omj.references",
+  "omj.plugin_bundle.omj.tools",
+  "omj.profiles",
+  "omj.quality",
+  "omj.routing",
+  "omj.runtime",
+  "omj.skills",
+  "omj.surfaces",
+  "omj.system",
+  "omj.workflows",
+  "omj.wrapper",
+]
+
+[tool.setuptools.package-dir]
+"omj" = "src/omj"
+"omh" = "src/omh"
+"omj.capabilities" = "src/capabilities"
+"omj.catalogs" = "src/catalogs"
+"omj.codegraph" = "src/codegraph"
+"omj.coding" = "src/coding"
+"omj.commands" = "src/commands"
+"omj.core" = "src/core"
+"omj.install" = "src/install"
+"omj.maintenance" = "src/maintenance"
+"omj.mcp" = "src/mcp"
+"omj.plugin_bundle" = "src/plugin_bundle"
+"omj.profiles" = "src/profiles"
+"omj.quality" = "src/quality"
+"omj.routing" = "src/routing"
+"omj.runtime" = "src/runtime"
+"omj.skills" = "src/skills"
+"omj.surfaces" = "src/surfaces"
+"omj.system" = "src/system"
+"omj.workflows" = "src/workflows"
+"omj.wrapper" = "src/wrapper"
+
+[tool.setuptools.package-data]
+"omj.plugin_bundle.omj" = ["plugin.yaml", "config.yaml"]
+"omj.plugin_bundle.omj.references" = ["*.md"]

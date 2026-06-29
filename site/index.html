@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OMJ - Hermes-native workflow contracts</title>
+    <meta
+      name="description"
+      content="OMJ turns natural Hermes chat into renderable workflow contracts, local evidence boundaries, and selected-executor handoffs without replacing Hermes."
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="home-page">
+    <header class="topbar" aria-label="Primary">
+      <a class="brand brand--link" href="./">OMJ</a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="docs/">Docs</a>
+        <a href="docs/hermes-agent-architecture/">Hermes Deepdive</a>
+        <a
+          class="nav__icon"
+          href="https://github.com/rlaope/oh-my-hermes"
+          aria-label="Open OMJ repository on GitHub"
+          title="GitHub repository"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.58 2 12.22c0 4.52 2.87 8.35 6.85 9.7.5.09.68-.22.68-.49v-1.73c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.56 2.35 1.11 2.92.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.71 0 0 .84-.28 2.75 1.05A9.37 9.37 0 0 1 12 6.92c.85 0 1.7.12 2.5.35 1.9-1.33 2.74-1.05 2.74-1.05.55 1.4.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.8c0 .27.18.58.69.48A10.06 10.06 0 0 0 22 12.22C22 6.58 17.52 2 12 2Z"></path>
+          </svg>
+        </a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="home-hero" aria-labelledby="home-title">
+        <div class="home-hero__media" aria-hidden="true"></div>
+        <div class="home-hero__grid" aria-hidden="true"></div>
+        <div class="home-hero__content">
+          <p class="home-kicker">Hermes-native workflow contracts</p>
+          <h1 id="home-title">OMJ</h1>
+          <p class="home-statement">Hermes chat in. Renderable workflow contract out.</p>
+          <p class="home-lead">
+            oh-my-jeo makes the safe next step visible inside the Hermes
+            workflow you already use: route a natural request, prepare the
+            right plan or handoff, and keep every execution claim tied to local
+            evidence.
+          </p>
+          <div class="home-actions" role="group" aria-label="Primary actions">
+            <a class="button button--primary" href="docs/">Read the docs</a>
+            <a class="button" href="#install">Install OMJ</a>
+          </div>
+          <div class="home-command" role="region" aria-label="OMJ quick start commands" tabindex="0">
+            <span>Quick start</span>
+            <code>curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+omj setup
+omj doctor</code>
+          </div>
+        </div>
+
+        <div class="contract-console" role="region" aria-label="OMJ chat contract preview">
+          <div class="contract-console__bar">
+            <span></span>
+            <span></span>
+            <span></span>
+            <strong>chat_interaction/v1</strong>
+          </div>
+          <div class="chat-card chat-card--user">
+            <span>Hermes message</span>
+            <p>I want to safely add a feature to this repo.</p>
+          </div>
+          <div class="route-stack" role="group" aria-label="Route result">
+            <div>
+              <span>route</span>
+              <strong>request-to-handoff</strong>
+            </div>
+            <div>
+              <span>owner</span>
+              <strong>planner</strong>
+            </div>
+            <div>
+              <span>next action</span>
+              <strong>present safe plan</strong>
+            </div>
+          </div>
+          <div class="contract-ladder" role="group" aria-label="Evidence boundary">
+            <div class="contract-ladder__row contract-ladder__row--ready">
+              <span>ready</span>
+              <strong>route and role</strong>
+            </div>
+            <div class="contract-ladder__row">
+              <span>gated</span>
+              <strong>executor choice</strong>
+            </div>
+            <div class="contract-ladder__row">
+              <span>gated</span>
+              <strong>execution evidence</strong>
+            </div>
+          </div>
+          <p class="contract-console__note">Prepared is not observed.</p>
+        </div>
+      </section>
+
+      <section class="signal-strip" aria-label="OMJ trust signals">
+        <div>
+          <span>Surface</span>
+          <strong>Hermes stays chat-first</strong>
+        </div>
+        <div>
+          <span>Contracts</span>
+          <strong>Wrappers render state</strong>
+        </div>
+        <div>
+          <span>Evidence</span>
+          <strong>Local and inspectable</strong>
+        </div>
+        <div>
+          <span>Execution</span>
+          <strong>Selected executor owns code</strong>
+        </div>
+      </section>
+
+      <section class="home-section home-section--light" id="product">
+        <div class="section-heading">
+          <p class="home-kicker">Why OMJ exists</p>
+          <h2>The fit layer between plain Hermes requests and trustworthy work.</h2>
+          <p>
+            OMJ is not another dashboard to learn. It gives Hermes deterministic
+            local contracts for routing, status, planning, capabilities,
+            plugin observations, and coding handoffs while the user keeps
+            speaking in normal chat.
+          </p>
+          <p>
+            Modern OMJ is a contract system, not a command catalog. Wrapper
+            surfaces can render <code>omj_interact</code>,
+            <code>chat_response/v1</code>, and
+            <code>coding_runtime_handoff/v1</code> without turning a prepared
+            next step into observed work.
+          </p>
+        </div>
+        <div class="product-grid">
+          <article class="product-card">
+            <span>01</span>
+            <h3>Classify the request</h3>
+            <p>
+              Natural messages become responsible roles, workflow lanes, and
+              first safe actions without asking users to memorize command names.
+            </p>
+          </article>
+          <article class="product-card product-card--accent">
+            <span>02</span>
+            <h3>Prepare the contract</h3>
+            <p>
+              Plans, status cards, capability manifests, and handoff payloads
+              are explicit artifacts that wrappers can render.
+            </p>
+          </article>
+          <article class="product-card">
+            <span>03</span>
+            <h3>Observe before claiming</h3>
+            <p>
+              Execution, review, CI, delivery, plugin load, and merge readiness
+              stay gated until a local record proves them.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="home-section home-section--light" id="playbooks">
+        <div class="section-heading">
+          <p class="home-kicker">Situation playbooks</p>
+          <h2>Messy requests still get a visible first move.</h2>
+          <p>
+            Playbooks keep wrapper UX practical: classify the situation, name
+            the responsible lane, and show what evidence is still missing
+            before coding or delivery claims begin.
+          </p>
+        </div>
+        <div class="product-grid" role="group" aria-label="Situation playbooks and grounded operator cases">
+          <article class="product-card">
+            <span>request-to-handoff</span>
+            <h3>I want to safely add a feature to this repo.</h3>
+            <p>
+              Hermes presents the safe plan first, then gates executor choice
+              and prepared handoff until the plan is accepted.
+            </p>
+          </article>
+          <article class="product-card product-card--accent">
+            <span>Grounded operator cases</span>
+            <h3>Payment failures keep showing up.</h3>
+            <p>
+              Product signals route to feedback triage, strategy brief, or
+              product ops before implementation becomes the answer.
+            </p>
+            <a class="text-link" href="docs/product-ops/">Open product ops</a>
+          </article>
+          <article class="product-card">
+            <span>Executor-ready handoff</span>
+            <h3>Turn this issue into a reviewable PR plan.</h3>
+            <p>
+              Scope, acceptance criteria, verification, review, and worktree
+              guidance travel together when coding work is selected.
+            </p>
+            <a class="text-link" href="docs/executor-handoff/">Open handoff docs</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="home-section home-section--ink" id="capabilities">
+        <div class="section-heading section-heading--split">
+          <div>
+            <p class="home-kicker">Representative modes</p>
+            <h2>Start with the 10 workflows that explain OMJ.</h2>
+          </div>
+          <p>
+            The catalog is larger, but these are the modes people should see
+            first. Each card names the mode, the right moment to use it, and
+            the direct skill call when the user wants manual control.
+          </p>
+        </div>
+        <div class="mode-note" aria-label="Representative OMJ workflow modes">
+          <span>Mode-first, not catalog-first</span>
+          <p>
+            Start here for the public story. The full reference stays in docs
+            for operators who want every workflow, contract, and playbook.
+          </p>
+        </div>
+        <div class="mode-grid">
+          <article class="mode-card mode-card--featured">
+            <span class="mode-card__label">Intent clarity</span>
+            <h3>Deep Interview</h3>
+            <p>Clarify the missing decision before planning.</p>
+            <strong>Best for vague product, research, or coding requests.</strong>
+            <code>deep-interview</code>
+          </article>
+          <article class="mode-card mode-card--featured">
+            <span class="mode-card__label">Reviewed plan</span>
+            <h3>Ralplan</h3>
+            <p>Plan from facts, sources, risks, and verification.</p>
+            <strong>Best for architecture, risk, and serious implementation plans.</strong>
+            <code>ralplan</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Durable goal</span>
+            <h3>Ultragoal</h3>
+            <p>Give ambitious work checkpoints and completion gates.</p>
+            <strong>Best when progress needs a durable trail.</strong>
+            <code>ultragoal</code>
+          </article>
+          <article class="mode-card mode-card--featured">
+            <span class="mode-card__label">One-cycle delivery</span>
+            <h3>Ultra Process</h3>
+            <p>Research -> plan -> implementation path -> review -> sync.</p>
+            <strong>Best for one PR-ready delivery cycle.</strong>
+            <code>ultraprocess</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Loop</span>
+            <h3>Loop</h3>
+            <p>Research, plan, handoff, feedback, repeat.</p>
+            <strong>Best when the next right move must be discovered.</strong>
+            <code>loop</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Live evidence</span>
+            <h3>Web Research</h3>
+            <p>Current research with source-backed evidence.</p>
+            <strong>Best for market, docs, competitor, and best-practice questions.</strong>
+            <code>web-research</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Paper study</span>
+            <h3>Paper Learning</h3>
+            <p>Explain a paper by level without dropping sections.</p>
+            <strong>Best for very easy, moderate, or expert study.</strong>
+            <code>paper-learning</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Source intake</span>
+            <h3>Source Finder</h3>
+            <p>Find papers, datasets, repos, docs, and public decks.</p>
+            <strong>Best before research or synthesis starts.</strong>
+            <code>source-finder</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Coding handoff</span>
+            <h3>Idea To Deploy</h3>
+            <p>Scoped coding handoff with verification shape.</p>
+            <strong>Best for Codex, Claude Code, Hermes, or another runtime.</strong>
+            <code>idea-to-deploy</code>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__label">Improve the workflow</span>
+            <h3>Workflow Learning</h3>
+            <p>Trace weak routes into evals and patch proposals.</p>
+            <strong>Best after a missed or weak workflow.</strong>
+            <code>workflow-learning</code>
+          </article>
+        </div>
+        <div class="mode-grid__footer">
+          <span>Full catalog: 40+ OMJ workflows, contracts, roles, and playbooks.</span>
+          <a class="text-link" href="docs/#flagship">Open workflow docs</a>
+          <a class="text-link" href="docs/#contracts">Open contracts</a>
+        </div>
+      </section>
+
+      <section class="home-section home-section--showcase" id="workflows">
+        <div class="section-heading">
+          <p class="home-kicker">Flagship lanes</p>
+          <h2>Workflow surfaces that look like the work they support.</h2>
+          <p>
+            OMJ keeps representative lanes visible for demos and docs while
+            preserving the same boundary: a prepared workflow is useful, but it
+            is not observed execution.
+          </p>
+        </div>
+        <div class="artifact-showcase">
+          <a class="artifact-card artifact-card--wide" href="docs/loop/" aria-label="Open Loop workflow docs">
+            <figure>
+              <img
+                src="assets/omj-loop-engineering.png"
+                alt="Loop poster showing a goal-driven research, plan, handoff, feedback, and repeat cycle for OMJ"
+              >
+            </figure>
+            <div>
+              <span>Loop</span>
+              <h3>Goal-driven iteration with visible stop and resume states.</h3>
+              <p>
+                Loop gives Hermes a north star, then keeps each cycle grounded
+                in research, plan, handoff, feedback, and status evidence.
+              </p>
+            </div>
+          </a>
+          <a class="artifact-card" href="docs/image-gen/" aria-label="Open Image gen workflow docs">
+            <figure>
+              <img
+                src="assets/omj-img-summary-card.png"
+                alt="OMJ img-summary poster showing image-generation prompt cards, evidence ladder, and supported card formats"
+              >
+            </figure>
+            <div>
+              <span>Image gen</span>
+              <h3>Prompt cards with source structure and domain scene separated.</h3>
+              <p>Meetings, PRs, issues, releases, and research become source-specific prompt cards.</p>
+            </div>
+          </a>
+          <a class="artifact-card" href="docs/intent-to-plan/" aria-label="Open intent to plan docs">
+            <figure>
+              <img
+                src="assets/omj-flagship-workflows-poster.png"
+                alt="OMJ flagship command sets poster summarizing intent to plan, product ops brief, and executor handoff lanes"
+              >
+            </figure>
+            <div>
+              <span>Intent to handoff</span>
+              <h3>Interview, plan, product ops, and executor paths in one frame.</h3>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <section class="home-section home-section--light" id="architecture">
+        <div class="section-heading section-heading--split">
+          <div>
+            <p class="home-kicker">Evidence boundary</p>
+            <h2>Architecture at a glance.</h2>
+          </div>
+          <p>
+            Hermes owns chat intake, clarification, research, planning, and
+            narration. OMJ owns the renderable contract layer. Selected
+            executors and runtime artifacts own observed proof.
+          </p>
+        </div>
+        <div class="evidence-pipeline" role="group" data-map="architecture-map" aria-label="Prepared versus observed lifecycle">
+          <article>
+            <span>01</span>
+            <h3>Message classified</h3>
+            <p>Route, role, language, and first action are available.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Plan accepted</h3>
+            <p>Scope, non-goals, acceptance criteria, and verification shape are known.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Handoff prepared</h3>
+            <p>The selected executor can receive the work, but no work is claimed yet.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Run observed</h3>
+            <p>Runtime records carry implementation, verification, review, and CI evidence.</p>
+          </article>
+          <article>
+            <span>05</span>
+            <h3>Status rendered</h3>
+            <p>Wrappers show the strongest true state and the remaining gates.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="home-section home-section--ink" id="flow">
+        <div class="wrapper-layout">
+          <div class="section-heading">
+            <p class="home-kicker">Wrapper-ready by design</p>
+            <h2>Contracts that adapters can render without scraping prose.</h2>
+            <p>
+              Discord, Slack, hosted chat, and Hermes-native plugin surfaces
+              can consume local envelopes instead of guessing what a workflow
+              means. The UI can show actions, disabled gates, and evidence
+              labels from the same state.
+            </p>
+          </div>
+          <div class="wrapper-card" role="region" aria-label="Wrapper response example">
+            <div class="wrapper-card__header">
+              <strong>Hermes Agent</strong>
+              <span>planner</span>
+            </div>
+            <div class="route-lens">
+              <span>playbook: request-to-handoff</span>
+              <span>next: present_plan</span>
+              <span>state: prepared_not_observed</span>
+              <span>progress: harness_progress/v1</span>
+            </div>
+            <h3>Present the safe plan first.</h3>
+            <p>
+              Executor choice and handoff preparation stay unavailable until
+              the plan is accepted.
+            </p>
+            <div class="button-row" role="group" aria-label="Wrapper actions">
+              <button type="button">Accept plan</button>
+              <button type="button">Revise plan</button>
+              <button type="button" disabled>Prepare handoff</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-section home-section--install" id="install">
+        <div class="install-panel">
+          <div>
+            <p class="home-kicker">Install</p>
+            <h2>Bootstrap local operators when Hermes needs them.</h2>
+            <p>
+              Use the tap path when Hermes supports it, or run the local
+              installer for managed skills, doctor checks, capability exports,
+              plugin smoke, and wrapper/backend support.
+            </p>
+            <div class="home-actions">
+              <a class="button button--primary" href="docs/#install">Install docs</a>
+              <a class="button" href="docs/#contracts">Contract docs</a>
+            </div>
+          </div>
+          <div class="install-terminal" role="region" aria-label="Install commands" tabindex="0">
+            <code>hermes skills tap add rlaope/oh-my-hermes
+hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+
+curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+omj setup
+omj capabilities summary --json</code>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>
+        OMJ keeps Hermes as the chat surface and local artifacts as the evidence boundary.
+      </span>
+      <span>
+        Developed by <a href="https://github.com/rlaope">rlaope</a>.
+      </span>
+    </footer>
+  </body>
+</html>

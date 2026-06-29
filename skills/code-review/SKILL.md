@@ -1,0 +1,150 @@
+---
+name: code-review
+description: [omj] Hermes Code Review workflow: bug-first review with evidence.
+metadata:
+  hermes:
+    tags: [workflow, oh-my-jeo, review]
+    category: review
+    phase: critique
+    role: reviewer
+    quality_tier: finding-evidence-gated
+---
+
+# Code Review
+
+This is a Hermes-native `code-review` workflow skill.
+
+## Why This Exists
+
+`code-review` exists to make review bug-first and evidence-grounded: findings must cite concrete files, diffs, commands, or artifacts before any summary or fix proposal.
+
+## Do Not Use When
+
+- The user asks to implement the fix rather than review existing code or claims.
+- There is no diff, file set, claim, artifact, or expected behavior to review.
+- The request is broad product critique, strategy, or planning rather than code or evidence review.
+
+## Examples
+
+Good example:
+
+- Prompt: $code-review review this PR for install/update UX regressions and missing tests.
+- Expected behavior: Lead with ranked findings, cite concrete evidence, then list open questions and test gaps.
+- Why: The task is explicitly review-shaped and has a behavioral risk surface.
+
+Bad example:
+
+- Prompt: $code-review add the missing setup flag and commit it.
+- Expected behavior: Route implementation to a selected executor/runtime after review findings are established.
+- Why: Review can identify the issue, but code mutation is a separate execution step.
+
+## Completion Checklist
+
+- Findings come first and are ranked by severity before summary or praise.
+- Every finding cites file, diff, command output, artifact, or expected behavior evidence.
+- No-issue reviews still name residual risk, missing tests, and independent review evidence if unavailable.
+- Fix implementation, architecture follow-up, and CI/merge claims stay separate from the review result.
+
+## Recovery Notes
+
+- If no diff, file set, PR, or artifact is available, inspect the requested target or ask one target question before reviewing.
+- If tests fail or are missing, cite the exact command gap and do not approve the change as verified.
+- If independent review evidence is unavailable, say so directly instead of implying a second reviewer passed it.
+
+## OMJ Context Rail
+
+- This skill is part of OMJ's Hermes workflow layer, not a standalone executor.
+- Product context: OMJ is a Hermes-native workflow pack: it helps Hermes choose skills, shape work, prepare artifacts, show status, and hand off with observed evidence boundaries.
+- Current lane: **Coding handoff** (`idea-to-deploy`, `cto-loop`, `deploy-and-monitor`, `code-review`, `ultrawork`, `team`, `ultraqa`, `ai-slop-cleaner`, `executor-runtime-readiness`, `request-to-handoff`, `executor selection`, `coding runtime handoff`) - Codex, Claude Code, Hermes coding, or oh-my runtime paths with observed evidence tracking.
+- If the user intent belongs to another OMJ lane, hand back to `oh-my-jeo` or name the adjacent workflow instead of force-fitting this skill.
+- Cross-skill context: Across every OMJ skill: match intent to a lane, name adjacent workflows, and do not dismiss OMJ because a generic tool can render or execute.
+- Generic-tool checkpoint: image->img-summary; supplied paper->paper-learning; file->materials-package; search->web-research; code->ultraprocess/ralplan/review.
+- Coverage: Every generated workflow skill carries this rail.
+- Normal users talk to Hermes; OMJ CLI is backend, setup, verification, and wrapper infrastructure.
+- Boundary: Prepared OMJ routing, prompts, cards, handoffs, or artifacts are not observed execution, image generation, delivery, review, CI, merge-readiness, or merge evidence.
+
+## Use When
+
+Use for review-shaped requests; findings come first and must cite concrete evidence.
+
+    Strong routing signals: `code-review`, `$code-review`, `review`, `audit`, `find bugs`, `release gate`, `claim audit`, `evidence audit`, `README claim`, `what actually happened`, `code review`, `review gate`, `리뷰`, `코드 리뷰`, `리뷰까지`, `릴리즈 전`, `실제 코드와 맞는가`, `실제로 뭐 했는지`, `검증된 결과`
+
+## Catalog Metadata
+
+Category: `review`
+Phase: `critique`
+Hermes role: `reviewer`
+Quality tier: `finding-evidence-gated`
+
+Quality bar:
+
+- Lead with ranked findings grounded in file, diff, command, or artifact evidence.
+- Separate review findings from fix implementation; fixes become executor work.
+- Say clearly when no actionable issue is found and name remaining test gaps.
+
+Handoff policy:
+
+Hermes may frame and summarize review evidence; fixes or code mutations found during review should be delegated to the selected coding executor.
+
+Required inputs:
+
+- diff or files
+- expected behavior
+- test evidence
+
+Expected outputs:
+
+- ranked findings
+- open questions
+- test gaps
+
+Artifact expectations:
+
+- critic run record when review evidence is captured
+
+Safety rules:
+
+- Findings come before summaries.
+- Cite concrete evidence for every finding.
+- Say clearly when no issue is found.
+
+## Harness Discipline
+
+- Start from the representative harness registry in `oh-my-jeo` when the workflow needs coding, research, planning, goal execution, architecture, critique, QA, or documentation lanes.
+- Prefer richer evidence and clearer stop conditions over adding more workflow names.
+- Use specialist lanes only when they change the quality of the answer or verification.
+
+## Runtime Evidence
+
+Preferred harness for this skill: `critic`.
+
+When local shell access or a bot wrapper is available, record metadata-only evidence:
+
+```sh
+omj runtime record --skill code-review --harness critic --status started
+omj runtime delegate --run <run-id> --requested --not-observed --result not_observed
+```
+
+Record observed delegation results when Hermes or the wrapper exposes them. If delegation is unavailable, keep the result explicit as `not_available` or `not_observed`.
+
+## Hermes Compatibility Contract
+
+- Preserve the workflow intent, stop conditions, and verification discipline.
+- Use Hermes-native tools, file operations, and subagent/delegation features when available.
+- Do not require runtime tools, role prompts, or overlays that Hermes Agent does not expose.
+- Respect `omj_target_topology/v1` when a wrapper reports it: bind state to the current target/thread, adapt only the parts of this workflow that benefit from multiple Hermes agents, and fall back to single-target behavior when `active_agent_count` is one.
+- When target topology changes from one to many or many to one, give a concise setup-change comment or use the wrapper's apply action before treating the new topology as persistent.
+- When wrapper metadata includes `memory_review_card/v1` or `handoff_context_pack/v1`, treat it as reviewed OMJ-local or wrapper-supplied context only. Use conflict-free context summaries to shape plans and handoffs, but do not claim Hermes internal memory was read or changed.
+- When a runtime-specific mechanism appears in imported instructions, translate it to a Hermes-native artifact:
+  - goal tools -> `.omj/goals/` ledgers, `goal_completion_gate/v1`, `goal_status_card/v1`, `goal_continuation/v1`, or explicit checklists with named next actions,
+  - question renderers -> one concise question in the current Hermes interface,
+  - native subagents -> Hermes delegation when available, otherwise sequential lanes,
+  - shell bridge commands -> optional bridge mode only.
+
+## Execution Rules
+
+1. Load supporting context with `skills_list` / `skill_view` when needed.
+2. State the workflow target, constraints, validation evidence, and stop condition.
+3. Keep progress evidence-backed.
+4. Verify with the smallest relevant test or inspection before claiming completion.
+5. If Hermes cannot provide a required runtime capability, say so and use the fallback above.

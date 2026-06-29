@@ -1,0 +1,151 @@
+---
+name: deploy-and-monitor
+description: [omj] Hermes Deploy-and-Monitor workflow: release checklist, deploy decision, health signals, rollback gate, and post-deploy status.
+metadata:
+  hermes:
+    tags: [workflow, oh-my-jeo, monitoring]
+    category: monitoring
+    phase: release-ops
+    role: operator
+    quality_tier: release-gated
+---
+
+# Deploy And Monitor
+
+This is a Hermes-native `deploy-and-monitor` workflow skill.
+
+## Why This Exists
+
+`deploy-and-monitor` exists to keep `monitoring` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
+
+## Do Not Use When
+
+- The request is casual chat, a status-only acknowledgement, or another workflow has stronger routing evidence.
+- The user needs implementation, review, CI, merge, or external publishing evidence that has not been delegated or observed.
+
+## Examples
+
+Good example:
+
+- Prompt: deploy-and-monitor: prepare the release monitor, rollback signals, health checks, and post-deploy status card.
+- Expected behavior: Create release monitoring guidance with deployment, metric, rollback, and observation boundaries.
+- Why: The request is about deploy readiness and monitoring rather than code review alone.
+
+Bad example:
+
+- Prompt: deploy-and-monitor: treat casual chat or unaccepted work as if this workflow already produced verified results.
+- Expected behavior: Ask a clarification question or route to a narrower workflow instead of forcing `deploy-and-monitor`.
+- Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
+
+## Completion Checklist
+
+- Confirm the workflow target, evidence boundary, and stop condition are named.
+- Report which outputs are prepared, observed, blocked, or missing.
+- Name the smallest next verification or handoff instead of claiming completion from narration.
+
+## Recovery Notes
+
+- If required context is missing, ask one blocking question or route back to the narrower workflow.
+- If runtime or wrapper evidence is unavailable, keep the status as not_observed and expose the next observable action.
+
+## OMJ Context Rail
+
+- This skill is part of OMJ's Hermes workflow layer, not a standalone executor.
+- Product context: OMJ is a Hermes-native workflow pack: it helps Hermes choose skills, shape work, prepare artifacts, show status, and hand off with observed evidence boundaries.
+- Current lane: **Coding handoff** (`idea-to-deploy`, `cto-loop`, `deploy-and-monitor`, `code-review`, `ultrawork`, `team`, `ultraqa`, `ai-slop-cleaner`, `executor-runtime-readiness`, `request-to-handoff`, `executor selection`, `coding runtime handoff`) - Codex, Claude Code, Hermes coding, or oh-my runtime paths with observed evidence tracking.
+- If the user intent belongs to another OMJ lane, hand back to `oh-my-jeo` or name the adjacent workflow instead of force-fitting this skill.
+- Cross-skill context: Across every OMJ skill: match intent to a lane, name adjacent workflows, and do not dismiss OMJ because a generic tool can render or execute.
+- Generic-tool checkpoint: image->img-summary; supplied paper->paper-learning; file->materials-package; search->web-research; code->ultraprocess/ralplan/review.
+- Coverage: Every generated workflow skill carries this rail.
+- Normal users talk to Hermes; OMJ CLI is backend, setup, verification, and wrapper infrastructure.
+- Boundary: Prepared OMJ routing, prompts, cards, handoffs, or artifacts are not observed execution, image generation, delivery, review, CI, merge-readiness, or merge evidence.
+
+## Use When
+
+Use when Hermes should prepare or narrate a release operation with deploy checklist, health signals, rollback criteria, and post-deploy status without pretending to run infrastructure.
+
+    Strong routing signals: `deploy-and-monitor`, `deploy and monitor`, `deploy monitor`, `deployment monitoring`, `release monitor`, `post deploy`, `post-deploy`, `rollback`, `rollback gate`, `health check`, `incident watch`, `release health`, `배포 모니터링`, `배포 감시`, `롤백`, `헬스 체크`, `장애 감시`, `릴리즈 모니터링`
+
+## Catalog Metadata
+
+Category: `monitoring`
+Phase: `release-ops`
+Hermes role: `operator`
+Quality tier: `release-gated`
+
+Quality bar:
+
+- Name release scope, target environment, health signals, rollback criteria, and evidence owner.
+- Show pre-deploy, deploy decision, monitor, rollback, and post-deploy record as distinct stages.
+- Mark health and rollback status unknown until observed evidence arrives.
+- Convert fix follow-ups into separate accepted plans or executor handoffs.
+
+Handoff policy:
+
+Keep release checklist, health criteria, rollback gates, and status narration in Hermes; record deploy, monitor, incident, or rollback evidence only when the wrapper or operator observes it.
+
+Required inputs:
+
+- release scope
+- environment
+- health signals
+- rollback owner
+
+Expected outputs:
+
+- pre-deploy checklist
+- deploy decision gate
+- monitoring watchlist
+- rollback criteria
+- post-deploy status boundary
+
+Artifact expectations:
+
+- release operation status record when the wrapper captures deploy or monitor observations
+
+Safety rules:
+
+- Do not claim deployment, health checks, rollback, or incident response happened from a prepared checklist.
+- Keep release readiness, deploy decision, monitor signals, and rollback as separate evidence steps.
+- Route code fixes discovered during monitoring as later executor handoffs.
+
+## Harness Discipline
+
+- Start from the representative harness registry in `oh-my-jeo` when the workflow needs coding, research, planning, goal execution, architecture, critique, QA, or documentation lanes.
+- Prefer richer evidence and clearer stop conditions over adding more workflow names.
+- Use specialist lanes only when they change the quality of the answer or verification.
+
+## Runtime Evidence
+
+Preferred harness for this skill: `app-delivery-loop`.
+
+When local shell access or a bot wrapper is available, record metadata-only evidence:
+
+```sh
+omj runtime record --skill deploy-and-monitor --harness app-delivery-loop --status started
+omj runtime delegate --run <run-id> --requested --not-observed --result not_observed
+```
+
+Record observed delegation results when Hermes or the wrapper exposes them. If delegation is unavailable, keep the result explicit as `not_available` or `not_observed`.
+
+## Hermes Compatibility Contract
+
+- Preserve the workflow intent, stop conditions, and verification discipline.
+- Use Hermes-native tools, file operations, and subagent/delegation features when available.
+- Do not require runtime tools, role prompts, or overlays that Hermes Agent does not expose.
+- Respect `omj_target_topology/v1` when a wrapper reports it: bind state to the current target/thread, adapt only the parts of this workflow that benefit from multiple Hermes agents, and fall back to single-target behavior when `active_agent_count` is one.
+- When target topology changes from one to many or many to one, give a concise setup-change comment or use the wrapper's apply action before treating the new topology as persistent.
+- When wrapper metadata includes `memory_review_card/v1` or `handoff_context_pack/v1`, treat it as reviewed OMJ-local or wrapper-supplied context only. Use conflict-free context summaries to shape plans and handoffs, but do not claim Hermes internal memory was read or changed.
+- When a runtime-specific mechanism appears in imported instructions, translate it to a Hermes-native artifact:
+  - goal tools -> `.omj/goals/` ledgers, `goal_completion_gate/v1`, `goal_status_card/v1`, `goal_continuation/v1`, or explicit checklists with named next actions,
+  - question renderers -> one concise question in the current Hermes interface,
+  - native subagents -> Hermes delegation when available, otherwise sequential lanes,
+  - shell bridge commands -> optional bridge mode only.
+
+## Execution Rules
+
+1. Load supporting context with `skills_list` / `skill_view` when needed.
+2. State the workflow target, constraints, validation evidence, and stop condition.
+3. Keep progress evidence-backed.
+4. Verify with the smallest relevant test or inspection before claiming completion.
+5. If Hermes cannot provide a required runtime capability, say so and use the fallback above.

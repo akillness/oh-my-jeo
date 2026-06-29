@@ -1,0 +1,60 @@
+# OMJ Wrapper Routing
+
+This reference is for Discord, Slack, hosted Hermes, plugin, or backend adapters. It is not normal end-user UX.
+
+## Chat Routing
+
+Wrappers can run `omj chat route` before dispatching a plain chat message to Hermes:
+
+```sh
+omj chat route --source discord --record "risky refactor"
+```
+
+Use `route.routing_prompt_template` with `{message}` replaced by the received chat message as the prompt forwarded to Hermes. If the wrapper wants a pre-expanded prompt, pass `--include-message` and forward `route.routing_prompt`.
+
+Prefer `omj_interact` when the plugin/tool surface is available because it returns `chat_interaction/v1` and can record a metadata-only wrapper session. Use `omj_recommend` only when Hermes needs route hints without a session record. The plugin-authored metadata has producer provenance so it stays distinguishable from wrapper/backend metadata.
+
+Do not make a normal chat user approve `omj list`, `omj recommend`, `omj chat interact`, or other backend commands just to see workflow options. Render compact summaries, context briefs, pickers, quickstart, probe, or status cards instead.
+
+## Coding Delegation
+
+When a chat message is implementation-shaped and a wrapper wants a concrete executor handoff, run `omj coding delegate` after or instead of generic chat routing:
+
+```sh
+omj coding delegate --source discord --executor codex --record "risky refactor"
+```
+
+The payload is deterministic local adapter data: recommended workflow, harness, executor/runtime profile, acceptance criteria, verification expectations, and handoff prompt template. Hermes still narrates the user-facing state.
+
+Check `executor_readiness/v1` for Codex, Claude Code, Hermes, or oh-my runtime profiles before first dispatch. If readiness is `missing` or `blocked`, ask the user to choose another coding agent, configure PATH, continue in Hermes, or use prompt/runtime handoff; retry only after that state changes. A readiness probe is not dispatch, execution, verification, review, CI, or merge evidence.
+
+With `--record`, Codex-selected real executor handoffs create `.omj/runtime/runs/<run-id>/` prepared runtime runs with `observation_status: prepared_not_observed`. Executor-choice, prompt-only, runtime-handoff, clarify, and fallback responses remain wrapper/session state.
+
+## Large Output And Context Safety
+
+Wrappers must keep raw Codex JSONL, tool output, process logs, and oversized
+executor notes out of Hermes chat context. Use `omj chat codex-progress` or the
+Codex progress fields on executor-session actions to pass only
+`codex_progress_summary/v1`, `omj_context_artifact_ref/v1`, compact evidence
+refs, and bounded human-readable summaries. Raw output belongs in a wrapper or
+operator artifact store referenced by `raw_output_artifact`; a prepared artifact
+reference is not execution, review, CI, merge-readiness, or merge evidence.
+
+Prefer event-triggered progress over timed polling for long executor, goal,
+research, or workflow runs. Emit `omj_progress_event/v1` when a meaningful state
+changes: failure discovered, root cause identified, fix strategy selected, files
+or area chosen, targeted tests pass/fail, full tests start/pass/fail, commit
+created, PR created/updated, or blocker encountered. Keep each update to one or
+two human-readable sentences with optional compact file refs, artifact refs,
+severity, and status. Store raw logs, JSONL, command output, and transcripts as
+artifacts; pass only event summaries and refs into Hermes chat context.
+
+## Memory And Planning
+
+Wrappers can run `omj memory inspect`, `omj memory pack`, and `omj memory apply` to review OMJ-local or wrapper-supplied context before preparing a handoff. This emits `memory_review_card/v1` and `handoff_context_pack/v1` artifacts only; it does not read or mutate opaque Hermes internal memory.
+
+For planning-shaped requests, wrappers or operators can run `omj hermes plan` to create a deterministic `hermes_plan/v1` scaffold. The stdout `wrapper_contract` is the adapter contract for follow-on work; after acceptance, pass the accepted plan artifact or generated context pack to `omj coding delegate --from-plan` instead of treating Discord/channel summary text as the executor plan.
+
+## Backend Boundary
+
+This is a deterministic wrapper-side decision layer. By default, stdout and runtime artifacts avoid duplicating the raw prompt body. It does not patch Hermes core or require platform network access from `omj`.

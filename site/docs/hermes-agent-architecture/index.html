@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hermes Agent Anatomy</title>
+    <meta
+      name="description"
+      content="A bilingual visual guide to how Hermes Agent is structured: surfaces, prompt assembly, agent loop, memory, skills, tools, cron, gateway, and evidence boundaries."
+    >
+    <link rel="stylesheet" href="../../styles.css">
+  </head>
+  <body class="docs-page architecture-post-page">
+    <header class="topbar topbar--solid" aria-label="Primary">
+      <a class="brand brand--link" href="../../">OMJ</a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="../">Docs</a>
+        <a aria-current="page" href="./">Hermes Deepdive</a>
+        <a
+          class="nav__icon"
+          href="https://github.com/rlaope/oh-my-hermes"
+          aria-label="Open OMJ repository on GitHub"
+          title="GitHub repository"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.58 2 12.22c0 4.52 2.87 8.35 6.85 9.7.5.09.68-.22.68-.49v-1.73c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.56 2.35 1.11 2.92.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.71 0 0 .84-.28 2.75 1.05A9.37 9.37 0 0 1 12 6.92c.85 0 1.7.12 2.5.35 1.9-1.33 2.74-1.05 2.74-1.05.55 1.4.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.8c0 .27.18.58.69.48A10.06 10.06 0 0 0 22 12.22C22 6.58 17.52 2 12 2Z"></path>
+          </svg>
+        </a>
+      </nav>
+    </header>
+
+    <main class="architecture-post">
+      <input class="language-radio" type="radio" name="architecture-language" id="arch-lang-en" checked>
+      <input class="language-radio" type="radio" name="architecture-language" id="arch-lang-ko">
+
+      <div class="architecture-post-shell">
+        <div class="language-switch" aria-label="Language switch">
+          <label for="arch-lang-en">English</label>
+          <label for="arch-lang-ko">한국어</label>
+        </div>
+
+        <article class="lang-panel lang-panel--en">
+          <header class="architecture-article-hero">
+            <p class="eyebrow">Architecture guide</p>
+            <h1>Hermes Agent is not just a chat box. It is a work operating layer.</h1>
+            <p>
+              Hermes Agent combines a terminal UI, messenger gateway, memory,
+              skills, cron jobs, tools, plugins, platform adapters, and agent
+              loops. This page dissects those pieces as Hermes Agent anatomy:
+              how a message enters, how context is assembled, how tools run,
+              and where execution evidence must stay explicit.
+            </p>
+            <div class="architecture-hero-board" aria-label="Architecture highlights">
+              <span><i class="hero-board-icon hero-board-icon--surface" aria-hidden="true"></i>Surfaces</span>
+              <span><i class="hero-board-icon hero-board-icon--memory" aria-hidden="true"></i>Memory</span>
+              <span><i class="hero-board-icon hero-board-icon--skills" aria-hidden="true"></i>Skills</span>
+              <span><i class="hero-board-icon hero-board-icon--tools" aria-hidden="true"></i>Tools</span>
+              <span><i class="hero-board-icon hero-board-icon--omj" aria-hidden="true"></i>Evidence</span>
+            </div>
+          </header>
+
+          <section class="architecture-blog-section architecture-prose architecture-prose--lead">
+            <p class="blog-kicker">The easiest mistake is to describe Hermes as "a CLI agent."</p>
+            <p>
+              That description is technically true, but it hides the interesting
+              part. Hermes is closer to a small operating system for agentic
+              work: a conversation surface, a prompt compiler, a memory layer, a
+              skill runtime, a tool/plugin registry, scheduled automation, and a
+              messaging gateway all wrapped around one agent loop.
+            </p>
+            <p>
+              The important part is the coupling between those pieces. A chat
+              message does not jump straight into a model response. It picks up
+              identity, files, memory, skills, tool availability, platform
+              metadata, safety policy, and session state before the agent loop
+              decides what kind of work can happen.
+            </p>
+            <aside class="architecture-thesis">
+              <span>Thesis</span>
+              <strong>
+                Hermes Agent is best understood as a layered work runtime:
+                surfaces collect intent, the prompt builder compiles context,
+                the agent loop acts, and persistence keeps the work inspectable.
+              </strong>
+            </aside>
+          </section>
+
+          <section class="architecture-article-section architecture-article-section--visual architecture-diagram-section">
+            <div class="diagram-heading">
+              <span class="diagram-heading__icon" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Mermaid-style component map</p>
+                <h2>One user message crosses six layers before it becomes useful work.</h2>
+                <p>
+                  The boxes below are intentionally high level. They show how a
+                  message moves from a human-facing surface into the agent loop,
+                  picks up memory and skills, reaches tools or automation, and
+                  returns through the same session with evidence about what was
+                  actually observed.
+                </p>
+              </div>
+            </div>
+            <div class="architecture-mermaid-map" aria-label="Hermes Agent component map">
+              <div class="arch-node arch-node--surface">
+                <span class="arch-node__icon arch-node__icon--surface" aria-hidden="true"></span>
+                <span>Surfaces</span>
+                <strong>TUI, CLI, gateway, platform adapters</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--prompt">
+                <span class="arch-node__icon arch-node__icon--prompt" aria-hidden="true"></span>
+                <span>Prompt compiler</span>
+                <strong>Identity, files, skills, memory hints, platform context</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--core">
+                <span class="arch-node__icon arch-node__icon--core" aria-hidden="true"></span>
+                <span>Agent loop</span>
+                <strong>AIAgent, model transport, tool loop, session state</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--tools">
+                <span class="arch-node__icon arch-node__icon--tools" aria-hidden="true"></span>
+                <span>Extension ports</span>
+                <strong>Toolsets, MCP, plugins, cron, delivery targets</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--omj">
+                <span class="arch-node__icon arch-node__icon--omj" aria-hidden="true"></span>
+                <span>Evidence boundary</span>
+                <strong>Prepared state, observed result, verification, delivery</strong>
+              </div>
+            </div>
+            <div class="platform-chip-wall" aria-label="Gateway surfaces">
+              <span>Terminal</span>
+              <span>CLI</span>
+              <span>Telegram</span>
+              <span>Discord</span>
+              <span>Slack</span>
+              <span>WhatsApp</span>
+              <span>Signal</span>
+              <span>Webhook</span>
+              <span>Email</span>
+              <span>Matrix</span>
+            </div>
+          </section>
+
+          <section class="architecture-longform architecture-prose">
+            <p class="article-section-label">01 / Routing Layer</p>
+            <h2>Work Routing</h2>
+            <p>
+              A request does not just become an answer. It becomes a route. The
+              first decision Hermes makes is not only "what should I say?" but
+              "what kind of work is this?" A short message might stay inside a
+              normal answer. A fuzzy product request might become a deep
+              interview. A bug report might become feedback triage, an
+              investigation plan, and then a coding-agent handoff. A recurring
+              research request might become scheduled ops. That routing behavior
+              is the difference between a chat bot and an agentic operating
+              surface.
+            </p>
+            <p>
+              The easiest mistake is to reduce this to the terminal command that
+              happens to launch it. Hermes can be entered through a TUI, a CLI,
+              a gateway, or platform adapters. Telegram, Discord, Slack,
+              WhatsApp, Signal, email, Matrix, and webhooks are not separate
+              product stories; they are different doors into the same work
+              loop. The important question is whether Hermes can preserve the
+              thread, user, delivery target, privacy policy, and tool boundary
+              after the message arrives.
+            </p>
+            <p>
+              Routing is not a separate marketing feature. It is the first
+              architectural pressure point. If Hermes loses the source channel,
+              target thread, permission boundary, or delivery context, the rest
+              of the work becomes ambiguous. A good route keeps the human
+              request tied to the surface it came from and the evidence it can
+              later return.
+            </p>
+            <blockquote class="article-callout">
+              The anatomy is layered: surface, prompt context, agent loop,
+              memory, skills, extension ports, and evidence boundary. Each layer
+              answers a different question before the agent claims work was done.
+            </blockquote>
+
+            <p class="article-section-label">02 / Prompt Context</p>
+            <h2>Prompt Builder</h2>
+            <p>
+              The prompt builder is the architecture's throat. It is where a
+              surface message becomes an agent request with identity, files,
+              skills, memory hints, platform context, safety constraints, and
+              tool availability. In OMJ, that prompt-builder responsibility is
+              expressed through <code>src/routing/recommend.py</code>,
+              <code>src/routing/chat.py</code>, and
+              <code>src/wrapper/contract.py</code>: they decide which route,
+              visible action, state, and evidence boundary travel with the
+              user's intent.
+            </p>
+            <p>
+              In practical terms, this means Hermes can answer differently when
+              the same sentence arrives from a local terminal, a Discord thread,
+              a scheduled job, or a repository-connected work session. The
+              message "prepare this for review" is not complete by itself. The
+              useful prompt includes who asked, what thread they are in, which
+              skills are installed, which memories are relevant, which tools are
+              allowed, and whether a wrapper can later record dispatch,
+              execution, verification, review, CI, or delivery.
+            </p>
+            <p>
+              That makes prompt building less like text templating and more like
+              context compilation. The builder has to decide which instructions
+              are durable, which details belong only to the current turn, which
+              memories are safe to include, and which tools or platform actions
+              the agent is allowed to consider.
+            </p>
+
+            <p class="article-section-label">03 / Runtime Loop</p>
+            <h2>Agent Loop</h2>
+            <p>
+              The agent loop is the work chamber, but OMJ keeps its claims at
+              the wrapper boundary. <code>src/coding_delegation.py</code>,
+              <code>src/wrapper/sessions.py</code>, and
+              <code>src/runtime/artifacts.py</code> prepare executor handoffs,
+              preserve session decisions, and record observed runtime events
+              without pretending OMJ is the hidden executor.
+            </p>
+            <p>
+              That power creates a product responsibility. If Hermes prepares a
+              coding handoff, that is not the same as a coding agent running it.
+              If Hermes prepares an image card prompt, that is not the same as a
+              connected image tool generating and delivering the final image. If
+              Hermes prepares a daily research loop, that is not the same as
+              cron waking, sources being collected, synthesis completing, and a
+              brief being delivered. These distinctions sound small until a team
+              starts depending on them.
+            </p>
+            <p>
+              This is why Hermes has to separate intention from observation. A
+              plan, a queued action, a tool call, a streamed result, a saved
+              artifact, and a delivered answer are different runtime states.
+              Without that line, an agent stops reporting work and starts
+              narrating a story about work.
+            </p>
+
+            <p class="article-section-label">04 / Recall Rules</p>
+            <h2>Memory Discipline</h2>
+            <p>
+              <code>docs/MEMORY_CONTEXT.md</code> keeps OMJ memory review
+              scoped to OMJ-local and wrapper-supplied context. That is a very
+              different mental model from "the agent remembers things." Good
+              memory is selective. It knows what to retrieve, when to retrieve
+              it, and when recalled context should not leak directly into the
+              final answer.
+            </p>
+            <p>
+              This matters for long-running workflows. A loop that improves a
+              repository over days should remember the goal, the stop condition,
+              previous failures, evidence already collected, and what remains
+              uncertain. A research department workflow should separate raw
+              source inbox, processed notes, briefing output, conflicts, and
+              items still requiring verification. A coding delegation workflow
+              should remember the original interview and plan, not only the last
+              terminal log.
+            </p>
+            <p>
+              Structured memory is more useful than a pile of prose. A good
+              trace records the original request, route, prompt context,
+              selected skill, tool attempt, observed evidence, result, user
+              feedback, and follow-up candidate. That is the kind of process
+              data Hermes can later inspect or improve from.
+            </p>
+
+            <p class="article-section-label">05 / Procedural Knowledge</p>
+            <h2>Skills</h2>
+            <p>
+              A skill is not just documentation. It is a repeatable operating
+              pattern that stops Hermes from guessing the same process every
+              time. <code>src/skills/catalog.py</code>,
+              <code>src/skills/render.py</code>, and
+              <code>skills/oh-my-jeo/SKILL.md</code> show the shape: Hermes
+              can be taught when to use a skill, how to keep that skill
+              maintainable, and how to improve skill guidance after observing
+              failures.
+            </p>
+            <p>
+              This is where GEPA-style thinking matters. Hermes can read traces
+              and improve the way it behaves without retraining a model. But
+              self-improvement only works if the trace is clean. "The agent did
+              something and it seemed okay" is not a learning event. "The user
+              asked for issue-to-PR preparation, the selected skill skipped
+              acceptance criteria, the reviewer found that gap, and this skill
+              patch would prevent recurrence" is a
+              learning event.
+            </p>
+            <p>
+              That is why automatic mutation should not be the default product
+              story. The safer loop is trace, evaluate, propose, review, patch,
+              and replay. Hermes can draft the improvement, but a human or
+              trusted review gate should decide when a workflow or skill
+              actually changes.
+            </p>
+
+            <p class="article-section-label">06 / Extension Ports</p>
+            <h2>Tool And Plugin Ports</h2>
+            <p>
+              Tools are where Hermes stops being only conversational and starts
+              touching the outside world. <code>src/mcp_bridge.py</code>,
+              <code>src/plugin_bundle/omj/tools/chat_tool.py</code>, and
+              <code>src/plugin_bundle/omj/tools/recommend_tool.py</code> sit at
+              that edge: they describe what can be called, how arguments move
+              across the boundary, which tool paths are protected, and how
+              results return to the loop.
+            </p>
+            <p>
+              A good tool port is explicit about authority. Reading a file,
+              opening a browser connector, writing to a repository, posting to a
+              channel, and registering a plugin are different powers. Hermes
+              should preserve that difference in the prompt context and in the
+              user-visible status so a convenient automation does not quietly
+              become a hidden production action.
+            </p>
+            <p>
+              Plugin and MCP-style extensions also need provenance. The runtime
+              should be able to tell whether a claim came from Hermes itself, a
+              wrapper contract, a plugin-authored metadata record, or observed
+              backend output. That distinction is what lets the same agent feel
+              flexible without turning every extension into an unverifiable black
+              box.
+            </p>
+
+            <p class="article-section-label">07 / Gateway Surface</p>
+            <h2>Hermes Gateway</h2>
+            <p>
+              Gateway intent policy in <code>src/routing/recommend.py</code>,
+              <code>src/skills/catalog.py</code>, and
+              <code>src/wrapper/contract.py</code> is what lets Hermes treat
+              Discord, Slack, Telegram, email, webhooks, and other message
+              surfaces as different entrances to one agent loop. The gateway is
+              not merely a transport adapter. It carries origin, user, thread,
+              delivery target, attachment policy, silence policy, and
+              status-update expectations into the runtime.
+            </p>
+            <p>
+              That gateway context changes the answer Hermes should produce.
+              A local terminal response can be verbose. A Slack thread may need
+              a short status update and no file attachment. A Discord handoff
+              may need to preserve the channel, mention policy, and follow-up
+              thread. A webhook may need a machine-readable result without
+              chatty explanation. The same user intent can therefore render
+              differently without changing the underlying workflow.
+            </p>
+            <p>
+              The boundary is delivery. Preparing a gateway intent card is not
+              proof that a platform message was sent. A healthy gateway path can
+              say which channel it is preparing for, which delivery constraints
+              it will respect, and which evidence would prove that the reply,
+              attachment, or status update actually reached the destination.
+            </p>
+
+            <p class="article-section-label">08 / Scheduled Work</p>
+            <h2>Cron And Scheduled Work</h2>
+            <p>
+              Scheduled work in <code>src/hermes_ops.py</code> and
+              <code>src/commands/ops.py</code> is what makes Hermes feel
+              operational when nobody is watching the terminal. A useful agent
+              can receive work from a platform, preserve session context,
+              respect platform delivery policy, prepare scheduled checks, name
+              protected tool requirements, hold locks, scan for prompt
+              injection, and return results through the right channel.
+            </p>
+            <p>
+              That does not mean every workflow should become unattended
+              automation. Verification is still on the operator. A loop that
+              runs unattended can also make unattended mistakes. The healthier
+              product design is layered verification: cheap inner-loop checks
+              such as schema validation, compile logs, focused tests, or smoke
+              commands run often; slower outer-loop checks such as adversarial
+              review, integration testing, release gates, or human approval run
+              at important boundaries.
+            </p>
+            <p>
+              Hermes should make that cost dial visible. A healthy runtime can
+              say: here is the next step, here is the cheap verification, here
+              is the expensive verification, here is what failed, here is why we
+              loop back, and here is what still needs human judgment.
+            </p>
+
+            <p class="article-section-label">09 / Boundary Model</p>
+            <h2>Evidence Boundary</h2>
+            <p>
+              The most important product boundary inside Hermes is not "can the
+              agent say the right sentence?" It is "what can the agent truthfully
+              claim happened?" Prepared work, queued work, dispatched work,
+              completed work, verified work, reviewed work, and delivered work
+              should not collapse into one vague success state.
+            </p>
+            <p>
+              This matters for every extension point. A tool schema can exist
+              without a tool call happening. A plugin can be installed without
+              being loaded in the active session. A scheduled job can be
+              declared without waking. A gateway can receive a message without
+              successfully delivering the answer. The runtime needs different
+              states for those facts.
+            </p>
+            <p>
+              That boundary is what keeps an agent useful under real operations.
+              It lets Hermes speak naturally to a user while still preserving
+              the machine-readable difference between intent, action, evidence,
+              verification, delivery, and follow-up.
+            </p>
+
+            <div class="architecture-example-lines" aria-label="Example Hermes prompts">
+              <code>"Summarize this thread, but show what was observed versus inferred."</code>
+              <code>"Prepare a scheduled research check and tell me what still needs confirmation."</code>
+              <code>"Open a coding task, but do not claim execution until the executor reports back."</code>
+              <code>"Review this failed run and propose the smallest skill guidance patch."</code>
+            </div>
+
+            <p class="article-section-label">10 / Summary</p>
+            <h2>Takeaway</h2>
+            <p>
+              Hermes Agent is strongest when it is understood as a full work
+              runtime: surfaces, prompt builder, agent loop, memory, skills,
+              tools, plugins, cron, gateway, and delivery. The boundary is
+              simple: Hermes can plan, call tools, persist context, and return
+              results, but every operational claim should map to an observed
+              runtime fact.
+            </p>
+            <p>
+              This page is based on local repository inspection rather than
+              marketing copy alone. The important source surfaces include
+              <code>README.md</code>, <code>docs/DIRECTION.md</code>,
+              <code>docs/MEMORY_CONTEXT.md</code>,
+              <code>src/routing/recommend.py</code>,
+              <code>src/routing/chat.py</code>,
+              <code>src/wrapper/contract.py</code>,
+              <code>src/wrapper/sessions.py</code>,
+              <code>src/coding_delegation.py</code>,
+              <code>src/runtime/artifacts.py</code>,
+              <code>src/runtime/records.py</code>,
+              <code>src/mcp_bridge.py</code>,
+              <code>src/plugin_bundle/omj/tools/chat_tool.py</code>,
+              <code>src/plugin_bundle/omj/tools/recommend_tool.py</code>,
+              <code>src/hermes_ops.py</code>,
+              <code>src/commands/ops.py</code>,
+              <code>src/skills/catalog.py</code>,
+              <code>src/skills/render.py</code>, and
+              <code>skills/oh-my-jeo/SKILL.md</code>.
+            </p>
+            <div class="source-chip-grid source-chip-grid--inline">
+              <span>README.md</span>
+              <span>docs/DIRECTION.md</span>
+              <span>docs/MEMORY_CONTEXT.md</span>
+              <span>src/routing/recommend.py</span>
+              <span>src/routing/chat.py</span>
+              <span>src/wrapper/contract.py</span>
+              <span>src/wrapper/sessions.py</span>
+              <span>src/coding_delegation.py</span>
+              <span>src/runtime/artifacts.py</span>
+              <span>src/runtime/records.py</span>
+              <span>src/mcp_bridge.py</span>
+              <span>src/plugin_bundle/omj/tools/chat_tool.py</span>
+              <span>src/plugin_bundle/omj/tools/recommend_tool.py</span>
+              <span>src/hermes_ops.py</span>
+              <span>src/commands/ops.py</span>
+              <span>src/skills/catalog.py</span>
+              <span>src/skills/render.py</span>
+              <span>skills/oh-my-jeo/SKILL.md</span>
+            </div>
+          </section>
+        </article>
+
+        <article class="lang-panel lang-panel--ko" lang="ko">
+          <header class="architecture-article-hero">
+            <p class="eyebrow">아키텍처 가이드</p>
+            <h1>Hermes Agent는 단순 채팅창이 아니라, 일을 굴러가게 만드는 운영층입니다.</h1>
+            <p>
+              겉으로는 터미널 UI나 메신저 봇처럼 보일 수 있습니다. 하지만
+              안쪽에서는 메모리, 스킬, 크론, 도구, 플러그인, 플랫폼 어댑터,
+              에이전트 루프가 한 번에 엮입니다. 이 글은 그 구조를 Hermes Agent
+              anatomy로 뜯어봅니다. 메시지는 어디서 들어오고, 프롬프트 맥락은
+              어떻게 조립되며, 도구 실행과 예약 작업, 전달 결과는 어디서
+              관측되는지 코드 기준으로 따라갑니다.
+            </p>
+            <div class="architecture-hero-board" aria-label="Architecture highlights">
+              <span><i class="hero-board-icon hero-board-icon--surface" aria-hidden="true"></i>Surfaces</span>
+              <span><i class="hero-board-icon hero-board-icon--memory" aria-hidden="true"></i>Memory</span>
+              <span><i class="hero-board-icon hero-board-icon--skills" aria-hidden="true"></i>Skills</span>
+              <span><i class="hero-board-icon hero-board-icon--tools" aria-hidden="true"></i>Tools</span>
+              <span><i class="hero-board-icon hero-board-icon--omj" aria-hidden="true"></i>Evidence</span>
+            </div>
+          </header>
+
+          <section class="architecture-blog-section architecture-prose architecture-prose--lead">
+            <p class="blog-kicker">Hermes를 "CLI 에이전트"라고만 부르면, 제일 중요한 장면이 사라집니다.</p>
+            <p>
+              물론 CLI로 켤 수 있습니다. 하지만 그건 문을 여는 방식일 뿐이고,
+              제품의 본질은 그 뒤에서 벌어지는 일에 있습니다. Hermes는 질문에
+              답하는 작은 창이 아니라, 대화 접점과 프롬프트 조립기, 메모리,
+              스킬, 도구, 예약 작업, 메신저 게이트웨이를 한 루프로 묶는
+              작업 운영면에 가깝습니다.
+            </p>
+            <p>
+              중요한 건 부품들이 따로 노는 게 아니라 서로 이어진다는 점입니다.
+              채팅 한 줄은 곧장 모델 답변으로 가지 않습니다. identity, files,
+              memory, skills, tool availability, platform metadata, safety,
+              session state를 붙인 뒤에야 에이전트 루프가 어떤 일을 할지
+              결정합니다.
+            </p>
+            <aside class="architecture-thesis">
+              <span>핵심 주장</span>
+              <strong>
+                Hermes Agent는 layered work runtime입니다. surface가 의도를 받고,
+                prompt builder가 맥락을 컴파일하고, agent loop가 행동하며,
+                persistence가 일을 나중에 점검할 수 있게 남깁니다.
+              </strong>
+            </aside>
+          </section>
+
+          <section class="architecture-article-section architecture-article-section--visual architecture-diagram-section">
+            <div class="diagram-heading">
+              <span class="diagram-heading__icon" aria-hidden="true"></span>
+              <div>
+                <p class="eyebrow">Mermaid-style component map</p>
+                <h2>사용자 메시지 하나는 유용한 일이 되기 전 여섯 층을 지나갑니다.</h2>
+                <p>
+                  이 그림은 구현 세부를 전부 욱여넣기 위한 도표가 아닙니다.
+                  사람이 보낸 말이 어디서 들어오고, 어떤 맥락을 붙이고, 어떤
+                  루프를 지나 도구나 자동화로 이어지며, 마지막에 실제 관측된
+                  evidence와 함께 어떻게 돌아오는지를 한 번에 보는 지도입니다.
+                </p>
+              </div>
+            </div>
+            <div class="architecture-mermaid-map" aria-label="Hermes Agent component map">
+              <div class="arch-node arch-node--surface">
+                <span class="arch-node__icon arch-node__icon--surface" aria-hidden="true"></span>
+                <span>Surfaces</span>
+                <strong>TUI, CLI, gateway, platform adapters</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--prompt">
+                <span class="arch-node__icon arch-node__icon--prompt" aria-hidden="true"></span>
+                <span>Prompt compiler</span>
+                <strong>Identity, files, skills, memory hints, platform context</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--core">
+                <span class="arch-node__icon arch-node__icon--core" aria-hidden="true"></span>
+                <span>Agent loop</span>
+                <strong>AIAgent, model transport, tool loop, session state</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--tools">
+                <span class="arch-node__icon arch-node__icon--tools" aria-hidden="true"></span>
+                <span>Extension ports</span>
+                <strong>Toolsets, MCP, plugins, cron, delivery targets</strong>
+              </div>
+              <i aria-hidden="true"></i>
+              <div class="arch-node arch-node--omj">
+                <span class="arch-node__icon arch-node__icon--omj" aria-hidden="true"></span>
+                <span>Evidence boundary</span>
+                <strong>Prepared state, observed result, verification, delivery</strong>
+              </div>
+            </div>
+            <div class="platform-chip-wall" aria-label="Gateway surfaces">
+              <span>Terminal</span>
+              <span>CLI</span>
+              <span>Telegram</span>
+              <span>Discord</span>
+              <span>Slack</span>
+              <span>WhatsApp</span>
+              <span>Signal</span>
+              <span>Webhook</span>
+              <span>Email</span>
+              <span>Matrix</span>
+            </div>
+          </section>
+
+          <section class="architecture-longform architecture-prose">
+            <p class="article-section-label">01 / 라우팅</p>
+            <h2>작업 분류</h2>
+            <p>
+              요청은 그냥 답변이 되지 않습니다. route가 됩니다. Hermes가 먼저
+              정해야 하는 것은 "뭐라고 대답할까?"가 아니라 "이건 어떤 종류의
+              일인가?"입니다. 짧은 질문이면 한 번의 답변으로 충분합니다. 제품
+              방향이 흐릿하면 deep-interview로 들어가야 합니다. 반복되는 버그
+              제보라면 feedback-triage, 조사 계획, 재현 계획, coding-agent
+              handoff까지 이어지는 편이 낫습니다. 매일 아침 경쟁사 뉴스를
+              요약하라는 요청은 scheduled ops가 될 수 있습니다.
+            </p>
+            <p>
+              이 route 감각이 단순 챗봇과 작업 운영층을 가릅니다. Hermes는
+              TUI, CLI, gateway, platform adapter 어디서든 시작될 수 있습니다.
+              Telegram, Discord, Slack, WhatsApp, Signal, email, Matrix, webhook은
+              서로 다른 제품이 아니라 같은 루프로 들어오는 여러 문에 가깝습니다.
+              중요한 것은 메시지가 들어온 다음입니다. 어떤 thread에서 왔는지,
+              누가 보냈는지, 어디로 돌려보내야 하는지, 어떤 도구를 써도 되는지,
+              어디까지가 실제 증거인지가 유지되어야 합니다.
+            </p>
+            <p>
+              라우팅은 별도 마케팅 기능이 아니라 첫 번째 아키텍처 압력점입니다.
+              Hermes가 source channel, target thread, permission boundary,
+              delivery context를 잃어버리면 뒤의 작업은 전부 흐릿해집니다. 좋은
+              route는 사용자의 요청을 들어온 표면과 나중에 돌려줄 수 있는
+              evidence에 계속 묶어둡니다.
+            </p>
+            <blockquote class="article-callout">
+              구조는 layered입니다. surface, prompt context, agent loop,
+              memory, skills, extension ports, evidence boundary가 각각 다른
+              질문에 답한 뒤에야 Hermes는 일이 끝났다고 말할 수 있습니다.
+            </blockquote>
+
+            <p class="article-section-label">02 / 프롬프트 맥락</p>
+            <h2>프롬프트 빌더</h2>
+            <p>
+              프롬프트 빌더는 Hermes의 목에 해당합니다. 사람이 보낸 문장이
+              여기서 identity, files, skills, memory hints, platform context,
+              safety constraints, tool availability를 가진 agent request로
+              바뀝니다. OMJ에서는 이 prompt-builder 책임이
+              <code>src/routing/recommend.py</code>, <code>src/routing/chat.py</code>,
+              <code>src/wrapper/contract.py</code> 같은 route와 wrapper contract로
+              표현됩니다. 사용자의 의도와 함께 어떤 route, visible action, state,
+              evidence boundary가 이동할 수 있는지를 정하기 때문입니다.
+            </p>
+            <p>
+              같은 말도 어디서 들어왔는지에 따라 다르게 다뤄져야 합니다.
+              "이거 리뷰 가능하게 정리해줘"라는 문장은 로컬 터미널에서 온
+              것인지, Discord thread에서 온 것인지, scheduled job의 결과인지,
+              repository-connected session에서 온 것인지에 따라 필요한 맥락이
+              달라집니다. 누가 말했는지, 어떤 thread인지, 어떤 skill이 설치되어
+              있는지, 어떤 memory가 관련 있는지, wrapper가 나중에 dispatch나
+              verification evidence를 기록할 수 있는지가 모두 프롬프트의 일부가
+              됩니다.
+            </p>
+            <p>
+              그래서 프롬프트 빌딩은 단순 문자열 템플릿이 아니라 context
+              compilation에 가깝습니다. 어떤 지시가 오래 유지되는 규칙인지,
+              어떤 정보가 이번 턴에만 필요한지, 어떤 기억은 안전하게 넣을 수
+              있는지, 어떤 도구나 플랫폼 action을 고려해도 되는지를 정해야
+              합니다.
+            </p>
+
+            <p class="article-section-label">03 / 실행 루프</p>
+            <h2>에이전트 루프</h2>
+            <p>
+              Agent loop는 작업실이지만, OMJ는 그 claim을 wrapper boundary에
+              묶어 둡니다. <code>src/coding_delegation.py</code>,
+              <code>src/wrapper/sessions.py</code>, <code>src/runtime/artifacts.py</code>는
+              executor handoff를 준비하고, session decision을 보존하고, 실제로
+              관측된 runtime event를 기록합니다. OMJ가 숨은 executor라고 말하지
+              않기 위한 구조입니다.
+            </p>
+            <p>
+              문제는 여기서부터입니다. 무언가를 준비했다는 말과 실제로
+              실행됐다는 말은 다릅니다. Hermes가 coding handoff를 준비했다고
+              해서 coding agent가 이미 코드를 고쳤다는 뜻은 아닙니다. image card
+              prompt를 만들었다고 해서 연결된 이미지 도구가 이미 결과물을
+              생성해 전달했다는 뜻도 아닙니다. 매일 도는 research loop를
+              준비했다는 말은 cron이 깨어났고, source가 수집됐고, synthesis가
+              끝났고, brief가 전달됐다는 말과 다릅니다.
+            </p>
+            <p>
+              그래서 Hermes는 의도와 관측을 분리해야 합니다. plan, queued action,
+              tool call, streamed result, saved artifact, delivered answer는 모두
+              다른 runtime state입니다. 이 선이 흐려지는 순간, agent product는
+              일을 보고하는 것이 아니라 일한 것처럼 보이는 이야기를 만들기
+              쉽습니다.
+            </p>
+
+            <p class="article-section-label">04 / 기억과 검색</p>
+            <h2>메모리 규칙</h2>
+            <p>
+              <code>docs/MEMORY_CONTEXT.md</code>는 OMJ-local 또는 wrapper-supplied
+              context만 대상으로 memory review를 제한합니다. "에이전트가
+              기억한다"는 말보다 훨씬 까다로운 일입니다.
+              좋은 메모리는 많이 쌓아두는 것이 아니라, 지금 꺼낼 만한 것과
+              꺼내면 안 되는 것을 구분합니다. 꺼낸 맥락이 최종 답변에 그대로 새지
+              않도록 다루는 것도 메모리의 일부입니다.
+            </p>
+            <p>
+              긴 workflow에서는 이 차이가 더 크게 드러납니다. 며칠 동안
+              repository를 개선하는 loop라면 목표, stop condition, 이전 실패,
+              이미 수집한 evidence, 아직 모르는 부분을 기억해야 합니다. research
+              department workflow라면 raw source inbox, processed notes,
+              briefing output, conflict, verification-needed item을 분리해야
+              합니다. coding delegation workflow라면 마지막 terminal log만
+              남기는 것으로는 부족합니다. 처음 deep interview와 plan의 맥락까지
+              같이 살아 있어야 합니다.
+            </p>
+            <p>
+              그래서 긴 설명 더미보다 structured memory가 더 쓸모 있습니다.
+              original request, route, prompt context, selected skill, tool
+              attempt, observed evidence, result, user feedback, follow-up
+              candidate가 남아야 Hermes가 나중에 자기 실행을 점검하거나 개선할
+              수 있습니다.
+            </p>
+
+            <p class="article-section-label">05 / 절차적 지식</p>
+            <h2>스킬</h2>
+            <p>
+              skill은 단순 문서가 아닙니다. Hermes가 매번 같은 절차를 즉석에서
+              추측하지 않도록 붙잡아주는 반복 가능한 operating pattern입니다.
+              <code>src/skills/catalog.py</code>, <code>src/skills/render.py</code>,
+              <code>skills/oh-my-jeo/SKILL.md</code>가 보여주는 구조도 이쪽에
+              가깝습니다. 어떤 상황에서 어떤 skill을 써야 하는지, agent-created
+              skill을 어떻게 다듬어야 하는지, 실패를 보고 skill guidance를 어떻게
+              고쳐야 하는지를 Hermes가 배울 수 있습니다.
+            </p>
+            <p>
+              그래서 GEPA-style 사고가 중요합니다. Hermes는 실행 trace를 읽고
+              자기 행동을 고칠 수 있습니다. 다만 trace가 지저분하면 개선도
+              지저분해집니다. "뭔가 했고 괜찮아 보였다"는 학습 가능한 사건이
+              아닙니다. 반대로 "사용자가 issue-to-PR 준비를 요청했는데 잘못된
+              workflow로 갔고, acceptance criteria가 빠졌고, reviewer가 그
+              공백을 발견했고, 이 skill patch가 같은 실수를 줄일 수 있다"는
+              학습 가능한 사건입니다.
+            </p>
+            <p>
+              그래서 자기개선의 기본값이 곧바로 자동 변경이어서는 안 됩니다.
+              더 안전한 순서는 trace, evaluate, propose, review, patch, replay입니다.
+              Hermes가 개선안을 만들 수는 있지만, workflow나 skill이 실제로
+              바뀌는 순간에는 사람 또는 신뢰된 review gate가 끼어드는 편이
+              안전합니다.
+            </p>
+
+            <p class="article-section-label">06 / 도구와 확장 포트</p>
+            <h2>도구와 플러그인 포트</h2>
+            <p>
+              도구는 Hermes가 대화만 하는 상태를 넘어 외부 세계를 만지는 지점입니다.
+              <code>src/mcp_bridge.py</code>,
+              <code>src/plugin_bundle/omj/tools/chat_tool.py</code>,
+              <code>src/plugin_bundle/omj/tools/recommend_tool.py</code> 같은 파일은
+              호출 가능한 기능, 인자 전달 방식, 보호된 tool boundary, 결과가
+              loop로 돌아오는 방식을 정합니다.
+            </p>
+            <p>
+              좋은 tool port는 권한을 뭉개지 않습니다. 파일 읽기, browser connector
+              열기, repository 쓰기, channel에 post하기, plugin 등록하기는 모두
+              다른 힘입니다. Hermes는 이 차이를 prompt context와 사용자에게 보이는
+              status 안에 남겨야 합니다. 그래야 편리한 자동화가 조용히 숨은 production
+              action이 되지 않습니다.
+            </p>
+            <p>
+              Plugin과 MCP-style extension에는 provenance도 필요합니다. 어떤 claim이
+              Hermes 자체 판단인지, wrapper contract인지, plugin-authored metadata
+              record인지, 실제 backend output에서 관측된 것인지 구분할 수 있어야
+              합니다. 이 구분 덕분에 같은 agent가 유연하게 확장되면서도 검증 불가능한
+              black box가 되지 않습니다.
+            </p>
+
+            <p class="article-section-label">07 / 게이트웨이 표면</p>
+            <h2>Hermes Gateway</h2>
+            <p>
+              <code>src/routing/recommend.py</code>, <code>src/skills/catalog.py</code>,
+              <code>src/wrapper/contract.py</code>의 gateway intent policy는 Discord,
+              Slack, Telegram, email, webhook 같은 표면을 하나의 agent loop로
+              들어오는 여러 문으로 다루게 해줍니다. gateway는 단순한 transport
+              adapter가 아닙니다. origin, user, thread, delivery target,
+              attachment policy, silence policy, status-update expectation을
+              runtime으로 운반하는 층입니다.
+            </p>
+            <p>
+              이 gateway context는 Hermes가 어떤 답을 만들어야 하는지도 바꿉니다.
+              로컬 터미널 답변은 길어도 됩니다. Slack thread에서는 짧은 상태
+              업데이트와 조용한 후속 조치가 더 맞을 수 있습니다. Discord handoff는
+              channel, mention policy, follow-up thread를 보존해야 할 수 있고,
+              webhook은 사람이 읽는 설명보다 machine-readable result가 더 중요할
+              수 있습니다. 같은 user intent라도 표면에 따라 렌더링이 달라져야
+              합니다.
+            </p>
+            <p>
+              핵심 경계는 delivery입니다. gateway intent card를 준비했다는 말은
+              platform message가 실제로 전송됐다는 증거가 아닙니다. 좋은 gateway
+              path는 어떤 channel을 준비하는지, 어떤 delivery constraint를 지킬
+              것인지, reply나 attachment나 status update가 실제 destination에
+              도착했다는 증거가 무엇인지를 분리해서 말할 수 있어야 합니다.
+            </p>
+
+            <p class="article-section-label">08 / 예약 작업</p>
+            <h2>크론과 예약 실행</h2>
+            <p>
+              <code>src/hermes_ops.py</code>, <code>src/commands/ops.py</code>의
+              scheduled work는 사람이 터미널을 보고 있지 않을 때도 Hermes가
+              운영면처럼 느껴지게 만듭니다. 쓸 만한 에이전트는 platform에서 일을
+              받고, session context를 보존하고, delivery policy를 지키고,
+              scheduled check를 준비하고, 필요한 protected tool을 이름 붙이고,
+              lock을 잡고, prompt injection을 확인하고, 올바른 channel로 결과를
+              돌려줘야 합니다.
+            </p>
+            <p>
+              그렇다고 모든 workflow를 무인 자동화로 밀어 넣자는 뜻은 아닙니다.
+              검증은 여전히 operator의 몫입니다. 무인으로 도는 loop는 무인으로
+              실수할 수도 있습니다. 더 좋은 설계는 검증을 층으로 나누는 것입니다.
+              schema validation, compile log, focused test, smoke command 같은
+              싼 inner-loop check는 자주 돌리고, adversarial review, integration
+              test, release gate, human approval 같은 비싼 outer-loop check는
+              중요한 경계에서 돌립니다.
+            </p>
+            <p>
+              Hermes runtime은 이 비용 다이얼을 보이게 해야 합니다. "다음 단계는
+              이것이고, 빠른 검증은 이것이며, 무거운 검증은 나중에 필요하고,
+              실패한 지점은 여기라서 plan으로 돌아가야 하며, 아직 사람 판단이
+              필요한 부분은 이것이다"라고 말할 수 있어야 합니다.
+            </p>
+
+            <p class="article-section-label">09 / 경계 모델</p>
+            <h2>증거 경계</h2>
+            <p>
+              Hermes 안에서 가장 중요한 제품 경계는 "에이전트가 맞는 말을
+              했는가?"만이 아닙니다. 더 중요한 질문은 "에이전트가 무엇이 실제로
+              일어났다고 말할 수 있는가?"입니다. prepared work, queued work,
+              dispatched work, completed work, verified work, reviewed work,
+              delivered work가 하나의 vague success state로 뭉개지면 안 됩니다.
+            </p>
+            <p>
+              이 경계는 모든 extension point에서 필요합니다. tool schema가
+              존재하는 것과 tool call이 실제로 일어난 것은 다릅니다. plugin이
+              설치된 것과 active session에서 load된 것도 다릅니다. scheduled job이
+              선언된 것과 실제로 깨어난 것도 다르고, gateway가 메시지를 받은
+              것과 답변 전달에 성공한 것도 다릅니다. runtime은 이 사실들을 서로
+              다른 상태로 다뤄야 합니다.
+            </p>
+            <p>
+              이 경계가 있어야 Hermes는 자연스럽게 말하면서도 운영적으로
+              정직할 수 있습니다. 사용자에게는 읽기 쉬운 답을 주되, 기계가 읽는
+              상태에는 intent, action, evidence, verification, delivery,
+              follow-up을 분리해서 남겨야 합니다.
+            </p>
+
+            <div class="architecture-example-lines" aria-label="Example Hermes prompts">
+              <code>"이 스레드를 요약하되, 관측된 사실과 추론을 나눠서 보여줘."</code>
+              <code>"정기 리서치 체크를 준비하고, 아직 확인이 필요한 부분을 알려줘."</code>
+              <code>"코딩 작업을 열되, executor가 보고하기 전에는 실행됐다고 말하지 마."</code>
+              <code>"실패한 실행을 보고 가장 작은 skill guidance patch를 제안해줘."</code>
+            </div>
+
+            <p class="article-section-label">10 / 핵심 정리</p>
+            <h2>요약</h2>
+            <p>
+              Hermes Agent는 surfaces, prompt builder, agent loop, memory,
+              skills, tools, plugins, cron, gateway, delivery가 함께 맞물릴 때
+              가장 강합니다. 경계는 단순합니다. Hermes는 계획하고, 도구를
+              호출하고, 맥락을 저장하고, 결과를 돌려줄 수 있습니다. 하지만
+              운영상의 claim은 실제 관측된 runtime fact와 연결되어야 합니다.
+            </p>
+            <p>
+              이 글은 홍보 문구가 아니라 local repository inspection을 바탕으로
+              정리했습니다. 중요한 source surface는 <code>README.md</code>,
+              <code>docs/DIRECTION.md</code>, <code>docs/MEMORY_CONTEXT.md</code>,
+              <code>src/routing/recommend.py</code>, <code>src/routing/chat.py</code>,
+              <code>src/wrapper/contract.py</code>, <code>src/wrapper/sessions.py</code>,
+              <code>src/coding_delegation.py</code>,
+              <code>src/runtime/artifacts.py</code>, <code>src/runtime/records.py</code>,
+              <code>src/mcp_bridge.py</code>,
+              <code>src/plugin_bundle/omj/tools/chat_tool.py</code>,
+              <code>src/plugin_bundle/omj/tools/recommend_tool.py</code>,
+              <code>src/hermes_ops.py</code>,
+              <code>src/commands/ops.py</code>, <code>src/skills/catalog.py</code>,
+              <code>src/skills/render.py</code>,
+              <code>skills/oh-my-jeo/SKILL.md</code>입니다.
+            </p>
+            <div class="source-chip-grid source-chip-grid--inline">
+              <span>README.md</span>
+              <span>docs/DIRECTION.md</span>
+              <span>docs/MEMORY_CONTEXT.md</span>
+              <span>src/routing/recommend.py</span>
+              <span>src/routing/chat.py</span>
+              <span>src/wrapper/contract.py</span>
+              <span>src/wrapper/sessions.py</span>
+              <span>src/coding_delegation.py</span>
+              <span>src/runtime/artifacts.py</span>
+              <span>src/runtime/records.py</span>
+              <span>src/mcp_bridge.py</span>
+              <span>src/plugin_bundle/omj/tools/chat_tool.py</span>
+              <span>src/plugin_bundle/omj/tools/recommend_tool.py</span>
+              <span>src/hermes_ops.py</span>
+              <span>src/commands/ops.py</span>
+              <span>src/skills/catalog.py</span>
+              <span>src/skills/render.py</span>
+              <span>skills/oh-my-jeo/SKILL.md</span>
+            </div>
+          </section>
+        </article>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <span>
+        A Hermes Agent anatomy guide based on repository inspection.
+      </span>
+      <span>
+        Developed by <a href="https://github.com/rlaope">rlaope</a>.
+      </span>
+    </footer>
+  </body>
+</html>

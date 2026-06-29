@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OMJ Loop - Loop Engineering for Hermes</title>
+    <meta
+      name="description"
+      content="Loop Engineering docs for OMJ: loopability-gated goal cycles for Hermes Agent with interview, research, plan, runtime tick queue, handoff, feedback, and evidence boundaries."
+    >
+    <link rel="stylesheet" href="../../styles.css">
+  </head>
+  <body class="docs-page feature-page">
+    <header class="topbar topbar--solid" aria-label="Primary">
+      <a class="brand brand--link" href="../../">OMJ</a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="../">Docs</a>
+        <a href="../hermes-agent-architecture/">Hermes Deepdive</a>
+        <a
+          class="nav__icon"
+          href="https://github.com/rlaope/oh-my-hermes"
+          aria-label="Open OMJ repository on GitHub"
+          title="GitHub repository"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.58 2 12.22c0 4.52 2.87 8.35 6.85 9.7.5.09.68-.22.68-.49v-1.73c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.56 2.35 1.11 2.92.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.71 0 0 .84-.28 2.75 1.05A9.37 9.37 0 0 1 12 6.92c.85 0 1.7.12 2.5.35 1.9-1.33 2.74-1.05 2.74-1.05.55 1.4.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.8c0 .27.18.58.69.48A10.06 10.06 0 0 0 22 12.22C22 6.58 17.52 2 12 2Z"></path>
+          </svg>
+        </a>
+      </nav>
+    </header>
+
+    <main class="feature-shell">
+      <header class="feature-hero feature-hero--loop">
+        <p class="eyebrow">New flagship workflow</p>
+        <span class="new-badge">New</span>
+        <h1>Loop!</h1>
+        <p>
+          OMJ Loop lets Hermes Agent treat a high-level goal as a repeating
+          system only after it decides whether the request is a direct task, a
+          loopable project, a north-star ambition, external waiting, or too
+          unclear to start. Loopable goals then clarify the arena, research the
+          gap, plan the next move, queue a runtime tick, prepare handoff when
+          allowed, evaluate feedback, and continue until evidence, authority,
+          context, or external waiting says to stop.
+        </p>
+        <div class="feature-actions">
+          <a class="button button--primary" href="../">Back to docs</a>
+          <a class="button" href="https://github.com/rlaope/oh-my-hermes">GitHub</a>
+        </div>
+        <figure class="loop-image-frame loop-image-frame--hero">
+          <img
+            src="../../assets/omj-loop-engineering.png"
+            alt="Loop Engineering poster showing ./loop as a goal-driven research, plan, handoff, feedback, and repeat control plane"
+          >
+        </figure>
+      </header>
+
+      <section class="feature-section">
+        <div class="feature-copy">
+          <h2>Loop Engineering</h2>
+          <p>
+            In OMJ, Loop Engineering is the Hermes-facing control plane for
+            work whose right implementation cannot be known upfront. The point is
+            no longer just prompting. The point is giving a clear goal and
+            designing the system that decides what to find, how to process it,
+            when to hand off work, when to wait, and when to stop.
+          </p>
+          <blockquote class="loop-post">
+            <p>
+              In OMJ, Loop Engineering is the operating surface for goals that
+              need bounded discovery, action, verification, and revision.
+            </p>
+            <p>
+              The goal is not to write a longer prompt. The goal is to define a
+              durable objective, then let the system keep finding gaps, choosing
+              the next step, preparing handoffs, evaluating feedback, and
+              deciding when to continue, wait, or stop.
+            </p>
+            <p>
+              In OMJ, <code>./loop</code> gives Hermes Agent a visible loop
+              contract for skills, plugins, connectors, subagents, worktrees,
+              and external memory without pretending unobserved work already
+              happened.
+            </p>
+            <p>
+              Loop Engineering is not for goals that are merely large. It is
+              for goals whose correct implementation cannot be known upfront
+              but can be discovered through bounded cycles of definition,
+              action, verification, and revision.
+            </p>
+          </blockquote>
+        </div>
+        <div class="loop-visual loop-visual--large" aria-label="Loop engineering cycle">
+          <span>goal</span>
+          <span>interview</span>
+          <span>research</span>
+          <span>plan</span>
+          <span>tick</span>
+          <span>handoff</span>
+          <span>feedback</span>
+          <span>again</span>
+        </div>
+      </section>
+
+      <section class="feature-section feature-section--split">
+        <div class="feature-copy">
+          <h2>The Loop Goal Dilemma</h2>
+          <p>
+            If the goal is too large, the loop becomes fantasy planning. If the
+            goal is too small, the loop becomes overhead. OMJ adds
+            <code>loopability_assessment/v1</code> so Hermes can preserve the
+            ambition while converting it into a current loop goal that has a
+            bounded arena, observable problem, next verification, and stop
+            condition.
+          </p>
+        </div>
+        <div class="usecase-grid">
+          <article class="case-card">
+            <span>Task</span>
+            <h3>Change the button color.</h3>
+            <p>Route to a direct task or one-cycle delivery workflow. A persistent loop is unnecessary.</p>
+          </article>
+          <article class="case-card">
+            <span>Project</span>
+            <h3>Reduce install-to-first-value friction.</h3>
+            <p>Start a loop because the next correct implementation must be discovered and verified.</p>
+          </article>
+          <article class="case-card">
+            <span>Ambition</span>
+            <h3>Make this a 100k-star OSS.</h3>
+            <p>Keep this as the north star, then propose the first bounded loop goal before any tick advances.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section feature-section--split">
+        <div>
+          <h2>When to use it</h2>
+          <div class="usecase-grid">
+            <article class="case-card">
+              <span>Open source ambition</span>
+              <h3>Make this a 10k-star quality OSS.</h3>
+              <p>Hermes treats the phrase as a north star, then proposes a first loop goal such as reducing first-run friction without pretending market response was observed.</p>
+            </article>
+            <article class="case-card">
+              <span>Long refactor</span>
+              <h3>Finish all major refactoring safely.</h3>
+              <p>The loop records each risk, plan, handoff, feedback gate, and checkpoint so the work can continue across context limits.</p>
+            </article>
+            <article class="case-card">
+              <span>Product development</span>
+              <h3>Keep improving onboarding until it feels polished.</h3>
+              <p>Hermes cycles discovery, plan, executor handoff, QA feedback, and user-facing status while preserving evidence boundaries.</p>
+            </article>
+          </div>
+        </div>
+        <aside class="feature-contract">
+          <h2>What the tick means</h2>
+          <p>
+            <code>loop_runtime/v1</code> is a prepared queue, not execution
+            evidence. It can name a worktree plan, subagent plan, connector
+            intent, or executor handoff, but observed work must be recorded
+            separately.
+          </p>
+          <ul class="docs-list">
+            <li><code>loop_engineering/v1</code> shows task discovery, distribution, execution, verification, and next-task decision state.</li>
+            <li>Automation, worktree, skill, connector, and subagent blocks stay visible as separate states.</li>
+            <li><code>verification_plan</code> names the expected signal, evidence required, failure action, and stop signal for the current queue item.</li>
+            <li>Inner-loop checks are cheap and frequent: syntax, compile or import, focused test, command smoke, and schema validation.</li>
+            <li>Outer-loop checks are slower and rarer: integration evidence, semantic review, adversarial verifier, release gate, or human review.</li>
+            <li>Workflow patterns such as fan-out, adversarial verification, tournament, and triage batch are orchestration metadata, not dispatch evidence.</li>
+            <li><code>failure_mode_summary</code> warns about verification gaps, comprehension debt, and cognitive surrender before the loop keeps moving.</li>
+            <li>Cost policy keeps reads bounded, reuses stable schema scaffolds, and avoids extra verifier lanes unless evidence warrants them.</li>
+            <li><code>omj loop run-once --loop &lt;id&gt;</code> can wake exactly one eligible tick for wrappers, cron, or future automation without running code, and its result distinguishes <code>created_tick</code> from <code>pending_queue_exists</code>.</li>
+            <li>Prepared queue item is not worktree creation.</li>
+            <li>Prepared subagent plan is not subagent dispatch; subagent results should return status, summary, evidence refs, and next actions.</li>
+            <li>Prepared connector plan is not connector I/O.</li>
+            <li>External outcomes stay waiting until observed.</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="feature-section feature-section--split">
+        <div class="feature-copy">
+          <h2>Verification inside the loop</h2>
+          <p>
+            Verification is part of the loop design, not an afterthought. OMJ
+            keeps cheap inner-loop checks close to the current step and reserves
+            outer-loop checks for higher-risk or more semantic judgment. If a
+            check is missing or fails, Hermes should route back to research or
+            plan instead of advancing the queue as if the work succeeded.
+          </p>
+        </div>
+        <div class="usecase-grid">
+          <article class="case-card">
+            <span>Small loop</span>
+            <h3>Test as stop signal</h3>
+            <p>Name the cheapest check that proves this step is done before the queue item is prepared.</p>
+          </article>
+          <article class="case-card">
+            <span>Cycle shape</span>
+            <h3>Plan -> execute -> verify</h3>
+            <p>Keep one planned step, one handoff or execution lane, and one observed verification signal per cycle.</p>
+          </article>
+          <article class="case-card">
+            <span>Failure modes</span>
+            <h3>One task at a time</h3>
+            <p>Warnings for verification gap, comprehension debt, and cognitive surrender keep the loop from looking safer than it is.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <div class="feature-copy">
+          <h2>Start card to queue lifecycle</h2>
+          <p>
+            A chat wrapper can ask OMJ for a <code>loop_start_card/v1</code>
+            before a loop artifact exists. After the user chooses a permission
+            profile, Hermes can start the loop, tick it, show the prepared
+            queue and loop engineering snapshot, render a handoff with
+            verification intent for the actionable item, then close that item
+            as observed or blocked.
+          </p>
+        </div>
+        <div class="lifecycle-strip" aria-label="Loop start and queue lifecycle">
+          <article class="lifecycle-step">
+            <span>1</span>
+            <strong>Start card</strong>
+            <p>Explain the goal boundary and ask for permission profile.</p>
+          </article>
+          <article class="lifecycle-step">
+            <span>2</span>
+            <strong>Runtime queue</strong>
+            <p>Prepare the next worktree, subagent, connector, or handoff plan.</p>
+          </article>
+          <article class="lifecycle-step">
+            <span>3</span>
+            <strong>Handoff</strong>
+            <p>Render the selected queue item as executor-ready instructions.</p>
+          </article>
+          <article class="lifecycle-step">
+            <span>4</span>
+            <strong>Observe or block</strong>
+            <p>Record evidence refs, or stop the queue item with a reason.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>How Hermes can present it</h2>
+        <div class="discord-frame" aria-label="Hermes Loop chat example">
+          <div class="discord-channel"># founder-loop</div>
+          <div class="discord-message">
+            <div class="avatar avatar--user">U</div>
+            <div class="message-body">
+              <div class="message-meta"><strong>user</strong></div>
+              <p>./loop Make OMJ a 10k-star quality Hermes-native project.</p>
+            </div>
+          </div>
+          <div class="discord-message">
+            <div class="avatar avatar--bot">H</div>
+            <div class="message-body bot-response">
+              <div class="message-meta"><strong>Hermes Agent</strong> <span>BOT</span></div>
+              <div class="route-lens">
+                <span>workflow: loop</span>
+                <span>phase: interview</span>
+                <span>next: reframe north star</span>
+              </div>
+              <h3>This is a north star; I will shape the first loop goal.</h3>
+              <p>
+                I will keep the ambition large, pick a bounded arena, name an
+                observable problem, choose the next verification signal, and
+                queue runtime steps only after the current loop goal is clear.
+              </p>
+              <div class="button-row">
+                <button type="button">Observe only</button>
+                <button type="button">Handoff only</button>
+                <button type="button">Execute with gates</button>
+              </div>
+              <p class="claim-boundary">A loop tick is not execution, review, CI, merge, publication, or market response evidence.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Loop docs are part of the OMJ public site.</span>
+      <span>Developed by <a href="https://github.com/rlaope">rlaope</a>.</span>
+    </footer>
+  </body>
+</html>

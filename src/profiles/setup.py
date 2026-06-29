@@ -1,0 +1,202 @@
+from __future__ import annotations
+
+from typing import Any
+
+from ..executors import CODING_EXECUTOR_TARGETS
+from ..local_store import atomic_write_json, read_json_object, utc_now
+from ..paths import OmjPaths
+from .team import inspect_operating_model, operating_model_ids
+
+
+SETUP_PROFILE_SCHEMA_VERSION = "setup_profile/v1"
+PROJECT_MEMORY_POLICY_SCHEMA_VERSION = "project_memory_policy/v1"
+PROJECT_MEMORY_MODES = ("off", "review-first", "auto-safe")
+
+SETUP_PROFILE_CATEGORIES = (
+    {
+        "id": "hermes-retained",
+        "choice": "1",
+        "label": "Hermes answers and plans",
+        "default_executor": "hermes",
+        "description": "Keep research, planning, interviews, triage, and status narration in Hermes.",
+    },
+    {
+        "id": "prompt-only-coding",
+        "choice": "2",
+        "label": "Other coding agent",
+        "default_executor": "generic",
+        "description": "Prepare copy-ready prompts for Claude Code, generic agents, or other tools.",
+    },
+    {
+        "id": "codex-lifecycle",
+        "choice": "3",
+        "label": "Codex",
+        "default_executor": "codex",
+        "description": "Use Codex as the default coding agent and track dispatch, result, review, CI, and merge evidence when selected.",
+    },
+    {
+        "id": "plugin-runtime",
+        "choice": "4",
+        "label": "Oh-my runtime",
+        "default_executor": "omx-runtime",
+        "description": "Use an oh-my runtime profile when the user has one.",
+    },
+    {
+        "id": "safety-first",
+        "choice": "5",
+        "label": "Ask every time",
+        "default_executor": "choose",
+        "description": "Ask the user before choosing a coding agent and preserve prepared-vs-observed boundaries.",
+    },
+)
+
+_CATEGORY_BY_ID = {str(item["id"]): item for item in SETUP_PROFILE_CATEGORIES}
+_CATEGORY_BY_CHOICE = {str(item["choice"]): item for item in SETUP_PROFILE_CATEGORIES}
+_CATEGORY_ID_BY_EXECUTOR = {
+    "choose": "safety-first",
+    "hermes": "hermes-retained",
+    "codex": "codex-lifecycle",
+    "claude-code": "prompt-only-coding",
+    "generic": "prompt-only-coding",
+    "omx-runtime": "plugin-runtime",
+    "omo-runtime": "plugin-runtime",
+    "omc-runtime": "plugin-runtime",
+}
+
+
+def setup_profile_choices() -> list[dict[str, str]]:
+    return [{key: str(value) for key, value in item.items()} for item in SETUP_PROFILE_CATEGORIES]
+
+
+def build_setup_profile(
+    values: list[str] | tuple[str, ...] | None = None,
+    *,
+    default_executor: str | None = None,
+    operating_model: str | None = None,
+    memory_mode: str | None = None,
+) -> dict[str, Any]:
+    model_id = _normalize_operating_model(operating_model)
+    model = inspect_operating_model(model_id)["model"]
+    model_default_executor = str(model.get("default_executor", "choose")) if operating_model else None
+    executor_hint = default_executor or model_default_executor
+    selected = _selected_categories(values, default_executor=executor_hint)
+    resolved_executor = _default_executor_for_categories(selected, default_executor=executor_hint)
+    memory_policy = build_project_memory_policy(memory_mode)
+    return {
+        "schema_version": SETUP_PROFILE_SCHEMA_VERSION,
+        "updated_at": utc_now(),
+        "selected_categories": [str(item["id"]) for item in selected],
+        "operating_model_schema_version": "operating_model/v1",
+        "operating_model_id": model_id,
+        "default_executor": resolved_executor,
+        "dispatch_policy": "ask_before_dispatch" if resolved_executor in {"codex", "choose"} else "prepare_only",
+        "memory_mode": memory_policy["mode"],
+        "memory_policy": memory_policy,
+        "normal_user_surface": "Hermes Agent chat and installed Hermes skills",
+        "local_only": True,
+        "network_calls": False,
+        "hidden_execution": False,
+        "choices": setup_profile_choices(),
+        "claim_boundary": "Setup records routing defaults only; it does not prove Hermes used a skill or any executor ran.",
+    }
+
+
+def write_setup_profile(
+    paths: OmjPaths,
+    values: list[str] | tuple[str, ...] | None = None,
+    *,
+    default_executor: str | None = None,
+    operating_model: str | None = None,
+    memory_mode: str | None = None,
+) -> dict[str, Any]:
+    profile = build_setup_profile(values, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+    atomic_write_json(paths.setup_profile_path, profile, private=True)
+    return profile
+
+
+def read_setup_profile(paths: OmjPaths) -> dict[str, Any] | None:
+    return read_json_object(paths.setup_profile_path)
+
+
+def setup_profile_categories_for_executor(executor: str) -> list[str]:
+    executor_value = _normalize_executor(executor)
+    return [_CATEGORY_ID_BY_EXECUTOR[executor_value]]
+
+
+def build_project_memory_policy(mode: str | None = None) -> dict[str, object]:
+    normalized = _normalize_memory_mode(mode)
+    return {
+        "schema_version": PROJECT_MEMORY_POLICY_SCHEMA_VERSION,
+        "mode": normalized,
+        "capture_enabled": normalized != "off",
+        "recall_enabled": normalized != "off",
+        "review_required": normalized == "review-first",
+        "auto_approve_safe": normalized == "auto-safe",
+        "store_scope": "project_local",
+        "redaction_policy": "metadata_only",
+        "backend": "local_json",
+        "optional_backend_extension": True,
+        "claim_boundary": "Project memory configures OMJ-local prepared context only; it does not mutate Hermes global or internal memory.",
+    }
+
+
+def _selected_categories(
+    values: list[str] | tuple[str, ...] | None,
+    *,
+    default_executor: str | None = None,
+) -> list[dict[str, object]]:
+    if not values:
+        if default_executor:
+            return [_CATEGORY_BY_ID[setup_profile_categories_for_executor(default_executor)[0]]]
+        return [_CATEGORY_BY_ID["safety-first"]]
+    selected: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw).strip()
+        item = _CATEGORY_BY_CHOICE.get(value) or _CATEGORY_BY_ID.get(value)
+        if not item:
+            valid = ", ".join(sorted(set(_CATEGORY_BY_CHOICE) | set(_CATEGORY_BY_ID)))
+            raise ValueError(f"unsupported setup profile choice: {value}; expected one of {valid}")
+        item_id = str(item["id"])
+        if item_id not in seen:
+            selected.append(item)
+            seen.add(item_id)
+    return selected
+
+
+def _default_executor_for_categories(selected: list[dict[str, object]], *, default_executor: str | None = None) -> str:
+    if default_executor:
+        return _normalize_executor(default_executor)
+    ids = {str(item["id"]) for item in selected}
+    if "safety-first" in ids:
+        return "choose"
+    if "codex-lifecycle" in ids:
+        return "codex"
+    if "plugin-runtime" in ids:
+        return "omx-runtime"
+    if "prompt-only-coding" in ids:
+        return "generic"
+    return "hermes"
+
+
+def _normalize_executor(value: str) -> str:
+    executor = str(value).strip()
+    if executor not in CODING_EXECUTOR_TARGETS:
+        valid = ", ".join(CODING_EXECUTOR_TARGETS)
+        raise ValueError(f"unsupported setup default executor: {executor}; expected one of {valid}")
+    return executor
+
+
+def _normalize_operating_model(value: str | None) -> str:
+    model = str(value or "solo-operator").strip()
+    valid = operating_model_ids()
+    if model not in valid:
+        raise ValueError(f"unsupported operating model: {model}; expected one of {', '.join(valid)}")
+    return model
+
+
+def _normalize_memory_mode(value: str | None) -> str:
+    mode = str(value or "review-first").strip()
+    if mode not in PROJECT_MEMORY_MODES:
+        raise ValueError(f"unsupported memory mode: {mode}; expected one of {', '.join(PROJECT_MEMORY_MODES)}")
+    return mode
