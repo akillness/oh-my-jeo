@@ -34,6 +34,15 @@
 
 ## Recently Landed
 
+- Brand consolidation to a single `omj` namespace, removing the deprecated
+  `omh` import/console-script/chat-cue alias while keeping upstream
+  oh-my-hermes attribution where the license requires it
+- `context_brief_coverage/v1` verification gate that protects the Hermes
+  first-turn context rail (route hint, next action, credential hygiene) against
+  drift, demoed via `omj demo` and enforced in release smoke
+- `skill_manifest_coverage` gate that checks generated skill frontmatter plus
+  credential-hygiene expectations, demoed via `omj demo` and enforced in
+  release smoke
 - Explicit Codex executor handoff contracts for delegation-first coding flows
 - Wrapper-facing delegated coding status summaries that separate prepared
   handoff from observed execution, review, CI, and merge evidence
