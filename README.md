@@ -48,6 +48,36 @@ oh-my-jeo runs alongside your existing chat agent. You install it once, then you
 keep talking to your agent normally — oh-my-jeo just makes the next step safer
 and more repeatable.
 
+> **Prerequisite — Hermes Agent.** oh-my-jeo wraps the
+> [Hermes Agent](https://github.com/nousresearch/hermes-agent) runtime (by Nous
+> Research, MIT). If you don't have it yet, install Hermes first — straight from
+> the [upstream repo](https://github.com/nousresearch/hermes-agent), or let OMJ
+> bootstrap it for you with `omj hermes install --apply` (plan-only by default).
+> Prefer no Hermes at all? OMJ also runs over MCP from any compatible host —
+> jump to [step 5](#5-use-omj-from-an-mcp-host-jeo-pi--pi-claude-code-codex-cursor).
+
+**Fastest path (copy-paste):**
+
+```sh
+# 1. install the omj command
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
+
+# 2. install Hermes if you don't have it yet, then wire OMJ into it
+omj hermes install --apply             # bootstraps github.com/nousresearch/hermes-agent
+omj setup --default-executor hermes    # connect OMJ + pick Hermes as your coding runtime
+
+# 3. restart Hermes, then sanity-check
+omj doctor
+```
+
+Then talk to Hermes in plain language (no new CLI needed for daily work):
+
+```text
+Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
+```
+
+The rest of this section walks each step in detail.
+
 ### 1. Install the `omj` command
 
 Pick one of the two paths.
@@ -70,8 +100,11 @@ hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 
 ### 2. Connect OMJ to Hermes, then verify
 
-`omj setup` is the one explicit step that makes OMJ usable from Hermes. Run it
-once and pick Hermes as your coding runtime:
+`omj setup` is the one explicit step that makes OMJ usable from Hermes. It
+expects the [Hermes Agent](https://github.com/nousresearch/hermes-agent) runtime
+to be present — if it isn't, run `omj hermes install --apply` first (or add
+`--with-hermes` to the setup command below). Run setup once and pick Hermes as
+your coding runtime:
 
 ```sh
 omj setup --default-executor hermes   # add --with-mcp to also expose the MCP bridge
@@ -480,6 +513,7 @@ execution evidence.
 | --- | --- |
 | Full docs map | [Documentation](docs/README.md) |
 | Install, update, reapply, uninstall | [Installation](docs/INSTALLATION.md) |
+| Install the Hermes Agent runtime | [Hermes Agent repo](https://github.com/nousresearch/hermes-agent) · [OMJ bootstrap](docs/INSTALLATION.md) |
 | AI-agent pasteable install protocol | [Agent Install](INSTALL_FOR_AGENTS.md) |
 | Product direction and boundaries | [Direction](docs/DIRECTION.md) |
 | Architecture and module ownership | [Architecture](docs/ARCHITECTURE.md) |
