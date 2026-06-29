@@ -72,8 +72,14 @@ PR without the chat history.
 ## Implementation Boundaries
 
 - No LLM, API, Discord, Slack, GitHub, or network calls inside core `omj`
-  features unless the user explicitly approves a scoped integration.
-- No Hermes core patching.
+  features unless the user explicitly approves a scoped integration. The only
+  currently approved network action is the opt-in Hermes runtime bootstrap
+  (`omj hermes install --apply`, `omj setup --with-hermes`), which runs the
+  official upstream installer after an explicit operator opt-in and records the
+  result with the prepared-vs-observed boundary. Default `omj hermes install`
+  and `omj hermes status` stay non-mutating detect-and-advise surfaces.
+- No Hermes core patching. Installing the upstream Hermes runtime is not
+  patching it.
 - Runtime artifacts are local, deterministic, schema-versioned, and
   metadata-only by default.
 - Preserve prepared versus observed boundaries. `prepared_not_observed` is not
