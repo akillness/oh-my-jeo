@@ -94,11 +94,20 @@ class ArchitectureLayoutTests(unittest.TestCase):
             with self.subTest(grouped_module=grouped_module):
                 self.assertTrue((src_root / grouped_module).is_file())
 
+        # Domain packages must carry real modules; an ``__init__.py``-only
+        # directory signals an empty stub.  The ``omh`` brand alias is exempt:
+        # it is intentionally a pure import shim that re-exports ``omj``.
         init_only_dirs = sorted(
             path.name
             for path in src_root.iterdir()
             if path.is_dir()
-            and sorted(child.name for child in path.iterdir()) == ["__init__.py"]
+            and path.name not in brand_packages
+            and sorted(
+                child.name
+                for child in path.iterdir()
+                if child.name not in ignored_generated
+            )
+            == ["__init__.py"]
         )
         self.assertEqual(init_only_dirs, [])
 
