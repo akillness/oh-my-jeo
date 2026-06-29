@@ -39,25 +39,50 @@ oh-my-jeo adds a thin layer of ready-to-use workflows such as `web-research`, `d
 
 ## Quick Start
 
-```sh
+oh-my-jeo runs alongside your existing chat agent. You install it once, then you
+keep talking to your agent normally — oh-my-jeo just makes the next step safer
+and more repeatable.
+
+### 1. Install the `omj` command
+
+Pick one of the two paths.
+
+**Option A — one-line installer (recommended for most users):**
+
+sh
 curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
-omj setup
-omj doctor
-```
+omj setup     # wires oh-my-jeo into your agent/runtime
+omj doctor    # health check; tells you what (if anything) is missing
 
-Hermes skill tap path:
 
-```sh
+**Option B — install as a Hermes skill / Hermes skill tap path (if you already run Hermes):**
+
+sh
 hermes skills tap add akillness/oh-my-jeo
 hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
-```
 
-Then, from chat:
 
-```text
+### 2. Use it from chat
+
+You do not need new CLI commands for daily work. Just tell your agent which
+workflow you want, in plain language:
+
+text
 Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
-```
 
+
+The agent then:
+
+1. Routes your request to the right workflow skill (e.g. `web-research`,
+   `idea-to-deploy`, `doctor`, `loop`).
+2. Explains the next action and what counts as real evidence vs. a prepared plan.
+3. Hands coding off to your selected runtime **only after you accept** the plan.
+
+### 3. Handy commands (optional)
+
+sh
+omj doctor          # re-check setup health anytime
+omj setup --help    # see setup options
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
