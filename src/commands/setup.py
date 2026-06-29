@@ -546,12 +546,14 @@ def _hermes_runtime_setup_result(args: argparse.Namespace) -> dict[str, object]:
     """Optionally bootstrap the Hermes runtime as part of `omj setup`.
 
     Default setup never touches the network: it only detects the runtime and
-    reports presence. `--with-hermes` opts in to running the upstream installer,
-    except under `--dry-run`, which prepares the install command only.
+    reports presence. `--with-hermes` (or `--autopilot`) opts in to running the
+    upstream installer, except under `--dry-run`, which prepares the install
+    command only.
     """
 
     method = str(getattr(args, "hermes_method", DEFAULT_INSTALL_METHOD) or DEFAULT_INSTALL_METHOD)
-    if not getattr(args, "with_hermes", False):
+    autopilot = bool(getattr(args, "autopilot", False))
+    if not getattr(args, "with_hermes", False) and not autopilot:
         detected = detect_hermes()
         return {
             "schema_version": HERMES_BOOTSTRAP_SCHEMA,
@@ -569,11 +571,71 @@ def _hermes_runtime_setup_result(args: argparse.Namespace) -> dict[str, object]:
         plan = build_hermes_install_plan(method)
         plan["status"] = "would_install"
         plan["requested"] = True
+        plan["autopilot"] = autopilot
         return plan
     result = run_hermes_install(method)
     result["requested"] = True
+    result["autopilot"] = autopilot
     result["status"] = "already_present" if result.get("already_present") and not result.get("executed") else ("installed" if result.get("ok") else "install_failed")
     return result
+
+
+AUTOPILOT_VERIFICATION_SCHEMA_VERSION = "autopilot_verification/v1"
+
+
+def _autopilot_verification_result(
+    args: argparse.Namespace,
+    paths,
+    steps: dict[str, object],
+) -> dict[str, object]:
+    """Verify the autopilot bootstrap by running doctor after the setup steps.
+
+    Autopilot is the one-shot install path: it registers OMJ skills with Hermes
+    and bootstraps the Hermes runtime, then this step runs doctor so a single
+    `omj setup --autopilot` ends in an observed health check instead of leaving
+    verification as a separate manual step. Doctor evidence is local
+    install/registration health only; it does not prove Hermes reloaded or used
+    the managed skills.
+    """
+
+    if not bool(getattr(args, "autopilot", False)):
+        return {
+            "schema_version": AUTOPILOT_VERIFICATION_SCHEMA_VERSION,
+            "status": "not_requested",
+            "requested": False,
+            "ran_doctor": False,
+        }
+    hermes_runtime = steps.get("hermes_runtime", {})
+    runtime_status = str(hermes_runtime.get("status", "")) if isinstance(hermes_runtime, dict) else ""
+    if bool(getattr(args, "dry_run", False)):
+        return {
+            "schema_version": AUTOPILOT_VERIFICATION_SCHEMA_VERSION,
+            "status": "would_verify",
+            "requested": True,
+            "ran_doctor": False,
+            "hermes_runtime_status": runtime_status,
+            "proof_boundary": (
+                "Dry run prepared the autopilot bootstrap only. No skills were installed, no Hermes "
+                "config was registered, the Hermes runtime was not installed, and doctor did not run."
+            ),
+        }
+    checks = run_doctor(paths)
+    summary = _doctor_operator_summary(checks)
+    return {
+        "schema_version": AUTOPILOT_VERIFICATION_SCHEMA_VERSION,
+        "status": "verified" if doctor_ok(checks) else "needs_attention",
+        "requested": True,
+        "ran_doctor": True,
+        "doctor_ok": doctor_ok(checks),
+        "hermes_runtime_status": runtime_status,
+        "doctor": summary,
+        "next_action": recommended_next_action(checks) or DEFAULT_DOCTOR_NEXT_ACTION,
+        "proof_boundary": (
+            "Observed local OMJ install, Hermes registration, and runtime detection health only. "
+            "This does not prove Hermes reloaded or used the managed OMJ skills; reload Hermes to use them."
+        ),
+    }
+
 
 
 
@@ -916,6 +978,12 @@ def _doctor_result(args: argparse.Namespace) -> dict[str, object]:
 
 def cmd_setup(args: argparse.Namespace) -> int:
     args.with_plugin = True
+    if bool(getattr(args, "autopilot", False)):
+        # Autopilot is the one-shot install bootstrap: register skills with Hermes,
+        # bring up the Hermes runtime OMJ wraps, and verify, without prompts.
+        args.with_hermes = True
+        args.yes = True
+        args.skip_apply = False
     language = _setup_language(args)
     paths = _paths(args)
     if _setup_should_interact(args):
@@ -1061,6 +1129,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
         "wrapper_backend_surface": "omj chat interact and runtime commands are adapter/operator contracts, not the normal chat UX",
     }
     steps["hermes_runtime"] = _hermes_runtime_setup_result(args)
+    steps["autopilot"] = _autopilot_verification_result(args, paths, steps)
+
 
     if not args.dry_run:
         operator_summary = _setup_operator_summary(args, paths, steps, hermes_native)
@@ -1658,6 +1728,23 @@ def _print_setup_summary(payload: dict[str, object], *, language: str = "en") ->
     team_profiles = payload.get("team_profiles")
     if isinstance(team_profiles, list) and team_profiles:
         print(f"  {tr(language, 'team_activated', count=len(team_profiles))}")
+
+    hermes_runtime = steps.get("hermes_runtime")
+    if isinstance(hermes_runtime, dict):
+        runtime_status = str(hermes_runtime.get("status", "not_requested"))
+        if runtime_status == "installed":
+            print(f"  {tr(language, 'hermes_runtime_installed')}")
+        elif runtime_status == "already_present":
+            print(f"  {tr(language, 'hermes_runtime_present')}")
+        elif runtime_status == "install_failed":
+            print(f"  {tr(language, 'hermes_runtime_failed')}")
+
+    autopilot = steps.get("autopilot")
+    if isinstance(autopilot, dict) and autopilot.get("ran_doctor"):
+        if autopilot.get("doctor_ok"):
+            print(f"  {tr(language, 'autopilot_verified')}")
+        else:
+            print(f"  {tr(language, 'autopilot_attention')}")
 
     print(_color(tr(language, "next"), "1;32", use_color))
     if dry_run:
@@ -2656,6 +2743,22 @@ def _add_top_level_commands(sub) -> None:
         default=DEFAULT_INSTALL_METHOD,
         help="With --with-hermes, choose 'script' (official installer) or 'pip' (hermes-agent on PyPI).",
     )
+    setup.add_argument(
+        "--autopilot",
+        action="store_true",
+        help=(
+            "One-shot bootstrap: install managed skills, register them with Hermes, bootstrap the "
+            "Hermes runtime OMJ wraps if it is missing (network, mutating), and verify the result "
+            "with doctor. Implies --with-hermes and runs non-interactively."
+        ),
+    )
+    setup.add_argument(
+        "--no-autopilot",
+        dest="autopilot",
+        action="store_false",
+        help="Disable autopilot bootstrap even when the installer requested it.",
+    )
+    setup.set_defaults(autopilot=False)
     setup.set_defaults(func=cmd_setup)
 
     install = sub.add_parser("install", help="Refresh the managed OMJ skill pack without changing Hermes registration.")

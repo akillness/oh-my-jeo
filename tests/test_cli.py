@@ -4235,20 +4235,25 @@ class CliTests(unittest.TestCase):
                 "audit_learning_readiness",
             ),
         )
+        # Isolate OMJ/Hermes home so executor-default resolution is deterministic and
+        # not influenced by any ambient setup profile (e.g. a configured default_executor).
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes")]
+            for message, selected_skill, response_kind, next_action in cases:
+                with self.subTest(message=message):
+                    status, stdout, stderr = run_cli(base + ["chat", "interact", "--source", "discord", message])
 
-        for message, selected_skill, response_kind, next_action in cases:
-            with self.subTest(message=message):
-                status, stdout, stderr = run_cli(["chat", "interact", "--source", "discord", message])
+                    self.assertEqual(stderr, "")
+                    self.assertEqual(status, 0)
+                    payload = json.loads(stdout)
+                    self.assertEqual(payload["route"]["action"], "dispatch")
+                    self.assertEqual(payload["route"]["selected_skill"], selected_skill)
+                    self.assertEqual(payload["chat_response"]["kind"], response_kind)
+                    self.assertEqual(payload["next_action"], next_action)
+                    self.assertNotEqual(payload["route"]["selected_skill"], "oh-my-jeo")
+                    self.assertNotIn(message, json.dumps(payload))
 
-                self.assertEqual(stderr, "")
-                self.assertEqual(status, 0)
-                payload = json.loads(stdout)
-                self.assertEqual(payload["route"]["action"], "dispatch")
-                self.assertEqual(payload["route"]["selected_skill"], selected_skill)
-                self.assertEqual(payload["chat_response"]["kind"], response_kind)
-                self.assertEqual(payload["next_action"], next_action)
-                self.assertNotEqual(payload["route"]["selected_skill"], "oh-my-jeo")
-                self.assertNotIn(message, json.dumps(payload))
 
     def test_chat_interact_direct_picker_aliases(self) -> None:
         for message in ("./omj", "/omj", "./skills", "/skills"):
