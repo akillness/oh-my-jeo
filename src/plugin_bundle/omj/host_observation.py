@@ -10,6 +10,52 @@ from typing import Any
 PLUGIN_HOST_OBSERVATION_SCHEMA_VERSION = "omj_plugin_host_observation/v1"
 PLUGIN_HOST_ACTIVE_OBSERVATION_EVENTS = ("plugin_load", "tool_call", "hook_call", "status_query")
 PLUGIN_HOST_HISTORICAL_OBSERVATION_EVENTS = ("session_end", "plugin_unload")
+# Host/wrapper kwargs aliases that identify a live runtime session. When a real
+# Hermes host (or compatible wrapper) invokes an OMJ plugin tool or hook, it may
+# pass any of these instead of the canonical ``session_id``/``host`` keys. We map
+# them so live integration self-records a runtime observation without requiring
+# the host to know OMJ-specific argument names.
+PLUGIN_HOST_SESSION_ALIASES = (
+    "session_id",
+    "session",
+    "thread_id",
+    "conversation_id",
+    "run_id",
+    "request_id",
+)
+PLUGIN_HOST_NAME_ALIASES = (
+    "host",
+    "host_name",
+    "agent",
+    "agent_name",
+    "wrapper",
+)
+# Environment fallbacks for hosts that expose the active session through the
+# process environment rather than hook kwargs. Empty/unset means "no live host
+# signal" so plain CLI use and unit tests never self-record an observation.
+PLUGIN_HOST_SESSION_ENV = (
+    "OMJ_PLUGIN_SESSION_ID",
+    "HERMES_SESSION_ID",
+    "HERMES_THREAD_ID",
+    "HERMES_CONVERSATION_ID",
+)
+PLUGIN_HOST_NAME_ENV = (
+    "OMJ_PLUGIN_HOST",
+    "HERMES_HOST",
+    "HERMES_AGENT",
+)
+PLUGIN_HOST_HERMES_ENV = (
+    "HERMES_SESSION_ID",
+    "HERMES_THREAD_ID",
+    "HERMES_CONVERSATION_ID",
+    "HERMES_HOST",
+    "HERMES_AGENT",
+)
+# Per-process throttle so a long-lived host that fires many hook/tool calls in
+# one session records the live runtime observation once instead of growing the
+# observation log on every call.
+_RECORDED_RUNTIME_SESSIONS: set[tuple[str, str, str]] = set()
+
 PLUGIN_HOST_TEXT_LIMITS = {
     "host": 96,
     "session": 160,
@@ -111,14 +157,88 @@ def _observation_metadata(args: dict[str, Any], kwargs: dict[str, Any]) -> dict[
         metadata.setdefault("evidence_refs", args.get("evidence_refs"))
     if kwargs.get("evidence_refs") is not None:
         metadata.setdefault("evidence_refs", kwargs.get("evidence_refs"))
+    _apply_runtime_identity_aliases(metadata, args, kwargs)
     return metadata
+
+
+def _apply_runtime_identity_aliases(
+    metadata: dict[str, Any], args: dict[str, Any], kwargs: dict[str, Any]
+) -> None:
+    """Map host/wrapper alias kwargs into canonical host/session_id metadata.
+
+    Hosts rarely pass OMJ-specific ``session_id``/``host`` keys, so recognize the
+    common identifiers a live runtime exposes (thread id, conversation id, agent
+    name, etc.). Only fill canonical keys that the host did not already supply.
+    """
+    if not str(metadata.get("session_id", "") or "").strip():
+        value = _first_alias_value(PLUGIN_HOST_SESSION_ALIASES, args, kwargs)
+        if value:
+            metadata["session_id"] = value
+    if not str(metadata.get("host", "") or "").strip():
+        value = _first_alias_value(PLUGIN_HOST_NAME_ALIASES, args, kwargs)
+        if value:
+            metadata["host"] = value
+
+
+def _first_alias_value(
+    keys: tuple[str, ...], args: dict[str, Any], kwargs: dict[str, Any]
+) -> str:
+    for key in keys:
+        for container in (args, kwargs):
+            candidate = str(container.get(key, "") or "").strip()
+            if candidate:
+                return candidate
+    return ""
+
+
+def _env_first(names: tuple[str, ...]) -> str:
+    for name in names:
+        value = str(os.environ.get(name, "") or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _default_runtime_host() -> str:
+    return "hermes" if _env_first(PLUGIN_HOST_HERMES_ENV) else "host"
+
+
+def _runtime_observation_throttled(host: str, session_id: str, event: str) -> bool:
+    """Record live hook/tool runtime observations once per session per process.
+
+    ``plugin_load``/``session_end``/``plugin_unload`` and other lifecycle events
+    are not throttled because they are intentionally infrequent. Repeated
+    high-frequency ``hook_call``/``tool_call`` events from the same live session
+    collapse to a single observation write.
+    """
+    if event not in ("hook_call", "tool_call"):
+        return False
+    key = (host, session_id, event)
+    if key in _RECORDED_RUNTIME_SESSIONS:
+        return True
+    _RECORDED_RUNTIME_SESSIONS.add(key)
+    return False
+
+
+def _reset_runtime_observation_throttle() -> None:
+    """Clear the per-process throttle. Intended for tests only."""
+    _RECORDED_RUNTIME_SESSIONS.clear()
 
 
 def _record_observation(metadata: dict[str, Any], *, event: str, tool: str, hook: str) -> dict[str, Any] | None:
     raw_host = str(metadata.get("host", "") or "").strip()
     raw_session_id = str(metadata.get("session_id", "") or "").strip()
+    if not raw_session_id:
+        raw_session_id = _env_first(PLUGIN_HOST_SESSION_ENV)
+    if not raw_host:
+        raw_host = _env_first(PLUGIN_HOST_NAME_ENV)
+    if raw_session_id and not raw_host:
+        raw_host = _default_runtime_host()
     if not raw_host or not raw_session_id:
         return None
+    if _runtime_observation_throttled(raw_host, raw_session_id, event):
+        return None
+
 
     try:
         host = _bounded_metadata_text(raw_host, field="host")

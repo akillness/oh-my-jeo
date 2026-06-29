@@ -274,6 +274,20 @@ When the managed plugin is actually invoked, hosts can also pass bounded
 same `omj_plugin_host_observation/v1` event automatically, without storing raw
 prompts or tool bodies. This proves only the recorded plugin tool/hook use.
 
+Most hosts do not pass an explicit `observation` block, so the plugin also
+self-detects a live runtime from common session identifiers. If a tool/hook
+call carries any of `session_id`, `session`, `thread_id`, `conversation_id`,
+`run_id`, or `request_id` (with an optional `host`/`agent`/`wrapper` name), or
+the process environment exposes `OMJ_PLUGIN_SESSION_ID` /
+`OMJ_PLUGIN_HOST` (or `HERMES_SESSION_ID` / `HERMES_THREAD_ID` /
+`HERMES_CONVERSATION_ID` / `HERMES_HOST` / `HERMES_AGENT`), the plugin records
+one active `hook_call`/`tool_call` runtime observation per session per process.
+This flips `omj hud` from `plugin-runtime:unobserved` to `plugin-runtime:live`
+the first time the installed plugin actually runs inside a host. With no session
+signal at all (plain CLI use or unit tests) nothing is recorded, preserving the
+metadata-only and prepared-versus-observed boundaries. It still proves only the
+recorded plugin hook/tool use, never coding dispatch, review, CI, or merge.
+
 ## Install Path A: Hermes-Native Skill Tap
 
 Use this path when the target Hermes environment supports skill taps:
