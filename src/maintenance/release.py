@@ -249,6 +249,16 @@ def release_readiness_checklist(
             "Context brief coverage proves deterministic local route-hint and mental-model contracts only; it does not prove live Hermes chat behavior, plugin load, generic tool invocation, executor work, review, CI, merge, or delivery.",
         ),
         ReleaseChecklistItem(
+            "skill_manifest_coverage",
+            "Check shipped skill manifest frontmatter and credential hygiene",
+            f"{omj_display} demo skill-manifest-coverage --summary",
+            "contract-quality",
+            True,
+            False,
+            "Skill manifest coverage reports every shipped SKILL.md with valid frontmatter and zero hardcoded credentials while the secret-scanner control still fires.",
+            "Skill manifest coverage proves deterministic local skill-pack frontmatter and credential-hygiene contracts only; it does not prove Hermes installed, loaded, or executed any skill, connector, executor, review, CI, merge, or delivery work.",
+        ),
+        ReleaseChecklistItem(
             "product_readiness",
             "Check product readiness rollup",
             f"{omj_display} release product-readiness --version {release_version} --json",

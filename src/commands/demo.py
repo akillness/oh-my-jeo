@@ -11,6 +11,10 @@ from ..quality.context_brief_coverage import (
     build_context_brief_coverage_demo,
     format_context_brief_coverage_summary,
 )
+from ..quality.skill_manifest_coverage import (
+    build_skill_manifest_coverage_demo,
+    format_skill_manifest_coverage_summary,
+)
 from .common import _print_json
 
 
@@ -49,6 +53,15 @@ def cmd_demo_context_brief_coverage(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_demo_skill_manifest_coverage(args: argparse.Namespace) -> int:
+    payload = build_skill_manifest_coverage_demo()
+    if args.summary:
+        print(format_skill_manifest_coverage_summary(payload))
+    else:
+        _print_json(payload)
+    return 0
+
+
 def _add_demo_commands(sub) -> None:
     demo = sub.add_parser("demo", help="Print deterministic demo artifacts for OMJ orchestration examples.")
     demo_sub = demo.add_subparsers(dest="demo_command", required=True)
@@ -81,3 +94,11 @@ def _add_demo_commands(sub) -> None:
         help="Print a plain-language rollup instead of the full JSON payload.",
     )
     context_brief_coverage.set_defaults(func=cmd_demo_context_brief_coverage)
+
+    skill_manifest_coverage = demo_sub.add_parser("skill-manifest-coverage")
+    skill_manifest_coverage.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print a plain-language rollup instead of the full JSON payload.",
+    )
+    skill_manifest_coverage.set_defaults(func=cmd_demo_skill_manifest_coverage)
