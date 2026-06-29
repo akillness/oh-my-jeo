@@ -21,8 +21,12 @@ Borrowed taxonomy, mirrored as descriptors in `src/catalogs/provider_auth.py`:
 - Local keyless endpoints: LM Studio (`http://localhost:1234/v1`) and Ollama
   (`http://localhost:11434`, override via `OLLAMA_HOST`).
 - OpenAI-compatible cloud API providers (api-key): xAI, Moonshot (Kimi), Groq,
-  DeepSeek, Mistral, OpenRouter, Together, Cerebras, Fireworks, NVIDIA, and
-  Hugging Face. Add another by adding one catalog row.
+  DeepSeek, Mistral, OpenRouter, Together, Cerebras, Fireworks, NVIDIA, Hugging
+  Face, Perplexity, Cohere, AI21, SambaNova, DeepInfra, Hyperbolic, Novita,
+  Baseten, Lambda, Alibaba (Qwen/DashScope), Zhipu (GLM), MiniMax, and Inception
+  (Mercury). Add another by adding one catalog row; each row must carry a
+  distinct credential env var and endpoint.
+
 
 Each descriptor records the auth kind (`oauth` / `api_key` / `local_endpoint`),
 the host environment variables that signal configuration, the default endpoint,

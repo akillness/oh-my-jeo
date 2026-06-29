@@ -206,6 +206,20 @@ _API = (
     _api("fireworks", "Fireworks", "FIREWORKS_API_KEY", "https://api.fireworks.ai/inference/v1"),
     _api("nvidia", "NVIDIA", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1"),
     _api("huggingface", "Hugging Face", "HF_TOKEN", "https://router.huggingface.co/v1"),
+    _api("perplexity", "Perplexity", "PERPLEXITY_API_KEY", "https://api.perplexity.ai"),
+    _api("cohere", "Cohere", "COHERE_API_KEY", "https://api.cohere.ai/compatibility/v1"),
+    _api("ai21", "AI21 Labs", "AI21_API_KEY", "https://api.ai21.com/studio/v1"),
+    _api("sambanova", "SambaNova", "SAMBANOVA_API_KEY", "https://api.sambanova.ai/v1"),
+    _api("deepinfra", "DeepInfra", "DEEPINFRA_API_KEY", "https://api.deepinfra.com/v1/openai"),
+    _api("hyperbolic", "Hyperbolic", "HYPERBOLIC_API_KEY", "https://api.hyperbolic.xyz/v1"),
+    _api("novita", "Novita", "NOVITA_API_KEY", "https://api.novita.ai/v3/openai"),
+    _api("baseten", "Baseten", "BASETEN_API_KEY", "https://inference.baseten.co/v1"),
+    _api("lambda", "Lambda", "LAMBDA_API_KEY", "https://api.lambda.ai/v1"),
+    _api("dashscope", "Alibaba (Qwen/DashScope)", "DASHSCOPE_API_KEY", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+    _api("zhipu", "Zhipu (GLM)", "ZHIPUAI_API_KEY", "https://open.bigmodel.cn/api/paas/v4"),
+    _api("minimax", "MiniMax", "MINIMAX_API_KEY", "https://api.minimaxi.com/v1"),
+    _api("inception", "Inception (Mercury)", "INCEPTION_API_KEY", "https://api.inceptionlabs.ai/v1"),
+
 )
 
 
@@ -313,6 +327,8 @@ def _validate_catalog() -> None:
     """Internal integrity guard exercised by tests."""
 
     seen: set[str] = set()
+    seen_api_env: set[str] = set()
+    seen_api_endpoint: set[str] = set()
     for definition in _PROVIDER_AUTH:
         assert definition.auth_kind in AUTH_KINDS, definition.id
         assert definition.id not in seen, f"duplicate provider id: {definition.id}"
@@ -321,5 +337,15 @@ def _validate_catalog() -> None:
             assert owner in EXECUTOR_PROFILES, f"{definition.id}: unknown owner {owner}"
         if definition.auth_kind == "api_key":
             assert definition.api_key_env, f"{definition.id}: api_key provider needs api_key_env"
+            primary_env = definition.api_key_env[0]
+            assert primary_env not in seen_api_env, (
+                f"{definition.id}: duplicate api_key env var {primary_env}"
+            )
+            seen_api_env.add(primary_env)
+            assert definition.default_endpoint, f"{definition.id}: api provider needs endpoint"
+            assert definition.default_endpoint not in seen_api_endpoint, (
+                f"{definition.id}: duplicate endpoint {definition.default_endpoint}"
+            )
+            seen_api_endpoint.add(definition.default_endpoint)
         if definition.auth_kind == "local_endpoint":
             assert not definition.requires_secret, f"{definition.id}: local endpoint must be keyless"

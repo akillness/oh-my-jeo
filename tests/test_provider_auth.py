@@ -56,6 +56,22 @@ class ProviderAuthCatalogTests(unittest.TestCase):
         self.assertEqual(by_id["groq"]["auth_kind"], "api_key")
         self.assertEqual(by_id["groq"]["api_key_env"], ["GROQ_API_KEY"])
 
+    def test_openai_compatible_set_is_broad_with_distinct_credentials(self) -> None:
+        providers = list_provider_auth()["providers"]
+        api = [p for p in providers if p["auth_kind"] == "api_key"]
+        # The "그외의 api" catalog should cover the major OpenAI-compatible hosts.
+        self.assertGreaterEqual(len(api), 20)
+        for expected in ("perplexity", "cohere", "sambanova", "dashscope", "zhipu", "minimax"):
+            self.assertIn(expected, {p["id"] for p in api}, f"missing provider {expected}")
+        # Each api provider must carry a distinct primary credential env var and
+        # endpoint so a copy-paste row does not shadow another provider.
+        primary_envs = [p["api_key_env"][0] for p in api]
+        self.assertEqual(len(primary_envs), len(set(primary_envs)))
+        endpoints = [p["default_endpoint"] for p in api]
+        self.assertEqual(len(endpoints), len(set(endpoints)))
+        self.assertTrue(all(endpoints))
+
+
     def test_get_provider_auth_unknown_raises(self) -> None:
         with self.assertRaises(KeyError):
             get_provider_auth("does-not-exist")
