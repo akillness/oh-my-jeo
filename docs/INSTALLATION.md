@@ -15,7 +15,7 @@ Use this when you just want Hermes to see OMJ skills and have the local
 maintenance command available:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup
 omj doctor
 ```
@@ -378,7 +378,7 @@ as a hosted Hermes wrapper.
 Run the installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 ```
 
 By default this installs the preview channel from the `main` branch archive.
@@ -386,7 +386,7 @@ For pinned stable installs, pass a release version after the matching
 `v<version>` tag exists:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_CHANNEL=stable OMJ_VERSION=<version> sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_CHANNEL=stable OMJ_VERSION=<version> sh
 ```
 
 For custom release archives or local package sources accepted by `pip`, pass
@@ -403,7 +403,7 @@ Installer and setup output can be localized with `OMJ_LANG` or `--language`.
 Supported language codes are `en`, `ko`, `ja`, and `zh`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_LANG=ko sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_LANG=ko sh
 omj setup --language ko
 ```
 
@@ -658,7 +658,7 @@ evidence updates.
 For a hosted bot, the practical bootstrap shape is usually:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup
 omj doctor
 ```
@@ -955,8 +955,8 @@ show version/ref movement such as `1.0.0 -> 1.0.1` or `main@old -> main@new`
 when `OMJ_SOURCE_REF` is provided:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_SOURCE_REF=main@<sha> sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_SOURCE_REF=main@<sha> sh
 ```
 
 Successful setup, install, update, and doctor runs record concise state logs
@@ -1055,7 +1055,7 @@ not prove any runtime execution.
 Choose installer/setup output language during bootstrap:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_LANG=ja sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_LANG=ja sh
 ```
 
 Supported values are `en`, `ko`, `ja`, and `zh`. The same setting can be passed
@@ -1071,26 +1071,26 @@ Advanced one-shot compatibility mode can run setup from the installer, but it
 is not the default download path:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_RUN_SETUP=1 OMJ_RUN_DOCTOR=0 sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_RUN_SETUP=1 OMJ_RUN_DOCTOR=0 sh
 ```
 
 Use the active Python environment instead of the default isolated venv:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_INSTALL_MODE=python OMJ_PIP_ARGS= sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_INSTALL_MODE=python OMJ_PIP_ARGS= sh
 ```
 
 Customize the isolated install locations:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_VENV_DIR="$HOME/.local/share/omj/venv" OMJ_BIN_DIR="$HOME/.local/bin" sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_VENV_DIR="$HOME/.local/share/omj/venv" OMJ_BIN_DIR="$HOME/.local/bin" sh
 ```
 
 Pass current `omj setup` flags only when that advanced one-shot mode is
 explicitly enabled:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_RUN_SETUP=1 OMJ_SETUP_ARGS="--dry-run" sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_RUN_SETUP=1 OMJ_SETUP_ARGS="--dry-run" sh
 ```
 
 `OMJ_SETUP_ARGS` is an advanced escape hatch. Normal install recipes should run

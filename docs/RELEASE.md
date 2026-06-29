@@ -22,31 +22,31 @@ hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
 Pinned stable install:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_CHANNEL=stable OMJ_VERSION=<version> sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_CHANNEL=stable OMJ_VERSION=<version> sh
 ```
 
 Preview install:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 ```
 
 Preview update with an auditable source ref:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_SOURCE_REF=main@<sha> sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_SOURCE_REF=main@<sha> sh
 ```
 
 Custom archive:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_PACKAGE_URL=https://github.com/rlaope/oh-my-hermes/archive/refs/tags/v<version>.zip sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_PACKAGE_URL=https://github.com/akillness/oh-my-jeo/archive/refs/tags/v<version>.zip sh
 ```
 
 Advanced one-shot setup compatibility smoke:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | OMJ_RUN_SETUP=1 OMJ_PROFILE_PACKS=cto-loop OMJ_RUN_DOCTOR=0 sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_RUN_SETUP=1 OMJ_PROFILE_PACKS=cto-loop OMJ_RUN_DOCTOR=0 sh
 ```
 
 ## Required Checks

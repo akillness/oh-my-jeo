@@ -54,7 +54,7 @@ from ..team_profiles import (
 from .common import _paths, _print_json, _wants_json
 from .language import LANGUAGE_CODES, language_from_env, language_options, normalize_language, tr
 
-INSTALLER_COMMAND = "curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh"
+INSTALLER_COMMAND = "curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh"
 COMMAND_PACKAGE_STATUS_SCHEMA_VERSION = "command_package_status/v1"
 RELEASE_UPDATE_SCHEMA_VERSION = "release_update_status/v1"
 SETUP_OPERATOR_SUMMARY_SCHEMA_VERSION = "setup_operator_summary/v1"

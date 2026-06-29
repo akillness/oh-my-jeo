@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-OMJ_REPO_ARCHIVE_ROOT="${OMJ_REPO_ARCHIVE_ROOT:-https://github.com/rlaope/oh-my-hermes/archive/refs}"
+OMJ_REPO_ARCHIVE_ROOT="${OMJ_REPO_ARCHIVE_ROOT:-https://github.com/akillness/oh-my-jeo/archive/refs}"
 OMJ_CHANNEL="${OMJ_CHANNEL:-preview}"
 OMJ_VERSION="${OMJ_VERSION:-}"
 OMJ_PACKAGE_URL="${OMJ_PACKAGE_URL:-}"

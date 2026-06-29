@@ -40,7 +40,7 @@ oh-my-jeo adds a thin layer of ready-to-use workflows such as `web-research`, `d
 ## Quick Start
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup
 omj doctor
 ```
@@ -61,8 +61,11 @@ Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
-> engine, skill catalog, and install path are inherited verbatim and still
-> resolve through the upstream tap and installer
+> engine and skill catalog are inherited verbatim. The `curl … | sh` installer
+> and its source archive now resolve through the oh-my-jeo distribution
+> (`akillness/oh-my-jeo`), so the canonical install path installs the `omj`
+> command directly, while the Hermes skill tap and license attribution still
+> point upstream
 > ([website](https://rlaope.github.io/oh-my-hermes/)); see `NOTICE` for the full
 > attribution. oh-my-jeo layers its own brand, documentation, visualization, and
 > agent spec on top.

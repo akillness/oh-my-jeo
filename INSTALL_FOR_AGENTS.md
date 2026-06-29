@@ -20,7 +20,7 @@ readiness until the target Hermes runtime or wrapper has been checked.
 ## Step 1: Install OMJ
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 ```
 
 The installer prepares the local `omj` command only. It does not run setup,

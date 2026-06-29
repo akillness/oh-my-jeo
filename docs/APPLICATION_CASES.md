@@ -134,7 +134,7 @@ If the deployment needs the managed bootstrap path, install and verify the same
 Hermes-visible state through OMJ:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup
 omj doctor
 ```
@@ -430,7 +430,7 @@ from observed evidence records.
 Install OMJ once through the same Hermes-visible skill path:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rlaope/oh-my-hermes/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup
 ```
 

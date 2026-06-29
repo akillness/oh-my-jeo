@@ -44,7 +44,7 @@ from ..use_cases import (
     validate_use_case_artifact,
 )
 
-REPOSITORY_ARCHIVE_ROOT = "https://github.com/rlaope/oh-my-hermes/archive/refs"
+REPOSITORY_ARCHIVE_ROOT = "https://github.com/akillness/oh-my-jeo/archive/refs"
 RELEASE_CHANNELS = ("stable", "preview", "local")
 HERMES_SMOKE_SCHEMA = "hermes_release_smoke/v1"
 RELEASE_CHECKLIST_SCHEMA = "release_readiness_checklist/v1"
