@@ -239,6 +239,16 @@ def release_readiness_checklist(
             "Use-case readiness proves deterministic local use-case contracts only; it does not prove live Hermes chat behavior, connector work, executor work, review, CI, merge, delivery, or billing evidence.",
         ),
         ReleaseChecklistItem(
+            "context_brief_coverage",
+            "Check first-turn context brief coverage",
+            f"{omj_display} demo context-brief-coverage --summary",
+            "contract-quality",
+            True,
+            False,
+            "Context brief coverage reports every recognized OMJ route-hint workflow and the catalog picker hint as passing while keeping the brief metadata-only.",
+            "Context brief coverage proves deterministic local route-hint and mental-model contracts only; it does not prove live Hermes chat behavior, plugin load, generic tool invocation, executor work, review, CI, merge, or delivery.",
+        ),
+        ReleaseChecklistItem(
             "product_readiness",
             "Check product readiness rollup",
             f"{omj_display} release product-readiness --version {release_version} --json",

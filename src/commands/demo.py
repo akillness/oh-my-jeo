@@ -7,6 +7,10 @@ from ..demo import DEFAULT_ORCHESTRATION_MESSAGE, build_orchestration_demo
 from ..grounded_score import build_grounded_score_demo
 from ..ingress import CHAT_SOURCES
 from ..installer import OmjError
+from ..quality.context_brief_coverage import (
+    build_context_brief_coverage_demo,
+    format_context_brief_coverage_summary,
+)
 from .common import _print_json
 
 
@@ -33,6 +37,17 @@ def cmd_demo_grounded_score(args: argparse.Namespace) -> int:
         raise OmjError(str(exc)) from exc
     return 0
 
+def cmd_demo_context_brief_coverage(args: argparse.Namespace) -> int:
+    try:
+        payload = build_context_brief_coverage_demo(source=args.source)
+    except ValueError as exc:
+        raise OmjError(str(exc)) from exc
+    if args.summary:
+        print(format_context_brief_coverage_summary(payload))
+    else:
+        _print_json(payload)
+    return 0
+
 
 def _add_demo_commands(sub) -> None:
     demo = sub.add_parser("demo", help="Print deterministic demo artifacts for OMJ orchestration examples.")
@@ -57,3 +72,12 @@ def _add_demo_commands(sub) -> None:
     grounded_score = demo_sub.add_parser("grounded-score")
     grounded_score.add_argument("--source", choices=CHAT_SOURCES, default="discord")
     grounded_score.set_defaults(func=cmd_demo_grounded_score)
+
+    context_brief_coverage = demo_sub.add_parser("context-brief-coverage")
+    context_brief_coverage.add_argument("--source", choices=CHAT_SOURCES, default="discord")
+    context_brief_coverage.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print a plain-language rollup instead of the full JSON payload.",
+    )
+    context_brief_coverage.set_defaults(func=cmd_demo_context_brief_coverage)
