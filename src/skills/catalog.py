@@ -1088,13 +1088,13 @@ _DEFINITIONS = [
         safety_rules=(
             "Ask one question at a time.",
             "Gather discoverable repo facts before asking the user.",
-            "Stop interviewing once ambiguity is low enough to plan.",
+            "Stop clarifying once ambiguity is low (about 0.2 or less) and lock the requirements seed against further drift.",
         ),
         quality_tier="clarity-gated",
         quality_bar=(
             "Ask exactly one blocking question per turn unless the wrapper explicitly supports a structured batch.",
             "Tie each question to a missing decision that changes the plan, handoff, or stop condition.",
-            "Emit a clarified brief with non-goals and acceptance criteria before planning or delegation.",
+            "The locked seed must carry non-goals and acceptance criteria so planning and delegation read one fixed contract.",
         ),
         why_this_exists="`deep-interview` exists to stop Hermes from guessing through ambiguous product, workflow, or implementation intent; it converts uncertainty into a clarified brief before planning or handoff.",
         do_not_use_when=(

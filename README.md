@@ -12,9 +12,14 @@
 
 <p align="center">
   <a href="https://github.com/akillness/oh-my-jeo"><img alt="GitHub" src="https://img.shields.io/badge/github-akillness%2Foh--my--jeo-181717?logo=github"></a>
+  <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-892%20passing-success">
+  <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
+
 
 oh-my-jeo is a **spec-first workflow pack** for chat agents. The product is not
 "more CLI commands" — the `omj` command is setup, repair, doctor, verifier,
@@ -110,6 +115,36 @@ omj setup --help    # see setup options
 [Roles](docs/ROLES.md) -
 [Application Cases](docs/APPLICATION_CASES.md) -
 [GitHub Pages site](site/index.html)
+
+<br>
+
+## Spec-First Pipeline
+
+oh-my-jeo ports the workflow disciplines proven in the
+[jeo-code](https://github.com/akillness/jeo-code) agent harness
+(`deep-interview → ralplan → team → ultragoal`) onto OMJ's routing and
+evidence-boundary layer. The result is one staged contract — **Clarify → Seed →
+Plan → Execute → Verify → Complete** — where every handoff has a repo-grounded
+gate and prepared work never masquerades as observed evidence.
+
+<p align="center">
+  <img src="assets/omj-spec-pipeline.svg" alt="oh-my-jeo spec-first pipeline" width="960">
+</p>
+
+| Stage | Skill(s) | Gate before advancing |
+| --- | --- | --- |
+| **Clarify** | `deep-interview`, `feedback-triage` | One blocking question per turn; repo facts gathered first |
+| **Seed** | `deep-interview` output | Ambiguity ≈ 0.2 or less, then **freeze an immutable seed** with acceptance criteria |
+| **Plan** | `ralplan`, `plan` | Goals/non-goals/acceptance/verification named; **contested decisions kept explicit, not collapsed** |
+| **Execute** | `team`, `loop`, `ralph` | Ordered subgoals, verify one before next, **feed failure lessons forward**; observed evidence per lane |
+| **Verify** | `code-review`, `ultraqa` | Severity-rated findings naming the files inspected; never clear an open CRITICAL/HIGH; structured **CLEAR/WATCH/BLOCK** (or APPROVE/COMMENT/REQUEST-CHANGES) verdict |
+| **Complete** | `ultragoal` | Acceptance criteria checked against observed evidence, not narration |
+
+These disciplines live in `src/skills/catalog.py` (the `deep-interview`
+ambiguity gate + immutable seed) and `src/catalogs/roles.py` (planner,
+handoff-guide, reviewer). The full comparison with jeo-code and the
+gap-closure table is in
+[Workflow Pipeline](docs/WORKFLOW_PIPELINE.md).
 
 <br>
 
@@ -227,6 +262,7 @@ execution evidence.
 | Architecture and module ownership | [Architecture](docs/ARCHITECTURE.md) |
 | Capability manifests | [Capabilities](docs/CAPABILITIES.md) |
 | Orchestration pattern contracts | [Orchestration Patterns](docs/ORCHESTRATION_PATTERNS.md) |
+| Spec-first staged workflow pipeline | [Workflow Pipeline](docs/WORKFLOW_PIPELINE.md) |
 | Situation playbooks | [Playbooks](docs/PLAYBOOKS.md) |
 | Role surfaces and profile packs | [Roles](docs/ROLES.md) |
 | Representative workflows | [Application Cases](docs/APPLICATION_CASES.md) |

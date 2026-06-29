@@ -196,6 +196,32 @@ class RouterContentTests(unittest.TestCase):
             self.assertNotIn("secretly", text.lower())
             if role.id == "handoff-guide":
                 self.assertIn("not executor/runtime dispatch", text)
+            if role.id == "reviewer":
+                self.assertIn("CLEAR/WATCH/BLOCK", text)
+                self.assertIn("APPROVE/COMMENT/REQUEST-CHANGES", text)
+
+    def test_reviewer_role_owns_structured_verdict_tokens(self) -> None:
+        reviewer = next(role for role in role_definitions() if role.id == "reviewer")
+        owns_text = " ".join(reviewer.owns)
+
+        self.assertIn("CLEAR/WATCH/BLOCK", owns_text)
+        self.assertIn("APPROVE/COMMENT/REQUEST-CHANGES", owns_text)
+        self.assertIn("CRITICAL/HIGH/MEDIUM/LOW", owns_text)
+        # APPROVE must stay review-scoped, never claim merge.
+        self.assertIn("not merged", reviewer.evidence_boundary)
+        self.assertIn("review-approved", reviewer.evidence_boundary)
+        self.assertIn("show_verdict", reviewer.wrapper_actions)
+        # The evidence floor: a clean report still has to name what was inspected.
+        self.assertTrue(any("inspect" in item.lower() for item in reviewer.owns))
+        # An open high-severity finding forces a blocking verdict.
+        self.assertTrue(
+            any("BLOCK or REQUEST-CHANGES" in item for item in reviewer.owns),
+            "an open CRITICAL/HIGH must force a blocking verdict token",
+        )
+
+        pipeline_doc = Path("docs/WORKFLOW_PIPELINE.md").read_text(encoding="utf-8")
+        self.assertIn("Structured verdict tokens", pipeline_doc)
+        self.assertIn("CLEAR/WATCH/BLOCK", pipeline_doc)
 
     def test_core_skill_set_contains_major_installed_workflows(self) -> None:
         names = {skill.name for skill in builtin_skill_templates()}

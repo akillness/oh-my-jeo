@@ -83,11 +83,12 @@ _ROLES = (
     RoleDefinition(
         id="planner",
         title="Planner",
-        purpose="Own clarification, non-goals, acceptance criteria, tradeoffs, loopability, and verification strategy.",
+        purpose="Own clarification, non-goals, acceptance criteria, tradeoffs, loopability, and verification strategy; freeze an immutable requirements seed once ambiguity is low (about 0.2 or less) so planning reads a frozen contract.",
         owns=(
             "One-question clarification when scope is ambiguous",
             "Plan artifact with goals, non-goals, risks, and verification",
             "Decision gate before handoff or execution",
+            "Contested decisions kept explicit with competing options and a human judgment-call flag instead of one forced verdict",
         ),
         primary_skills=("deep-interview", "plan", "ralplan", "loop"),
         primary_harnesses=("deep-interview", "planning", "strategy-synthesis", "goal-loop"),
@@ -147,6 +148,7 @@ _ROLES = (
         owns=(
             "Executor, runtime, or Hermes coding-skill choice",
             "Prepared coding handoff with team/swarm, worker, worktree, acceptance, and verification expectations when relevant",
+            "Large work decomposed into ordered subgoals, verifying one before the next and feeding failure lessons into the next attempt instead of retrying unchanged",
             "Observed lifecycle status when a tested executor contract records it",
         ),
         primary_skills=("ultragoal", "ultrawork", "ralph", "ai-slop-cleaner"),
@@ -173,16 +175,17 @@ _ROLES = (
     RoleDefinition(
         id="reviewer",
         title="Reviewer",
-        purpose="Own claim checking, review findings, QA framing, release/readiness review, and evidence requirements.",
+        purpose="Own claim checking, severity-rated review findings, QA framing, release/readiness review, evidence requirements, and a structured terminal verdict.",
         owns=(
-            "Findings and risks",
+            "Severity-rated findings (CRITICAL/HIGH/MEDIUM/LOW) and risks, naming the files actually inspected because a clean report still has to show that inspection happened",
+            "A structured terminal verdict: CLEAR/WATCH/BLOCK for readiness and APPROVE/COMMENT/REQUEST-CHANGES for review, where APPROVE means review-approved (not merged) and any open CRITICAL or HIGH forces BLOCK or REQUEST-CHANGES",
             "Verification, CI, and release-readiness status",
             "Follow-up handoff only when fixes are accepted",
         ),
         primary_skills=("code-review", "ultraqa", "ask"),
         primary_harnesses=("code-review", "qa", "ops-review"),
-        wrapper_actions=("show_findings", "prepare_fix_handoff", "refresh_status"),
-        evidence_boundary="Review findings are not fix evidence; merge-ready is not merged.",
+        wrapper_actions=("show_findings", "show_verdict", "prepare_fix_handoff", "refresh_status"),
+        evidence_boundary="Review findings are not fix evidence; a CLEAR or APPROVE verdict is review-approved, not merged.",
         legacy_ids=("review-gate", "hybrid-review", "hybrid-verification"),
     ),
 )

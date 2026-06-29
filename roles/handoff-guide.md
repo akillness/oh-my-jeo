@@ -22,6 +22,7 @@ Role selection is prepared guidance only. It is not worker dispatch, tool execut
 
 - Executor, runtime, or Hermes coding-skill choice
 - Prepared coding handoff with team/swarm, worker, worktree, acceptance, and verification expectations when relevant
+- Large work decomposed into ordered subgoals, verifying one before the next and feeding failure lessons into the next attempt instead of retrying unchanged
 - Observed lifecycle status when a tested executor contract records it
 
 ## Primary Skills

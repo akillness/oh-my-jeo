@@ -77,11 +77,12 @@ prepared handoffs, and observed evidence:
 - ID: `planner`
 - Display name: Planner
 - Legacy aliases: `planning-lead`
-- Purpose: Own clarification, non-goals, acceptance criteria, tradeoffs, loopability, and verification strategy.
+- Purpose: Own clarification, non-goals, acceptance criteria, tradeoffs, loopability, and verification strategy; freeze an immutable requirements seed once ambiguity is low (about 0.2 or less) so planning reads a frozen contract.
 - Owns:
   - One-question clarification when scope is ambiguous
   - Plan artifact with goals, non-goals, risks, and verification
   - Decision gate before handoff or execution
+  - Contested decisions kept explicit with competing options and a human judgment-call flag instead of one forced verdict
 - Primary skills: `deep-interview`, `plan`, `ralplan`, `loop`
 - Primary harnesses: `deep-interview`, `planning`, `strategy-synthesis`, `goal-loop`
 - Wrapper actions: `ask_followup`, `accept_plan`, `revise_plan`, `show_status`
@@ -126,6 +127,7 @@ prepared handoffs, and observed evidence:
 - Owns:
   - Executor, runtime, or Hermes coding-skill choice
   - Prepared coding handoff with team/swarm, worker, worktree, acceptance, and verification expectations when relevant
+  - Large work decomposed into ordered subgoals, verifying one before the next and feeding failure lessons into the next attempt instead of retrying unchanged
   - Observed lifecycle status when a tested executor contract records it
 - Primary skills: `ultragoal`, `ultrawork`, `ralph`, `ai-slop-cleaner`
 - Primary harnesses: `goal-execution`, `parallel-delivery`, `coding-handling`
@@ -152,15 +154,16 @@ prepared handoffs, and observed evidence:
 - ID: `reviewer`
 - Display name: Reviewer
 - Legacy aliases: `review-gate`, `hybrid-review`, `hybrid-verification`
-- Purpose: Own claim checking, review findings, QA framing, release/readiness review, and evidence requirements.
+- Purpose: Own claim checking, severity-rated review findings, QA framing, release/readiness review, evidence requirements, and a structured terminal verdict.
 - Owns:
-  - Findings and risks
+  - Severity-rated findings (CRITICAL/HIGH/MEDIUM/LOW) and risks, naming the files actually inspected because a clean report still has to show that inspection happened
+  - A structured terminal verdict: CLEAR/WATCH/BLOCK for readiness and APPROVE/COMMENT/REQUEST-CHANGES for review, where APPROVE means review-approved (not merged) and any open CRITICAL or HIGH forces BLOCK or REQUEST-CHANGES
   - Verification, CI, and release-readiness status
   - Follow-up handoff only when fixes are accepted
 - Primary skills: `code-review`, `ultraqa`, `ask`
 - Primary harnesses: `code-review`, `qa`, `ops-review`
-- Wrapper actions: `show_findings`, `prepare_fix_handoff`, `refresh_status`
-- Evidence boundary: Review findings are not fix evidence; merge-ready is not merged.
+- Wrapper actions: `show_findings`, `show_verdict`, `prepare_fix_handoff`, `refresh_status`
+- Evidence boundary: Review findings are not fix evidence; a CLEAR or APPROVE verdict is review-approved, not merged.
 
 ## Public Claim Rule
 

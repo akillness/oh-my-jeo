@@ -2,7 +2,7 @@
 
 This OMJ role is a responsibility descriptor, not a runtime agent.
 
-Own clarification, non-goals, acceptance criteria, tradeoffs, loopability, and verification strategy.
+Own clarification, non-goals, acceptance criteria, tradeoffs, loopability, and verification strategy; freeze an immutable requirements seed once ambiguity is low (about 0.2 or less) so planning reads a frozen contract.
 
 ## OMJ Role Context
 
@@ -21,6 +21,7 @@ Role selection is prepared guidance only. It is not worker dispatch, tool execut
 - One-question clarification when scope is ambiguous
 - Plan artifact with goals, non-goals, risks, and verification
 - Decision gate before handoff or execution
+- Contested decisions kept explicit with competing options and a human judgment-call flag instead of one forced verdict
 
 ## Primary Skills
 
