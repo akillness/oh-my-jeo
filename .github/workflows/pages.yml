@@ -22,9 +22,9 @@ concurrency:
 jobs:
   build:
     # GitHub Pages requires a public repository (or a paid plan for private
-    # repos).  While this repo is private on a plan without Pages support, the
-    # provisioning API returns "plan does not support GitHub Pages", so skip the
-    # job instead of failing every push.  It resumes automatically once the
+    # repos).  The provisioning API returns "plan does not support GitHub
+    # Pages" for private repos on unsupported plans, so skip the job there
+    # instead of failing every push.  It runs automatically while the
     # repository is public (or upgraded).
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
