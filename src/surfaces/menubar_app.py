@@ -434,7 +434,7 @@ final class OMJMenuBarDelegate: NSObject, NSApplicationDelegate {
     private func fallbackCards(from payload: [String: Any]) -> [[String: Any]] {
         let settings = payload["settings"] as? [String: Any]
         var rows: [[String: String]] = []
-        for key in ["omj_connection", "hermes_targets", "coding_handoff", "send_mode"] {
+        for key in ["omj_connection", "omj_runtime", "hermes_targets", "coding_handoff", "send_mode"] {
             if
                 let row = settings?[key] as? [String: Any],
                 let label = row["label"] as? String

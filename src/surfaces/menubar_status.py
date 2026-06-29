@@ -389,6 +389,7 @@ def _settings(
             label=_plugin_status_label(str(plugin.get("status", "") or "unknown")),
             raw=f"plugin:{plugin.get('status', 'unknown')}",
         ),
+        "omj_runtime": _plugin_runtime_setting(plugin),
         "hermes_targets": _setting(
             value=_target_value(topology, hermes_agents),
             label=_target_label(topology, hermes_agents),
@@ -462,6 +463,7 @@ def _menu_cards(
             "title": "Evidence",
             "rows": [
                 _menu_row("Boundary", _evidence_menu_value(hermes_agents, current_executor_row)),
+                _menu_row("OMJ runtime", _runtime_menu_value(settings)),
                 _menu_row("Next", _evidence_next_action(current_executor_row)),
             ],
         },
@@ -560,6 +562,16 @@ def _evidence_menu_value(hermes_agents: list[dict[str, Any]], current_executor_r
         return f"{observed_agents} process observed"
     return "metadata only"
 
+
+def _runtime_menu_value(settings: dict[str, Any]) -> str:
+    value = _setting_value(settings, "omj_runtime", default="unobserved")
+    labels = {
+        "live": "live plugin use observed",
+        "observed": "plugin use observed",
+        "blocked": "observation blocked",
+        "unobserved": "no host runtime observed",
+    }
+    return labels.get(value, value.replace("_", " "))
 
 def _evidence_next_action(current_executor_row: dict[str, Any]) -> str:
     if current_executor_row:
@@ -899,6 +911,17 @@ def _plugin_status_label(status: str) -> str:
         "unknown": "OMJ connection: Unknown",
     }
     return labels.get(status, f"OMJ connection: {status.replace('_', ' ').title()}")
+
+def _plugin_runtime_setting(plugin: dict[str, Any]) -> dict[str, str]:
+    if plugin.get("runtime_active"):
+        value, label = "live", "Hermes runtime: Live plugin load/use observed"
+    elif plugin.get("runtime_observed"):
+        value, label = "observed", "Hermes runtime: Plugin use observed (historical)"
+    elif str(plugin.get("runtime_readiness", "") or "") == "blocked":
+        value, label = "blocked", "Hermes runtime: Plugin observation blocked"
+    else:
+        value, label = "unobserved", "Hermes runtime: No host plugin load/use observed"
+    return _setting(value=value, label=label, raw=f"plugin_runtime:{value}")
 
 
 def _target_value(topology: dict[str, Any], hermes_agents: list[dict[str, Any]]) -> str:
