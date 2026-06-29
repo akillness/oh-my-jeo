@@ -7109,6 +7109,47 @@ class CliTests(unittest.TestCase):
             self.assertTrue(shown["lifecycle"]["prepared_handoff"])
             self.assertEqual(shown["lifecycle"]["observation_status"], "prepared_not_observed")
 
+    def test_hermes_plan_lifecycle_blocks_invalid_transitions(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes")]
+
+            status, stdout, stderr = run_cli(base + ["hermes", "plan", "--record", "ship", "login", "feature"])
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            plan_path = Path(json.loads(stdout)["artifact"]["path"])
+
+            status, stdout, stderr = run_cli(base + ["hermes", "plan-accept", str(plan_path)])
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            self.assertEqual(json.loads(stdout)["artifact"]["status"], "accepted")
+
+            # Re-accepting an accepted plan is an idempotent no-op write, not an error.
+            status, stdout, stderr = run_cli(base + ["hermes", "plan-accept", str(plan_path)])
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            self.assertEqual(json.loads(stdout)["artifact"]["status"], "accepted")
+
+            status, stdout, stderr = run_cli(base + ["hermes", "plan-cancel", str(plan_path), "--reason", "dropped"])
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            self.assertEqual(json.loads(stdout)["artifact"]["status"], "cancelled")
+
+            # A cancelled plan is terminal: accept and revise must both be refused
+            # and the on-disk status must stay cancelled.
+            status, _, stderr = run_cli(base + ["hermes", "plan-accept", str(plan_path)])
+            self.assertEqual(status, 2)
+            self.assertIn("cannot transition Hermes plan from cancelled to accepted", stderr)
+            self.assertIn("terminal", stderr)
+
+            status, _, stderr = run_cli(base + ["hermes", "plan-revise", str(plan_path), "--note", "retry"])
+            self.assertEqual(status, 2)
+            self.assertIn("cannot transition Hermes plan from cancelled to revised", stderr)
+
+            frontmatter = plan_path.read_text(encoding="utf-8").split("---", 2)[1]
+            self.assertIn("status: cancelled", frontmatter)
+
+
     def test_hermes_plan_records_context_for_weak_request(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

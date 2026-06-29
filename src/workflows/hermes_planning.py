@@ -22,6 +22,22 @@ from ..skills.catalog import harness_quality_contract
 SCHEMA_VERSION = "hermes_plan/v1"
 WRAPPER_CONTRACT_VERSION = "hermes_plan_wrapper/v1"
 PLAN_STATUSES = ("draft", "accepted", "revised", "cancelled", "superseded", "blocked")
+# Terminal plan statuses cannot transition to a different status. Reopening a
+# cancelled or superseded plan would silently resurrect abandoned work and let a
+# handoff quote an artifact the operator already retired.
+TERMINAL_PLAN_STATUSES = ("cancelled", "superseded")
+# Allowed plan status transitions. The lifecycle CLI only drives
+# accepted/revised/cancelled; draft/blocked/superseded come from the planning
+# build flow. Re-applying the same status is always allowed (idempotent write),
+# which keeps `plan-accept` re-runs working.
+PLAN_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    "draft": frozenset({"draft", "accepted", "revised", "cancelled", "blocked", "superseded"}),
+    "blocked": frozenset({"blocked", "draft", "accepted", "revised", "cancelled", "superseded"}),
+    "revised": frozenset({"revised", "accepted", "cancelled", "blocked", "superseded"}),
+    "accepted": frozenset({"accepted", "revised", "cancelled", "superseded"}),
+    "cancelled": frozenset({"cancelled"}),
+    "superseded": frozenset({"superseded"}),
+}
 _REVIEW_TERMS = (
     "architecture",
     "architect",
@@ -230,6 +246,11 @@ def update_hermes_plan_status(
     current = read_hermes_plan_artifact(plan_path)
     if current.get("schema_version") != SCHEMA_VERSION:
         raise ValueError(f"expected {SCHEMA_VERSION} artifact")
+    current_status = str(current.get("status", "draft")) or "draft"
+    allowed = PLAN_STATUS_TRANSITIONS.get(current_status)
+    if allowed is not None and status not in allowed:
+        detail = " because that plan is terminal" if current_status in TERMINAL_PLAN_STATUSES else ""
+        raise ValueError(f"cannot transition Hermes plan from {current_status} to {status}{detail}")
     original = plan_path.read_text(encoding="utf-8")
     updated = _replace_frontmatter_status(original, status=status, summary=summary)
     atomic_write_text(plan_path, updated, private=True)
