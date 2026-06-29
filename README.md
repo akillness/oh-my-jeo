@@ -135,6 +135,38 @@ omj setup --help    # see setup options (executor, memory mode, scope, MCP)
 omj mcp manifest    # OMJ MCP bridge manifest for stdio MCP hosts
 ```
 
+### 5. Use OMJ from an MCP host (jeo-pi / Pi, Claude Code, Codex, Cursor)
+
+Any MCP-capable agent CLI can host the OMJ bridge over stdio — it does not have
+to be Hermes. The bridge speaks the same MCP contract every host expects, so
+registration is a single `mcp add` against the installed `omj` command. With
+[jeo-pi](https://github.com/akillness/jeo-pi)'s `pi` CLI, for example:
+
+```sh
+pi mcp add omj -- omj --omj-home ~/.omj --hermes-home ~/.hermes mcp serve
+pi mcp list                                   # confirms: omj  enabled
+```
+
+`pi mcp add` persists an `mcpServers.omj` stdio entry (in `~/.pi/mcp.json`).
+On the next session the host spawns `omj mcp serve` and completes the standard
+handshake — verified end to end:
+
+- `initialize` → `protocolVersion 2025-06-18`, `serverInfo omj`.
+- `tools/list` → the three allowlisted bridge tools `omj_status`,
+  `omj_recommend`, `omj_probe`.
+- `tools/call` → structured JSON; missing required args are rejected with
+  `omj_*` schema errors, unknown methods return JSON-RPC `-32601`.
+
+For any other host, print a copy-paste recipe with
+`omj mcp config-recipe --host <generic|claude-code|codex|opencode|cursor>` and
+merge the `mcpServers.omj` entry into that host's config.
+
+> **MCP host scope.** Over MCP a host gets the three read-only bridge tools
+> (status, recommend, probe) — not the full nine native plugin tools or the
+> `pre_llm_call`/`pre_tool_call`/`on_session_end` hooks, which require the
+> native Hermes plugin path. See [Evidence Boundaries](#evidence-boundaries).
+
+
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
