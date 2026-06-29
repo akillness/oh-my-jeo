@@ -120,6 +120,12 @@ from .ops import (
     cmd_ops_write,
 )
 from .playbook import _add_playbook_commands, cmd_playbook_inspect, cmd_playbook_list, cmd_playbook_recommend
+from .providers import (
+    _add_providers_commands,
+    cmd_providers_doctor,
+    cmd_providers_inspect,
+    cmd_providers_list,
+)
 from .release import _add_release_commands, cmd_release_checklist, cmd_release_hermes_smoke
 from .runtime import (
     _add_runtime_commands,
@@ -189,6 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  omj cases replay\n"
             "  omj context brief \"make an image card for this PR\"\n"
             "  omj playbook recommend \"turn this issue into a PR\"\n"
+            "  omj providers doctor\n"
             "  omj chat interact \"turn this issue into a PR-ready plan\"\n"
             "  omj hud\n"
             "  omj menubar status\n"
@@ -228,6 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_harness_commands(sub)
     _add_cases_commands(sub)
     _add_playbook_commands(sub)
+    _add_providers_commands(sub)
     _add_release_commands(sub)
     _add_demo_commands(sub)
     _add_chat_commands(sub)
@@ -288,6 +296,7 @@ Useful operator commands:
   omj context brief "make an image card for this PR"
                           Show compact OMJ context and route hint
   omj playbook recommend "turn this issue into a PR"
+  omj providers doctor   Diagnose host provider-auth config (metadata-only)
   omj chat interact "turn this issue into a PR-ready plan"
   omj hud                Show the compact OMJ status line
   omj menubar status     Show the menu bar app status view model

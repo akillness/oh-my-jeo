@@ -16,6 +16,7 @@ repo-local contract for Codex agents working here.
 | Understand Hermes Agent memory, skills, gateway, cron, plugins, and OMJ's role | [Hermes Agent Architecture Guide](../site/docs/hermes-agent-architecture/index.html) |
 | Compare common oh-my runtime axes and OMJ gaps | [Parity Matrix](PARITY.md) |
 | Inspect runtime-readable OMJ capability manifests | [Capabilities](CAPABILITIES.md) |
+| See which provider credentials a coding owner needs (metadata-only) | [Provider Auth](PROVIDER_AUTH.md) |
 | Understand safe orchestration pattern contracts | [Orchestration Patterns](ORCHESTRATION_PATTERNS.md) |
 | Follow the spec-first staged workflow pipeline | [Workflow Pipeline](WORKFLOW_PIPELINE.md) |
 | Understand chat wrapper UX, sessions, and handoffs | [Delegation-First Completeness](DELEGATION_FIRST_COMPLETENESS.md) |
@@ -193,6 +194,13 @@ with these 10 modes; then use [WORKFLOWS.md](WORKFLOWS.md) and
   orchestration evidence only; goal completion still belongs to linked
   `goal_ledger/v1` evidence.
 - Memory/context docs should state that OMJ reviews local or wrapper-supplied
+  context only; it does not read or mutate opaque Hermes internal memory.
+- Provider-auth docs should describe `omj_provider_auth_surface/v1` descriptors
+  and the `omj providers doctor` diagnostic as executor-neutral, metadata-only
+  context: borrowed provider taxonomy plus host environment-variable presence,
+  never OAuth, token exchange, credential storage, model API calls, secret
+  values, reachability, or successful inference. Authentication and routing
+  belong to the selected coding owner.
   context only; it does not read or mutate opaque Hermes internal memory.
 - The GitHub Pages site should stay a short public entry point that links back
   to this docs set instead of becoming a second source of truth. The

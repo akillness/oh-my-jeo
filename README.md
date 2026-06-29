@@ -267,6 +267,7 @@ execution evidence.
 | Role surfaces and profile packs | [Roles](docs/ROLES.md) |
 | Representative workflows | [Application Cases](docs/APPLICATION_CASES.md) |
 | oh-my-jeo agent spec (spec-stack) | [Agent Spec](docs/OH_MY_JEO_AGENT_SPEC.md) |
+| Provider-auth readiness (metadata-only) | [Provider Auth](docs/PROVIDER_AUTH.md) |
 
 <br>
 
