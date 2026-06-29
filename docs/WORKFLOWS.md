@@ -386,7 +386,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
 - Quality bar:
   - Ask exactly one blocking question per turn unless the wrapper explicitly supports a structured batch.
   - Tie each question to a missing decision that changes the plan, handoff, or stop condition.
-  - Emit a clarified brief with non-goals and acceptance criteria before planning or delegation.
+  - The locked seed must carry non-goals and acceptance criteria so planning and delegation read one fixed contract.
 - Completion checklist:
   - The clarified brief names goals, non-goals, constraints, and one next planning or handoff path.
   - Remaining ambiguity is listed only when it changes the plan, risk, or stop condition.
@@ -407,7 +407,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
 - Safety rules:
   - Ask one question at a time.
   - Gather discoverable repo facts before asking the user.
-  - Stop interviewing once ambiguity is low enough to plan.
+  - Stop clarifying once ambiguity is low (about 0.2 or less) and lock the requirements seed against further drift.
 
 ### team
 

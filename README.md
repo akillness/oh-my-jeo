@@ -12,9 +12,14 @@
 
 <p align="center">
   <a href="https://github.com/akillness/oh-my-jeo"><img alt="GitHub" src="https://img.shields.io/badge/github-akillness%2Foh--my--jeo-181717?logo=github"></a>
+  <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-892%20passing-success">
+  <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
+
 
 oh-my-jeo is a **spec-first workflow pack** for chat agents. The product is not
 "more CLI commands" — the `omj` command is setup, repair, doctor, verifier,
@@ -23,11 +28,12 @@ deterministic, reviewable contract. For normal users the experience stays in
 chat; the command layer is a first-class backend for wrappers and routers,
 without replacing your existing setup.
 
-text
+```text
 user says a plain request in chat
   -> oh-my-jeo routes it to the right skill / playbook / profile
   -> the agent explains the next action and the evidence boundary
   -> coding is handed off to the selected runtime only when accepted
+```
 
 
 oh-my-jeo adds a thin layer of ready-to-use workflows such as `web-research`, `doctor`, `idea-to-deploy`, `ultragoal`, `loop`, and `ultraprocess` so the agent feels easier to start, easier to trust, and more natural to apply in real work.
@@ -48,17 +54,19 @@ Pick one of the two paths.
 
 **Option A — one-line installer (recommended for most users):**
 
-sh
+```sh
 curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 omj setup     # wires oh-my-jeo into your agent/runtime
 omj doctor    # health check; tells you what (if anything) is missing
+```
 
 
 **Option B — install as a Hermes skill / Hermes skill tap path (if you already run Hermes):**
 
-sh
+```sh
 hermes skills tap add akillness/oh-my-jeo
 hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
+```
 
 
 ### 2. Use it from chat
@@ -66,8 +74,9 @@ hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 You do not need new CLI commands for daily work. Just tell your agent which
 workflow you want, in plain language:
 
-text
+```text
 Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
+```
 
 
 The agent then:
@@ -79,9 +88,10 @@ The agent then:
 
 ### 3. Handy commands (optional)
 
-sh
+```sh
 omj doctor          # re-check setup health anytime
 omj setup --help    # see setup options
+```
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
@@ -110,6 +120,36 @@ omj setup --help    # see setup options
 [Roles](docs/ROLES.md) -
 [Application Cases](docs/APPLICATION_CASES.md) -
 [GitHub Pages site](site/index.html)
+
+<br>
+
+## Spec-First Pipeline
+
+oh-my-jeo ports the workflow disciplines proven in the
+[jeo-code](https://github.com/akillness/jeo-code) agent harness
+(`deep-interview → ralplan → team → ultragoal`) onto OMJ's routing and
+evidence-boundary layer. The result is one staged contract — **Clarify → Seed →
+Plan → Execute → Verify → Complete** — where every handoff has a repo-grounded
+gate and prepared work never masquerades as observed evidence.
+
+<p align="center">
+  <img src="assets/omj-spec-pipeline.svg" alt="oh-my-jeo spec-first pipeline" width="960">
+</p>
+
+| Stage | Skill(s) | Gate before advancing |
+| --- | --- | --- |
+| **Clarify** | `deep-interview`, `feedback-triage` | One blocking question per turn; repo facts gathered first |
+| **Seed** | `deep-interview` output | Ambiguity ≈ 0.2 or less, then **freeze an immutable seed** with acceptance criteria |
+| **Plan** | `ralplan`, `plan` | Goals/non-goals/acceptance/verification named; **contested decisions kept explicit, not collapsed** |
+| **Execute** | `team`, `loop`, `ralph` | Ordered subgoals, verify one before next, **feed failure lessons forward**; observed evidence per lane |
+| **Verify** | `code-review`, `ultraqa` | Severity-rated findings naming the files inspected; never clear an open CRITICAL/HIGH; structured **CLEAR/WATCH/BLOCK** (or APPROVE/COMMENT/REQUEST-CHANGES) verdict |
+| **Complete** | `ultragoal` | Acceptance criteria checked against observed evidence, not narration |
+
+These disciplines live in `src/skills/catalog.py` (the `deep-interview`
+ambiguity gate + immutable seed) and `src/catalogs/roles.py` (planner,
+handoff-guide, reviewer). The full comparison with jeo-code and the
+gap-closure table is in
+[Workflow Pipeline](docs/WORKFLOW_PIPELINE.md).
 
 <br>
 
@@ -148,7 +188,7 @@ understand first. The rest live in [Workflow Reference](docs/WORKFLOWS.md) and
 
 ## Project Structure
 
-text
+```text
 src/
   routing/      intent, policy, recommend, route_plan, chat        # what runs next
   workflows/    materials, paper_learning, research, visual, memory # value modes
@@ -164,6 +204,7 @@ skills/         <skill>/SKILL.md                                    # tap-instal
 docs/           architecture, workflows, roles, playbooks, parity   # contracts & guides
 site/           static GitHub Pages marketing + docs                # no build step
 tests/          50+ deterministic contract test modules             # the content gate
+```
 
 
 The package keeps a thin `omj.*` import shim over readable `src/<domain>/`
@@ -188,12 +229,13 @@ for the executable identity proofs.
 oh-my-jeo keeps the flow simple and visible. The agent chooses the smallest role
 path that fits the request instead of locking setup to one team model.
 
-text
+```text
 plain request
   -> choose workflow lane
   -> prepare plan, source brief, or handoff
   -> observe execution / review / CI only when evidence exists
   -> report the next action in chat
+```
 
 
 | Request shape | Typical flow |
@@ -227,6 +269,7 @@ execution evidence.
 | Architecture and module ownership | [Architecture](docs/ARCHITECTURE.md) |
 | Capability manifests | [Capabilities](docs/CAPABILITIES.md) |
 | Orchestration pattern contracts | [Orchestration Patterns](docs/ORCHESTRATION_PATTERNS.md) |
+| Spec-first staged workflow pipeline | [Workflow Pipeline](docs/WORKFLOW_PIPELINE.md) |
 | Situation playbooks | [Playbooks](docs/PLAYBOOKS.md) |
 | Role surfaces and profile packs | [Roles](docs/ROLES.md) |
 | Representative workflows | [Application Cases](docs/APPLICATION_CASES.md) |
@@ -237,10 +280,11 @@ execution evidence.
 
 ## Development
 
-sh
+```sh
 python3 -m unittest discover -s tests
 python3 -m compileall src
 python3 -m omj.cli docs workflows --check
+```
 
 
 oh-my-jeo inherits oh-my-hermes 1.0.1, a quality-gated stable baseline, and is

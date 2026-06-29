@@ -18,6 +18,7 @@ repo-local contract for Codex agents working here.
 | Inspect runtime-readable OMJ capability manifests | [Capabilities](CAPABILITIES.md) |
 | See which provider credentials a coding owner needs (metadata-only) | [Provider Auth](PROVIDER_AUTH.md) |
 | Understand safe orchestration pattern contracts | [Orchestration Patterns](ORCHESTRATION_PATTERNS.md) |
+| Follow the spec-first staged workflow pipeline | [Workflow Pipeline](WORKFLOW_PIPELINE.md) |
 | Understand chat wrapper UX, sessions, and handoffs | [Delegation-First Completeness](DELEGATION_FIRST_COMPLETENESS.md) |
 | Capture and recall reviewed project-local memory | [Project Memory](MEMORY.md) |
 | Review stale local context and executor handoff packs | [Memory Context Review](MEMORY_CONTEXT.md) |

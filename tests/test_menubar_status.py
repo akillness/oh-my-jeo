@@ -53,7 +53,7 @@ class MenubarStatusTests(unittest.TestCase):
             payload = json.loads(stdout)
             self.assertEqual(payload["schema_version"], "menubar_status/v1")
             self.assertEqual(payload["display"]["menu_title"], "omj")
-            self.assertEqual(payload["versions"]["omj"]["value"], "1.0.1")
+            self.assertEqual(payload["versions"]["omj"]["value"], "1.1.0")
             self.assertEqual(payload["versions"]["hermes"]["value"], "unknown")
             self.assertFalse(payload["versions"]["hermes"]["observed"])
             self.assertEqual(payload["settings"]["omj_connection"]["label"], "OMJ connection: Ready")

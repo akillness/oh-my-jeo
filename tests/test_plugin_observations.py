@@ -105,6 +105,41 @@ class PluginHostObservationTests(unittest.TestCase):
             self.assertEqual(checks["plugin_runtime_observed"]["severity"], "ok")
             self.assertIn("session-123", checks["plugin_runtime_observed"]["message"])
 
+            # HUD must reflect host-supplied plugin runtime observation instead of
+            # always reporting the plugin as runtime-unobserved.
+            status, stdout, stderr = run_cli(
+                base + ["hud", "--preset", "full", "--json"], output_json=False
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            hud = json.loads(stdout)
+            plugin = hud["plugin"]
+            self.assertTrue(plugin["runtime_observed"])
+            self.assertTrue(plugin["runtime_active"])
+            self.assertEqual(plugin["runtime_readiness"], "active_runtime_observed")
+            self.assertEqual(plugin["runtime_observation"]["event"], "plugin_load")
+            self.assertEqual(plugin["runtime_observation"]["session_id"], "session-123")
+            self.assertEqual(plugin["runtime_observation"]["evidence_ref_count"], 1)
+            self.assertIn("plugin-runtime:live", hud["display"]["line"])
+
+            # The menu bar view model exposes runtime observation as its own
+            # setting and Evidence row so the HUD surfaces host runtime evidence.
+            status, stdout, stderr = run_cli(base + ["menubar", "status"], output_json=False)
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            menubar = json.loads(stdout)
+            self.assertEqual(menubar["settings"]["omj_runtime"]["value"], "live")
+            self.assertEqual(
+                menubar["settings"]["omj_runtime"]["label"],
+                "Hermes runtime: Live plugin load/use observed",
+            )
+            evidence_card = next(
+                card for card in menubar["display"]["menu_cards"] if card["title"] == "Evidence"
+            )
+            runtime_rows = [row for row in evidence_card["rows"] if row.get("label") == "OMJ runtime"]
+            self.assertEqual(len(runtime_rows), 1)
+            self.assertEqual(runtime_rows[0]["value"], "live plugin use observed")
+
     def test_plugin_host_not_observed_records_do_not_claim_native_ready(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

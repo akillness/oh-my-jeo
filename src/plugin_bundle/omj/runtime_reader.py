@@ -343,6 +343,7 @@ def _plugin_summary(hermes_home: Path, state: dict[str, Any]) -> dict[str, Any]:
     installed = plugin_dir.is_dir()
     last_distribution = state.get("last_plugin_distribution", {})
     observed = bool(last_distribution.get("observed", False)) if isinstance(last_distribution, dict) else False
+    runtime = _plugin_runtime_observation(state)
     capabilities = _plugin_capabilities(plugin_dir, last_distribution if isinstance(last_distribution, dict) else {})
     complete_files = bool(capabilities["files"]["plugin_yaml"] and capabilities["files"]["init_py"])
     required_tools_ready = all(capabilities["tools"].values())
@@ -359,11 +360,55 @@ def _plugin_summary(hermes_home: Path, state: dict[str, Any]) -> dict[str, Any]:
         "status": status,
         "plugin_dir": str(plugin_dir),
         "distribution_observed": observed,
-        "runtime_observed": False,
+        "runtime_observed": runtime["runtime_observed"],
+        "runtime_active": runtime["runtime_active"],
+        "runtime_readiness": runtime["runtime_readiness"],
+        "runtime_observation": runtime["observation"],
         "required_tools": list(HUD_REQUIRED_TOOLS),
         "required_hooks": list(HUD_REQUIRED_HOOKS),
         "capabilities": capabilities,
         "stale": status == "stale",
+    }
+
+
+def _plugin_runtime_observation(state: dict[str, Any]) -> dict[str, Any]:
+    """Project host-supplied plugin observations from runtime state into the HUD.
+
+    The recording path (`omj plugin observe-host` / plugin tool self-observation)
+    writes ``last_plugin_host_observation`` and ``last_plugin_runtime_readiness``
+    into runtime state. The HUD must reflect that host runtime evidence instead of
+    always reporting the plugin as runtime-unobserved.
+    """
+    record = state.get("last_plugin_host_observation", {})
+    if not isinstance(record, dict):
+        record = {}
+    readiness = str(state.get("last_plugin_runtime_readiness", "") or "").strip()
+    if not readiness:
+        readiness = str(record.get("runtime_readiness", "") or "").strip()
+    runtime_observed = bool(record.get("observed", False))
+    runtime_active = runtime_observed and readiness == "active_runtime_observed"
+    if not readiness:
+        readiness = "not_observed" if record else "unobserved"
+    observation: dict[str, Any] = {}
+    if record:
+        evidence_refs = record.get("evidence_refs", [])
+        observation = {
+            "event": str(record.get("event", "")),
+            "status": str(record.get("status", "")),
+            "readiness": readiness,
+            "host": str(record.get("host", "")),
+            "source": str(record.get("source", "")),
+            "session_id": str(record.get("session_id", "")),
+            "tool": str(record.get("tool", "")),
+            "hook": str(record.get("hook", "")),
+            "evidence_ref_count": len(evidence_refs) if isinstance(evidence_refs, list) else 0,
+            "observed_at": str(record.get("observed_at", "") or record.get("recorded_at", "")),
+        }
+    return {
+        "runtime_observed": runtime_observed,
+        "runtime_active": runtime_active,
+        "runtime_readiness": readiness,
+        "observation": observation,
     }
 
 
@@ -595,6 +640,9 @@ def _hud_segments(payload: dict[str, Any], *, preset: str) -> list[str]:
     if preset == "minimal":
         return [*base, _activity_label(runtime)]
     focused = [*base, f"plugin:{_plugin_display_status(plugin)}"]
+    runtime_label = _plugin_runtime_label(plugin)
+    if runtime_label and (runtime_label != "unobserved" or preset == "full"):
+        focused.append(f"plugin-runtime:{runtime_label}")
     topology_label = _topology_label(topology)
     if topology_label != "unknown":
         focused.append(f"target:{topology_label}")
@@ -603,6 +651,17 @@ def _hud_segments(payload: dict[str, Any], *, preset: str) -> list[str]:
     if preset == "full" and evidence_state not in {"idle", "unknown"}:
         focused.append(f"evidence:{evidence_state}")
     return focused
+
+
+def _plugin_runtime_label(plugin: dict[str, Any]) -> str:
+    if plugin.get("runtime_active"):
+        return "live"
+    if plugin.get("runtime_observed"):
+        return "observed"
+    readiness = str(plugin.get("runtime_readiness", "") or "")
+    if readiness == "blocked":
+        return "blocked"
+    return "unobserved"
 
 
 def _plugin_display_status(plugin: dict[str, Any]) -> str:

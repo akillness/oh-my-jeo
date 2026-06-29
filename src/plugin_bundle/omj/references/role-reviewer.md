@@ -2,7 +2,7 @@
 
 This OMJ role is a responsibility descriptor, not a runtime agent.
 
-Own claim checking, review findings, QA framing, release/readiness review, and evidence requirements.
+Own claim checking, severity-rated review findings, QA framing, release/readiness review, evidence requirements, and a structured terminal verdict.
 
 ## OMJ Role Context
 
@@ -20,7 +20,8 @@ Role selection is prepared guidance only. It is not worker dispatch, tool execut
 
 ## Owns
 
-- Findings and risks
+- Severity-rated findings (CRITICAL/HIGH/MEDIUM/LOW) and risks, naming the files actually inspected because a clean report still has to show that inspection happened
+- A structured terminal verdict: CLEAR/WATCH/BLOCK for readiness and APPROVE/COMMENT/REQUEST-CHANGES for review, where APPROVE means review-approved (not merged) and any open CRITICAL or HIGH forces BLOCK or REQUEST-CHANGES
 - Verification, CI, and release-readiness status
 - Follow-up handoff only when fixes are accepted
 
@@ -39,9 +40,10 @@ Role selection is prepared guidance only. It is not worker dispatch, tool execut
 ## Wrapper Actions
 
 - `show_findings`
+- `show_verdict`
 - `prepare_fix_handoff`
 - `refresh_status`
 
 ## Evidence Boundary
 
-Review findings are not fix evidence; merge-ready is not merged.
+Review findings are not fix evidence; a CLEAR or APPROVE verdict is review-approved, not merged.
