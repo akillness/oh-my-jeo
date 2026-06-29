@@ -15,7 +15,7 @@
   <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-892%20passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-905%20passing-success">
   <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
@@ -120,6 +120,107 @@ omj setup --help    # see setup options
 [Roles](docs/ROLES.md) -
 [Application Cases](docs/APPLICATION_CASES.md) -
 [GitHub Pages site](site/index.html)
+
+<br>
+
+## Real-World Usage
+
+Day to day you stay in chat; the `omj` command is the backend you reach for at
+install, repair, scoping, and verification moments. Every block below is a real
+command with the shape of output you should expect. Add `--json` to almost any
+command when you want to script or pipe the result.
+
+### 1. Verify the install before you rely on it
+
+```sh
+omj quickstart   # first-run map: version, local checks, plugin bridge, next action
+omj doctor       # health check that names the exact repair command if something is off
+```
+
+`omj quickstart` prints your current state plus three ready-to-paste prompts:
+
+```text
+OMJ quickstart
+Summary
+  Status: needs attention
+  OMJ version: 1.1.0
+  Local install: needs_attention (7/55 checks)
+  Plugin bridge: missing
+Try one prompt
+  - safe feature work: Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
+  - image summary card: Use OMJ img-summary for: summarize this PR as a shareable image card.
+  - ambitious loop: Use OMJ loop for: improve this repo's first-run experience until the next bottleneck is verified.
+```
+
+`omj doctor` names the exact repair command for each missing piece — for example
+it tells you to run `omj setup` to install the managed skill pack — so a fresh
+machine never leaves you guessing what to run next.
+
+### 2. Drive workflows from chat (the normal path)
+
+Paste a plain request and name the workflow. The agent routes it, explains the
+evidence boundary, and only hands coding off **after you accept** the plan:
+
+```text
+Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
+Use OMJ web-research for: current best practices for X, with sources.
+Use OMJ loop for: improve first-run UX until the next bottleneck is verified.
+```
+
+### 3. Let the command pick the workflow for you
+
+Not sure which skill fits? Ask `recommend` for a ranked map and the workflow path:
+
+```sh
+omj recommend "safely add a feature to this repo"
+```
+
+```text
+OMJ recommendation
+Query: safely add a feature to this repo
+1. ralplan [high]
+   Next action: present_plan
+   Why: Matched safe feature-change language; prepare a reviewed plan before executor handoff.
+2. plan [high]
+   Next action: present_plan
+3. feedback-triage [medium]
+...
+Workflow path
+  feedback-triage -> ralplan
+```
+
+### 4. Browse the catalog and team model
+
+These commands take an explicit subcommand (`list`, `inspect`, `recommend`),
+so run the `list` form to see everything available:
+
+```sh
+omj cases list          # G1–G10 Hermes use-case catalog (10 mapped surfaces)
+omj playbook list       # complete workflow playbooks (33 available)
+omj profile list        # optional visible team role / profile packs (4 operating models)
+omj list                # installed managed skill manifest and install status
+```
+
+Add `inspect <id>` to any of them (for example `omj playbook inspect
+request-to-handoff`) to read a single entry in full.
+
+### 5. Scope a coding handoff
+
+Prepare an executor-neutral handoff artifact, and optionally an isolated Git
+worktree, before any code runs. Nothing is dispatched — the output is a
+prepared contract you review first:
+
+```sh
+omj coding delegate --executor codex --source hermes "add a retry to the upload client"
+omj worktree prepare --repo . --task "risky refactor" --dry-run
+```
+
+Both emit JSON with a `claim_boundary` field that states, in the artifact
+itself, that a prepared handoff or a created worktree is **not** execution,
+verification, review, CI, or merge evidence.
+
+A prepared handoff is **not** execution proof. Observed evidence only exists once
+a runtime record is written under `runtime/` — see [Evidence Boundaries](#evidence-boundaries).
 
 <br>
 
