@@ -1878,7 +1878,7 @@ class CliTests(unittest.TestCase):
         self.assertIn(["hermes", "skills", "list", "--enabled-only"], commands)
         self.assertIn(["hermes", "skills", "check", "oh-my-jeo"], commands)
         self.assertIn(["omj-dev", "--omj-home", str(omj_home.resolve()), "--hermes-home", str(hermes_home.resolve()), "doctor"], commands)
-        self.assertNotIn(["hermes", "skills", "inspect", "oh-my-hermes"], commands)
+        self.assertNotIn(["hermes", "skills", "inspect", "oh-my-jeo"], commands)
         installed_commands = [step["command"] for step in payload["installed_command_smoke"]["steps"]]
         self.assertEqual(installed_commands[0], ["omj-dev", "--help"])
         self.assertIn(["omj-dev", "release", "skill-content-smoke", "--json"], installed_commands)
@@ -7319,9 +7319,9 @@ class CliTests(unittest.TestCase):
             self.assertEqual(payload["hermes_native"]["discovery_status"], "config_registered_reload_required")
             self.assertTrue(payload["hermes_native"]["requires_hermes_reload"])
             self.assertIn("Hermes Agent chat", payload["hermes_native"]["normal_user_surface"])
-            self.assertIn("hermes skills tap add rlaope/oh-my-hermes", payload["hermes_native"]["equivalent_hermes_commands"])
+            self.assertIn("hermes skills tap add akillness/oh-my-jeo", payload["hermes_native"]["equivalent_hermes_commands"])
             self.assertIn(
-                "hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes",
+                "hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes",
                 payload["hermes_native"]["equivalent_hermes_commands"],
             )
             self.assertEqual(payload["hermes_native"]["hermes_config_key"], "skills.external_dirs")
@@ -7728,7 +7728,7 @@ class CliTests(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         run.assert_called_once_with(
-            ["gh", "api", "-X", "PUT", "/user/starred/rlaope/oh-my-hermes"],
+            ["gh", "api", "-X", "PUT", "/user/starred/akillness/oh-my-jeo"],
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -7760,7 +7760,7 @@ class CliTests(unittest.TestCase):
             ask.call_args.kwargs["note"],
             "Yes를 누르면 인증된 GitHub 계정으로 star를 시도합니다. setup은 어떤 답을 골라도 계속 진행됩니다.",
         )
-        self.assertIn("GitHub에서 oh-my-hermes에 star를 눌러줄까요?", ask.call_args.args[0])
+        self.assertIn("GitHub에서 oh-my-jeo에 star를 눌러줄까요?", ask.call_args.args[0])
         self.assertIn("🥲 괜찮아요", output.getvalue())
 
     def test_setup_github_star_prompt_yes_records_star(self) -> None:

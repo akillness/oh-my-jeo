@@ -252,13 +252,13 @@ prompts or tool bodies. This proves only the recorded plugin tool/hook use.
 Use this path when the target Hermes environment supports skill taps:
 
 ```sh
-hermes skills tap add rlaope/oh-my-hermes
-hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+hermes skills tap add akillness/oh-my-jeo
+hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 ```
 
 Use the full identifier for first install. It avoids short-name resolver
 ambiguity in current Hermes CLI releases while installing the same
-`oh-my-hermes` skill.
+`oh-my-jeo` skill.
 
 Install additional workflow skills when you want direct Hermes skill surfaces:
 
@@ -358,8 +358,8 @@ The live smoke runs the selected install path and then verifies:
 ```sh
 hermes skills tap list
 hermes skills list --enabled-only
-hermes skills check oh-my-hermes
-hermes skills inspect rlaope/oh-my-hermes/skills/oh-my-hermes
+hermes skills check oh-my-jeo
+hermes skills inspect akillness/oh-my-jeo/skills/oh-my-jeo
 ```
 
 The tap path proves Hermes CLI install/list/check/inspect for the target
@@ -542,14 +542,14 @@ planning, and specialist review flows, see
 [Application Cases](APPLICATION_CASES.md).
 
 The public project site at
-`https://rlaope.github.io/oh-my-hermes/` is a short entry point. Treat
+`https://akillness.github.io/oh-my-jeo/` is a short entry point. Treat
 this `docs/` directory and the root README as the source of truth for operating
 details.
 
 ## Chat Wrapper Backend Flow
 
 If Hermes Agent is running behind a Discord bot, Slack app, or hosted chat
-adapter, install `oh-my-hermes` on the same machine, container, or runtime
+adapter, install `oh-my-jeo` on the same machine, container, or runtime
 image that starts the wrapper.
 
 The backend flow is:

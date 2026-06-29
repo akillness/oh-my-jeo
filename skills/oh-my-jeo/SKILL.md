@@ -89,7 +89,7 @@ Choosing a skill is routing intent, not plan acceptance, dispatch, execution, or
 
 Hermes-native install paths should converge on the same skill-visible state:
 
-- `hermes skills tap add rlaope/oh-my-hermes`, then `hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes` installs this tap-compatible skill pack directly when Hermes supports taps.
+- `hermes skills tap add akillness/oh-my-jeo`, then `hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes` installs this tap-compatible skill pack directly when Hermes supports taps.
 - `omj setup` installs generated managed skills and registers their directory through `skills.external_dirs` when a local bootstrap or repair path is preferred.
 
 Use compact human summaries for normal `omj setup`, `omj doctor`, `omj update`, `omj install`, and `omj list` operator flows. Full `--json` output is for wrappers, automation, and tests.

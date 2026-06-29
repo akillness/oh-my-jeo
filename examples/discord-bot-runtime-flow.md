@@ -111,7 +111,7 @@ The lower-level runtime commands are still useful for debugging custom wrappers
 or inspecting local artifacts directly:
 
 ```sh
-run_json="$(omj runtime record --skill oh-my-hermes --harness coding-handling --status started)"
+run_json="$(omj runtime record --skill oh-my-jeo --harness coding-handling --status started)"
 run_id="$(printf '%s' "$run_json" | python -c 'import json,sys; print(json.load(sys.stdin)["run"]["run_id"])')"
 
 omj runtime delegate --run "$run_id" --requested --not-observed --result not_observed

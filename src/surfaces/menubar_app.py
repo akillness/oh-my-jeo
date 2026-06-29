@@ -15,7 +15,7 @@ from ..runtime.artifacts import update_state
 
 
 MENUBAR_APP_SCHEMA_VERSION = "menubar_app/v1"
-MENUBAR_LABEL = "com.rlaope.omj.menubar"
+MENUBAR_LABEL = "com.akillness.omj.menubar"
 DEFAULT_REFRESH_INTERVAL_SECONDS = 8
 
 

@@ -187,7 +187,7 @@ skills/
 ## Main Modules
 
 `skills/` is the Hermes-native distribution surface. It mirrors the generated
-skill templates so `hermes skills tap add rlaope/oh-my-hermes` can expose
+skill templates so `hermes skills tap add akillness/oh-my-jeo` can expose
 OMJ directly when Hermes taps are available.
 
 `plugin_bundle/omj/` is the Hermes plugin payload installed by `omj setup` to

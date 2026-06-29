@@ -54,12 +54,13 @@ SKILL_CONTENT_SMOKE_SCHEMA = "skill_content_smoke/v1"
 PRODUCT_READINESS_SCHEMA = "omj_product_readiness/v1"
 RELEASE_EVIDENCE_BUNDLE_SCHEMA = "omj_release_evidence_bundle/v1"
 RELEASE_VERSION_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)*(?:[-_+.]?[A-Za-z0-9][A-Za-z0-9._+-]*)?$")
-DEFAULT_HERMES_TAP = "rlaope/oh-my-hermes"
+DEFAULT_HERMES_TAP = "akillness/oh-my-jeo"
 DEFAULT_HERMES_SKILL = "oh-my-jeo"
-# Upstream tap provenance: the skill folder/name as published in the rlaope/oh-my-hermes
-# tap. Kept verbatim for MIT attribution — a tap install registers the upstream skill name,
-# whereas a local `omj setup` registers the renamed product skill (DEFAULT_HERMES_SKILL).
-HERMES_TAP_SKILL = "oh-my-hermes"
+# The Hermes tap and a local `omj setup` both register the oh-my-jeo product skill;
+# the tap publishes the skill under skills/oh-my-jeo in the akillness/oh-my-jeo repo.
+# Upstream attribution to oh-my-hermes is preserved in NOTICE/LICENSE and the README,
+# not by routing installs through the upstream tap.
+HERMES_TAP_SKILL = "oh-my-jeo"
 DEFAULT_FIRST_USE_MESSAGE = "I want to safely add a feature to this repo"
 INSTALL_PATHS = ("tap", "setup")
 REPRESENTATIVE_CONTEXT_RAIL_SKILLS = ("img-summary", "loop", "ultraprocess", "web-research", "materials-package")
@@ -581,8 +582,8 @@ def hermes_release_smoke_steps(
     if install_path == "tap" and not tap:
         raise ValueError("Hermes smoke tap must not be empty for tap installs")
     skill_name = _skill_name_for_hermes(skill)
-    # A tap install registers the upstream skill name (provenance); a local `omj setup`
-    # registers the renamed product router skill, so its check targets DEFAULT_HERMES_SKILL.
+    # Both a tap install and a local `omj setup` register the oh-my-jeo product skill;
+    # the check targets that resolved skill name regardless of the install path.
     check_skill_name = skill_name if install_path == "tap" else DEFAULT_HERMES_SKILL
     tap_identifier = _tap_skill_identifier(tap=tap, skill=skill)
     setup_command = _omj_scoped_command(
@@ -1987,7 +1988,7 @@ def _hermes_smoke_next_action(ok: bool, failed_step: str) -> str:
     if failed_step == "skill_install":
         return (
             "Check tap visibility and Hermes skill scan output, then rerun "
-            "`hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes`."
+            f"`hermes skills install {DEFAULT_HERMES_TAP}/skills/{HERMES_TAP_SKILL} --yes`."
         )
     if failed_step == "omj_setup":
         return "Run `omj setup` manually and inspect `omj doctor` for blocking setup checks."

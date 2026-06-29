@@ -87,8 +87,8 @@ If the target Hermes environment supports skill taps, this is the native front
 door:
 
 ```sh
-hermes skills tap add rlaope/oh-my-hermes
-hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+hermes skills tap add akillness/oh-my-jeo
+hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 ```
 
 Install direct workflow skills only when the user wants them exposed as explicit

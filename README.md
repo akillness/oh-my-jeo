@@ -48,8 +48,8 @@ omj doctor
 Hermes skill tap path:
 
 ```sh
-hermes skills tap add rlaope/oh-my-hermes
-hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+hermes skills tap add akillness/oh-my-jeo
+hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 ```
 
 Then, from chat:
@@ -61,11 +61,11 @@ Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
 > [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
-> engine and skill catalog are inherited verbatim. The `curl … | sh` installer
-> and its source archive now resolve through the oh-my-jeo distribution
-> (`akillness/oh-my-jeo`), so the canonical install path installs the `omj`
-> command directly, while the Hermes skill tap and license attribution still
-> point upstream
+> engine and skill catalog are inherited verbatim. The `curl … | sh` installer,
+> its source archive, and the Hermes skill tap all now resolve through the
+> oh-my-jeo distribution (`akillness/oh-my-jeo`), so every install path installs
+> the `omj` command and the `oh-my-jeo` skill directly. Only the license
+> attribution still points upstream
 > ([website](https://rlaope.github.io/oh-my-hermes/)); see `NOTICE` for the full
 > attribution. oh-my-jeo layers its own brand, documentation, visualization, and
 > agent spec on top.

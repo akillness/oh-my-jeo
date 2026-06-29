@@ -31,7 +31,7 @@ from ..manifest import read_manifest
 from ..menubar_app import setup_menubar_app, uninstall_menubar_app
 from ..plugin_pack import PluginPackError, install_plugin_bundle
 from ..probe import probe_capabilities
-from ..release import RELEASE_CHANNELS, package_url_for
+from ..release import DEFAULT_HERMES_TAP, HERMES_TAP_SKILL, RELEASE_CHANNELS, package_url_for
 from ..routing.recommend import recommend_skills
 from ..routing.route_plan import build_workflow_route_plan, compact_workflow_route_plan
 from ..runtime.artifacts import read_state_result, update_state
@@ -1006,8 +1006,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
         "normal_user_surface": "Hermes Agent chat and installed Hermes skills",
         "setup_scope": _setup_scope(args),
         "equivalent_hermes_commands": [
-            "hermes skills tap add rlaope/oh-my-hermes",
-            "hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes",
+            f"hermes skills tap add {DEFAULT_HERMES_TAP}",
+            f"hermes skills install {DEFAULT_HERMES_TAP}/skills/{HERMES_TAP_SKILL} --yes",
         ],
         "bootstrap_final_state": bootstrap_final_state,
         "skills_dir": str(paths.skills_dir),
@@ -1230,7 +1230,7 @@ def _offer_github_star_before_setup(*, language: str, use_color: bool, dry_run: 
 
 
 def _try_star_github_repo() -> dict[str, object]:
-    command = ["gh", "api", "-X", "PUT", "/user/starred/rlaope/oh-my-hermes"]
+    command = ["gh", "api", "-X", "PUT", "/user/starred/akillness/oh-my-jeo"]
     try:
         completed = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
     except FileNotFoundError:

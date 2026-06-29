@@ -126,8 +126,8 @@ the application cases ready to show?"
 Install the Hermes skill pack through Hermes' native skill surface:
 
 ```sh
-hermes skills tap add rlaope/oh-my-hermes
-hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+hermes skills tap add akillness/oh-my-jeo
+hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 ```
 
 If the deployment needs the managed bootstrap path, install and verify the same
@@ -278,8 +278,8 @@ Install the skill pack through Hermes, or make sure Hermes can read the same
 config that `omj apply` updated when using the bootstrap path:
 
 ```sh
-hermes skills tap add rlaope/oh-my-hermes
-hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+hermes skills tap add akillness/oh-my-jeo
+hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 omj setup
 omj doctor
 ```
@@ -583,8 +583,8 @@ User-facing effect:
 Before using these cases as public release evidence, verify:
 
 - The one-command installer still works.
-- `hermes skills tap add rlaope/oh-my-hermes` and
-  `hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes`
+- `hermes skills tap add akillness/oh-my-jeo` and
+  `hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes`
   are documented as the primary install path when Hermes taps are available.
 - `omj setup` reports the managed skill directory, equivalent Hermes install
   intent, and Hermes config registration clearly.

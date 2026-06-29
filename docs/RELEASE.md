@@ -15,8 +15,8 @@ public claims are all checked.
 Hermes-native skill install:
 
 ```sh
-hermes skills tap add rlaope/oh-my-hermes
-hermes skills install rlaope/oh-my-hermes/skills/oh-my-hermes --yes
+hermes skills tap add akillness/oh-my-jeo
+hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 ```
 
 Pinned stable install:
@@ -235,8 +235,8 @@ The live smoke runs the selected Hermes install path plus:
 ```sh
 hermes skills tap list
 hermes skills list --enabled-only
-hermes skills check oh-my-hermes
-hermes skills inspect rlaope/oh-my-hermes/skills/oh-my-hermes
+hermes skills check oh-my-jeo
+hermes skills inspect akillness/oh-my-jeo/skills/oh-my-jeo
 ```
 
 Passing the tap smoke means Hermes CLI install/list/check/inspect commands
