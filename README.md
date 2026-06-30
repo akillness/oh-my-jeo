@@ -367,6 +367,50 @@ A non-empty `route` proves OMJ parsed and answered your request; a populated
 plan still is **not** execution proof — that only arrives as a runtime record.
 
 
+### 7. Watch the live HUD (real runtime, not static defaults)
+
+`omj hud` renders a single status line that re-reads your real runtime and log
+files on **every** call — it is live state, not a fixed banner. Use it as a
+glance-able operator strip or pipe `--json` into a wrapper:
+
+```sh
+omj hud                       # one status line (focused preset)
+omj hud --preset full         # add the evidence segment
+omj hud --json                # full machine-readable payload
+omj hud --watch --interval 5  # refresh the line until interrupted
+```
+
+A populated home prints every segment straight from a real source file:
+
+```text
+[omj] v1.1.0 | plugin:ready | plugin-runtime:live | target:multi:2 | coding-agent:execution(codex) | evidence:dispatch_observed
+```
+
+Each segment maps to a concrete file under `~/.omj` (or `~/.hermes`), so the
+line moves the moment those files change:
+
+| Segment | Source it reflects |
+| --- | --- |
+| `v1.1.0` | `runtime/state.json` → `version` |
+| `plugin:ready` | real `~/.hermes/plugins/omj` payload (tools, hooks, role catalog) |
+| `plugin-runtime:live` | `runtime/state.json` → `last_plugin_host_observation` (host hook log) |
+| `target:multi:2` | `targets.json` → topology (`active_agent_count`) |
+| `coding-agent:execution(codex)` | latest `runtime/runs/*/run.json` phase + executor target |
+| `evidence:dispatch_observed` | `runtime/journal/events.jsonl` lifecycle events |
+
+Because the journal is the source, appending a new observed event (for example a
+`merge_observed` record) and re-running `omj hud` flips the line to
+`coding-agent:merge(codex) | evidence:merge_observed` — proving it projects live
+log data rather than caching a default. The `--json` payload exposes the same
+host-observation log fields under `plugin.runtime_observation` (`event`, `host`,
+`hook`, `session_id`, `observed_at`, `evidence_ref_count`).
+
+Token metadata is honest about provenance: pass real host counters
+(`omj hud --json --tokens-remaining 12000 --token-budget 30000`) and `tokens`
+reports `status: observed_from_host_metadata` with the computed summary; omit
+them and it stays `unobserved`. An empty home never fakes activity — it reports
+`plugin:not-installed | plugin-runtime:unobserved | coding-agent:idle(ask)`.
+
 A prepared handoff is **not** execution proof. Observed evidence only exists once
 a runtime record is written under `runtime/` — see [Evidence Boundaries](#evidence-boundaries).
 
