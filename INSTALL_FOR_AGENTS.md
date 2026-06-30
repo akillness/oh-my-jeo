@@ -17,6 +17,25 @@ If Hermes is not available, continue only when the target environment uses a
 hosted wrapper that manages Hermes separately. Do not claim Hermes-visible
 readiness until the target Hermes runtime or wrapper has been checked.
 
+OMJ wraps the upstream Hermes runtime (`NousResearch/hermes-agent`, MIT). If the
+runtime is missing and the target environment does not manage Hermes for you,
+OMJ can bootstrap it. Detection and guidance are the default; the actual network
+install only happens on an explicit opt-in:
+
+```sh
+omj hermes status            # detect the local hermes CLI and its version
+omj hermes install           # print the official upstream install command only
+omj hermes install --apply   # opt in: run the official upstream installer
+```
+
+`omj hermes install` defaults to plan mode and changes nothing. `--apply` runs
+the official installer (`curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`,
+PowerShell on Windows, or `--method pip` for the `hermes-agent` PyPI package).
+Installing the runtime is not OMJ skill setup, plugin load, review, CI, or merge
+evidence; those remain separate, separately observed steps. You can also fold
+the opt-in into setup with `omj setup --with-hermes`.
+
+
 ## Step 1: Install OMJ
 
 ```sh

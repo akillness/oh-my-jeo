@@ -48,6 +48,36 @@ oh-my-jeo runs alongside your existing chat agent. You install it once, then you
 keep talking to your agent normally — oh-my-jeo just makes the next step safer
 and more repeatable.
 
+> **Prerequisite — Hermes Agent.** oh-my-jeo wraps the
+> [Hermes Agent](https://github.com/nousresearch/hermes-agent) runtime (by Nous
+> Research, MIT). If you don't have it yet, install Hermes first — straight from
+> the [upstream repo](https://github.com/nousresearch/hermes-agent), or let OMJ
+> bootstrap it for you with `omj hermes install --apply` (plan-only by default).
+> Prefer no Hermes at all? OMJ also runs over MCP from any compatible host —
+> jump to [step 5](#5-use-omj-from-an-mcp-host-jeo-pi--pi-claude-code-codex-cursor).
+
+**Fastest path (copy-paste):**
+
+```sh
+# 1. install the omj command
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
+
+# 2. install Hermes if you don't have it yet, then wire OMJ into it
+omj hermes install --apply             # bootstraps github.com/nousresearch/hermes-agent
+omj setup --default-executor hermes    # connect OMJ + pick Hermes as your coding runtime
+
+# 3. restart Hermes, then sanity-check
+omj doctor
+```
+
+Then talk to Hermes in plain language (no new CLI needed for daily work):
+
+```text
+Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
+```
+
+The rest of this section walks each step in detail.
+
 ### 1. Install the `omj` command
 
 Pick one of the two paths.
@@ -70,8 +100,11 @@ hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 
 ### 2. Connect OMJ to Hermes, then verify
 
-`omj setup` is the one explicit step that makes OMJ usable from Hermes. Run it
-once and pick Hermes as your coding runtime:
+`omj setup` is the one explicit step that makes OMJ usable from Hermes. It
+expects the [Hermes Agent](https://github.com/nousresearch/hermes-agent) runtime
+to be present — if it isn't, run `omj hermes install --apply` first (or add
+`--with-hermes` to the setup command below). Run setup once and pick Hermes as
+your coding runtime:
 
 ```sh
 omj setup --default-executor hermes   # add --with-mcp to also expose the MCP bridge
@@ -134,6 +167,38 @@ omj doctor          # re-check setup health anytime
 omj setup --help    # see setup options (executor, memory mode, scope, MCP)
 omj mcp manifest    # OMJ MCP bridge manifest for stdio MCP hosts
 ```
+
+### 5. Use OMJ from an MCP host (jeo-pi / Pi, Claude Code, Codex, Cursor)
+
+Any MCP-capable agent CLI can host the OMJ bridge over stdio — it does not have
+to be Hermes. The bridge speaks the same MCP contract every host expects, so
+registration is a single `mcp add` against the installed `omj` command. With
+[jeo-pi](https://github.com/akillness/jeo-pi)'s `pi` CLI, for example:
+
+```sh
+pi mcp add omj -- omj --omj-home ~/.omj --hermes-home ~/.hermes mcp serve
+pi mcp list                                   # confirms: omj  enabled
+```
+
+`pi mcp add` persists an `mcpServers.omj` stdio entry (in `~/.pi/mcp.json`).
+On the next session the host spawns `omj mcp serve` and completes the standard
+handshake — verified end to end:
+
+- `initialize` → `protocolVersion 2025-06-18`, `serverInfo omj`.
+- `tools/list` → the three allowlisted bridge tools `omj_status`,
+  `omj_recommend`, `omj_probe`.
+- `tools/call` → structured JSON; missing required args are rejected with
+  `omj_*` schema errors, unknown methods return JSON-RPC `-32601`.
+
+For any other host, print a copy-paste recipe with
+`omj mcp config-recipe --host <generic|claude-code|codex|opencode|cursor>` and
+merge the `mcpServers.omj` entry into that host's config.
+
+> **MCP host scope.** Over MCP a host gets the three read-only bridge tools
+> (status, recommend, probe) — not the full nine native plugin tools or the
+> `pre_llm_call`/`pre_tool_call`/`on_session_end` hooks, which require the
+> native Hermes plugin path. See [Evidence Boundaries](#evidence-boundaries).
+
 
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
@@ -302,6 +367,50 @@ A non-empty `route` proves OMJ parsed and answered your request; a populated
 plan still is **not** execution proof — that only arrives as a runtime record.
 
 
+### 7. Watch the live HUD (real runtime, not static defaults)
+
+`omj hud` renders a single status line that re-reads your real runtime and log
+files on **every** call — it is live state, not a fixed banner. Use it as a
+glance-able operator strip or pipe `--json` into a wrapper:
+
+```sh
+omj hud                       # one status line (focused preset)
+omj hud --preset full         # add the evidence segment
+omj hud --json                # full machine-readable payload
+omj hud --watch --interval 5  # refresh the line until interrupted
+```
+
+A populated home prints every segment straight from a real source file:
+
+```text
+[omj] v1.1.0 | plugin:ready | plugin-runtime:live | target:multi:2 | coding-agent:execution(codex) | evidence:dispatch_observed
+```
+
+Each segment maps to a concrete file under `~/.omj` (or `~/.hermes`), so the
+line moves the moment those files change:
+
+| Segment | Source it reflects |
+| --- | --- |
+| `v1.1.0` | `runtime/state.json` → `version` |
+| `plugin:ready` | real `~/.hermes/plugins/omj` payload (tools, hooks, role catalog) |
+| `plugin-runtime:live` | `runtime/state.json` → `last_plugin_host_observation` (host hook log) |
+| `target:multi:2` | `targets.json` → topology (`active_agent_count`) |
+| `coding-agent:execution(codex)` | latest `runtime/runs/*/run.json` phase + executor target |
+| `evidence:dispatch_observed` | `runtime/journal/events.jsonl` lifecycle events |
+
+Because the journal is the source, appending a new observed event (for example a
+`merge_observed` record) and re-running `omj hud` flips the line to
+`coding-agent:merge(codex) | evidence:merge_observed` — proving it projects live
+log data rather than caching a default. The `--json` payload exposes the same
+host-observation log fields under `plugin.runtime_observation` (`event`, `host`,
+`hook`, `session_id`, `observed_at`, `evidence_ref_count`).
+
+Token metadata is honest about provenance: pass real host counters
+(`omj hud --json --tokens-remaining 12000 --token-budget 30000`) and `tokens`
+reports `status: observed_from_host_metadata` with the computed summary; omit
+them and it stays `unobserved`. An empty home never fakes activity — it reports
+`plugin:not-installed | plugin-runtime:unobserved | coding-agent:idle(ask)`.
+
 A prepared handoff is **not** execution proof. Observed evidence only exists once
 a runtime record is written under `runtime/` — see [Evidence Boundaries](#evidence-boundaries).
 
@@ -448,6 +557,7 @@ execution evidence.
 | --- | --- |
 | Full docs map | [Documentation](docs/README.md) |
 | Install, update, reapply, uninstall | [Installation](docs/INSTALLATION.md) |
+| Install the Hermes Agent runtime | [Hermes Agent repo](https://github.com/nousresearch/hermes-agent) · [OMJ bootstrap](docs/INSTALLATION.md) |
 | AI-agent pasteable install protocol | [Agent Install](INSTALL_FOR_AGENTS.md) |
 | Product direction and boundaries | [Direction](docs/DIRECTION.md) |
 | Architecture and module ownership | [Architecture](docs/ARCHITECTURE.md) |

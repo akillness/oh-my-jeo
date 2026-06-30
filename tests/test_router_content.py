@@ -137,6 +137,39 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("skill_view", router.content)
         self.assertIn("name collides", router.content)
 
+    def test_generated_skill_text_stays_installable_from_community_tap(self) -> None:
+        # Hermes' skill security scanner (hermes-agent/tools/skills_guard.py)
+        # BLOCKS community-source installs that hit a high/critical text
+        # heuristic, forcing operators to fall back to `--force`. A real
+        # regression: the "Large Output And Context Safety" heading matched the
+        # `context_exfil` rule ("output ... context"), so
+        # `hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes`
+        # was blocked. Lock the contract so generated SKILL.md + reference prose
+        # never trips these community-blocking heuristics again.
+        community_blocking_prose = {
+            "context_exfil": r"(include|output|print|send|share)\s+(?:\w+\s+)*(conversation|chat\s+history|previous\s+messages|context)",
+            "send_to_url": r"(send|post|upload|transmit)\s+.*\s+(to|at)\s+https?://",
+            "prompt_injection_ignore": r"ignore\s+(?:\w+\s+)*(previous|all|above|prior)\s+instructions",
+            "deception_hide": r"do\s+not\s+(?:\w+\s+)*tell\s+(?:\w+\s+)*the\s+user",
+            "disregard_rules": r"disregard\s+(?:\w+\s+)*(your|all|any)\s+(?:\w+\s+)*(instructions|rules|guidelines)",
+            "leak_system_prompt": r"output\s+(?:\w+\s+)*(system|initial)\s+prompt",
+            "conditional_deception": r"(when|if)\s+no\s*one\s+is\s+(watching|looking)",
+        }
+        units = [(template.name, template.content) for template in builtin_skill_templates()]
+        units += [
+            (str(Path(template.skill_name) / template.relative_path), template.content)
+            for template in builtin_skill_reference_templates()
+        ]
+        for name, content in units:
+            for line_number, line in enumerate(content.splitlines(), start=1):
+                for pattern_id, pattern in community_blocking_prose.items():
+                    self.assertIsNone(
+                        re.search(pattern, line, flags=re.IGNORECASE),
+                        f"{name}:{line_number} trips Hermes scanner '{pattern_id}'"
+                        f" and would block community-tap install: {line.strip()!r}",
+                    )
+
+
     def test_context_surfaces_stay_within_compact_budgets(self) -> None:
         from omj.plugin_bundle.omj.tools.capability_tool import OMJ_CAPABILITIES_SCHEMA
         from omj.plugin_bundle.omj.tools.chat_tool import OMJ_INTERACT_SCHEMA
@@ -1266,7 +1299,10 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("omj harness inspect planning", installation)
         self.assertIn("OMJ_WITH_PLUGIN", install_sh)
         self.assertIn('OMJ_RUN_SETUP="${OMJ_RUN_SETUP:-0}"', install_sh)
-        self.assertIn('if [ "$OMJ_RUN_SETUP" = "1" ]; then', install_sh)
+        self.assertIn('OMJ_AUTOPILOT="${OMJ_AUTOPILOT:-1}"', install_sh)
+        self.assertIn('if [ "$OMJ_RUN_SETUP" = "1" ] || [ "$OMJ_AUTOPILOT" = "1" ]; then', install_sh)
+        self.assertIn('if [ "$OMJ_DO_SETUP" = "1" ]; then', install_sh)
+        self.assertIn("set -- \"$@\" --autopilot --yes", install_sh)
         self.assertIn("OMJ_PROFILE_PACKS", install_sh)
         self.assertIn("OMJ_LANG", install_sh)
         self.assertIn("OMJ_LANGUAGE", install_sh)

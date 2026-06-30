@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..capability_roadmap import build_capability_gap_roadmap
+from ..catalogs.provider_auth import (
+    PROVIDER_AUTH_DIAGNOSTIC_BOUNDARY,
+    diagnose_provider_auth,
+)
 from ..config_adapter import external_dirs, read_config
 from ..local_store import read_jsonl_objects
 from ..parity import build_parity_matrix
@@ -338,6 +342,37 @@ def _dir_capability(name: str, path: Path, found_message: str, missing_message: 
         found_message if found else missing_message,
     )
 
+def _provider_auth_capability() -> tuple[Capability, dict]:
+    """Surface the metadata-only provider-auth host diagnostic as a probe capability.
+
+    The provider-auth catalog command (``omj providers doctor``) already runs an
+    env-presence-only diagnostic; exposing it through the probe lets MCP hosts and
+    ``omj probe`` see host credential readiness without OMJ ever reading secret
+    values, contacting a provider, or claiming login/reachability.
+    """
+
+    diagnostic = diagnose_provider_auth()
+    summary = diagnostic.get("summary", {})
+    summary = summary if isinstance(summary, dict) else {}
+    total = int(summary.get("total", 0) or 0)
+    configured = int(summary.get("configured", 0) or 0)
+    host_managed = int(summary.get("host_managed", 0) or 0)
+    missing_required = int(summary.get("missing_required", 0) or 0)
+    message = (
+        f"Provider-auth host diagnostic available: {configured}/{total} provider(s) expose a "
+        f"host-detectable credential env, {host_managed} OAuth provider(s) are host-managed, "
+        f"{missing_required} api-key provider(s) have no env yet; env-presence metadata only, "
+        "never secret values, login, or reachability evidence"
+    )
+    capability = Capability(
+        "provider_auth_readiness",
+        "available",
+        "omj providers doctor",
+        message,
+    )
+    return capability, diagnostic
+
+
 
 def probe_capabilities(paths: OmjPaths, *, include_parity: bool = False, include_roadmap: bool = False) -> dict:
     config_text = read_config(paths.hermes_config_path)
@@ -481,6 +516,9 @@ def probe_capabilities(paths: OmjPaths, *, include_parity: bool = False, include
             ),
         ]
     )
+    provider_auth_capability, provider_auth_diagnostic = _provider_auth_capability()
+    capabilities.append(provider_auth_capability)
+
 
     payload = {
         "schema_version": 1,
@@ -501,6 +539,11 @@ def probe_capabilities(paths: OmjPaths, *, include_parity: bool = False, include
             "runtime evidence prove deeper integration. Plugin host observations prove plugin load/use only, "
             "not coding execution, review, CI, or merge."
         ),
+        "provider_auth": {
+            "schema_version": provider_auth_diagnostic.get("schema_version"),
+            "summary": provider_auth_diagnostic.get("summary", {}),
+            "boundary": PROVIDER_AUTH_DIAGNOSTIC_BOUNDARY,
+        },
     }
     if include_parity:
         payload["parity_matrix"] = build_parity_matrix(payload)

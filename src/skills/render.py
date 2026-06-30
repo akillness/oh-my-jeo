@@ -375,7 +375,7 @@ Check `executor_readiness/v1` for Codex, Claude Code, Hermes, or oh-my runtime p
 
 With `--record`, Codex-selected real executor handoffs create `.omj/runtime/runs/<run-id>/` prepared runtime runs with `observation_status: prepared_not_observed`. Executor-choice, prompt-only, runtime-handoff, clarify, and fallback responses remain wrapper/session state.
 
-## Large Output And Context Safety
+## Context Safety For Large Output
 
 Wrappers must keep raw Codex JSONL, tool output, process logs, and oversized
 executor notes out of Hermes chat context. Use `omj chat codex-progress` or the

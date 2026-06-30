@@ -69,7 +69,7 @@ def install_script_smoke_plan(
                 "mutates_profile": False,
                 "required": True,
                 "proof_boundary": (
-                    "Runs install.sh with isolated HOME, OMJ_VENV_DIR, and OMJ_BIN_DIR. The default installer path "
+                    "Runs install.sh with isolated HOME, OMJ_VENV_DIR, and OMJ_BIN_DIR. The smoke pins OMJ_AUTOPILOT=0 so it "
                     "installs the omj command only and does not run setup, doctor, or mutate the operator's real Hermes profile."
                 ),
             },
@@ -277,8 +277,9 @@ def _run_install_script_smoke_in_dir(
         "recommended_next_action": _install_script_smoke_next_action(ok, failed_step),
         "proof_boundary": (
             "Live install smoke observes install.sh and installed-command smoke inside an isolated temp home with an "
-            "explicit smoke environment only. The default path installs the command only; it does not run setup, mutate "
-            "the operator's Hermes profile, inherit operator OMJ installer controls, or prove live Hermes chat selected OMJ."
+            "explicit smoke environment only. The smoke pins OMJ_AUTOPILOT=0 so the observed path installs the command only; "
+            "it does not run setup, mutate the operator's Hermes profile, inherit operator OMJ installer controls, or prove "
+            "live Hermes chat selected OMJ."
         ),
     }
 
@@ -347,6 +348,7 @@ def _install_smoke_env(
         "OMJ_LINK_COMMAND": "1",
         "OMJ_FORCE_LINK": "1",
         "OMJ_RUN_SETUP": "1" if run_setup else "0",
+        "OMJ_AUTOPILOT": "0",
         "OMJ_AUTO_APPLY": "1",
         "OMJ_RUN_DOCTOR": "1" if run_doctor else "0",
         "OMJ_LANG": "en",
@@ -367,6 +369,7 @@ def _public_install_smoke_env(env: Mapping[str, str]) -> dict[str, str]:
         "OMJ_VENV_DIR",
         "OMJ_BIN_DIR",
         "OMJ_RUN_SETUP",
+        "OMJ_AUTOPILOT",
         "OMJ_AUTO_APPLY",
         "OMJ_RUN_DOCTOR",
         "OMJ_SETUP_ARGS",

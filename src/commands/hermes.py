@@ -15,6 +15,13 @@ from ..hermes_planning import (
 )
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..installer import OmjError
+from ..hermes_bootstrap import (
+    DEFAULT_INSTALL_METHOD,
+    INSTALL_METHODS,
+    build_hermes_install_plan,
+    detect_hermes,
+    run_hermes_install,
+)
 from .common import _explicit_source_metadata, _paths, _print_json
 
 
@@ -104,6 +111,32 @@ def cmd_hermes_plan_cancel(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_hermes_status(args: argparse.Namespace) -> int:
+    try:
+        result = detect_hermes()
+    except OSError as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(result)
+    return 0
+
+
+def cmd_hermes_install(args: argparse.Namespace) -> int:
+    try:
+        if args.apply:
+            result = run_hermes_install(args.method, force=args.force)
+        else:
+            result = build_hermes_install_plan(args.method)
+    except (OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(result)
+    # An apply that executed the installer but did not yield a working runtime is
+    # a real failure the caller should see in the exit code.
+    if args.apply and not bool(result.get("ok", False)):
+        return 1
+    return 0
+
+
+
 def _add_hermes_commands(sub) -> None:
     hermes = sub.add_parser("hermes", help="Build Hermes-facing plan scaffolds for natural-language work.")
     hermes_sub = hermes.add_subparsers(dest="hermes_command", required=True)
@@ -145,3 +178,31 @@ def _add_hermes_commands(sub) -> None:
     plan_cancel.add_argument("path", help="Path to a hermes_plan/v1 Markdown artifact.")
     plan_cancel.add_argument("--reason", default="", help="Optional metadata-only cancellation reason.")
     plan_cancel.set_defaults(func=cmd_hermes_plan_cancel)
+
+    status = hermes_sub.add_parser(
+        "status",
+        help="Detect whether the Hermes runtime CLI that OMJ wraps is installed locally.",
+    )
+    status.set_defaults(func=cmd_hermes_status)
+
+    install = hermes_sub.add_parser(
+        "install",
+        help="Prepare (default) or, with --apply, run the official upstream Hermes runtime installer.",
+    )
+    install.add_argument(
+        "--apply",
+        action="store_true",
+        help="Opt in to actually execute the upstream Hermes installer (network, mutating). Default prints the plan only.",
+    )
+    install.add_argument(
+        "--method",
+        choices=INSTALL_METHODS,
+        default=DEFAULT_INSTALL_METHOD,
+        help="Install method: 'script' (official installer) or 'pip' (hermes-agent on PyPI).",
+    )
+    install.add_argument(
+        "--force",
+        action="store_true",
+        help="With --apply, run the installer even when a hermes runtime is already present.",
+    )
+    install.set_defaults(func=cmd_hermes_install)

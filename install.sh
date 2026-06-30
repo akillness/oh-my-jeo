@@ -30,8 +30,16 @@ fi
 OMJ_LINK_COMMAND="${OMJ_LINK_COMMAND:-1}"
 OMJ_FORCE_LINK="${OMJ_FORCE_LINK:-0}"
 OMJ_RUN_SETUP="${OMJ_RUN_SETUP:-0}"
+OMJ_AUTOPILOT="${OMJ_AUTOPILOT:-1}"
 OMJ_AUTO_APPLY="${OMJ_AUTO_APPLY:-1}"
 OMJ_RUN_DOCTOR="${OMJ_RUN_DOCTOR:-1}"
+# Autopilot runs `omj setup --autopilot` after the command is exposed so a single
+# `curl ... | sh` installs OMJ, registers it with Hermes, bootstraps the Hermes
+# runtime OMJ wraps, and verifies. Set OMJ_AUTOPILOT=0 to install the command only.
+OMJ_DO_SETUP=0
+if [ "$OMJ_RUN_SETUP" = "1" ] || [ "$OMJ_AUTOPILOT" = "1" ]; then
+  OMJ_DO_SETUP=1
+fi
 OMJ_WITH_PLUGIN="${OMJ_WITH_PLUGIN:-0}"
 OMJ_WITH_MCP="${OMJ_WITH_MCP:-0}"
 OMJ_PROFILE_PACKS="${OMJ_PROFILE_PACKS:-}"
@@ -54,7 +62,7 @@ OMJ_EXPOSE_STEP=$((OMJ_INSTALL_STEP_COUNT + 1))
 OMJ_SETUP_STEP=$((OMJ_EXPOSE_STEP + 1))
 OMJ_DOCTOR_STEP=$((OMJ_SETUP_STEP + 1))
 OMJ_TOTAL_STEPS=$OMJ_EXPOSE_STEP
-if [ "$OMJ_RUN_SETUP" = "1" ]; then
+if [ "$OMJ_DO_SETUP" = "1" ]; then
   OMJ_TOTAL_STEPS=$OMJ_DOCTOR_STEP
 fi
 
@@ -416,8 +424,12 @@ else
   say "Use '$OMJ_RUNTIME_PYTHON -m omj.cli setup' as a fallback and check the selected Python scripts directory."
 fi
 
-if [ "$OMJ_RUN_SETUP" = "1" ]; then
+if [ "$OMJ_DO_SETUP" = "1" ]; then
   set -- setup --channel "$OMJ_CHANNEL" --package-url "$OMJ_PACKAGE_URL" --source-ref "$OMJ_SOURCE_REF" --command-package-updated
+
+  if [ "$OMJ_AUTOPILOT" = "1" ]; then
+    set -- "$@" --autopilot --yes
+  fi
 
   if [ "$OMJ_LANG_WAS_SET" = "1" ]; then
     set -- "$@" --language "$OMJ_LANG"
@@ -478,20 +490,24 @@ if [ "$OMJ_RUN_SETUP" = "1" ]; then
     say_note "Skipped doctor check because OMJ_RUN_DOCTOR=0."
   else
     say_step "$(step_label "$OMJ_DOCTOR_STEP")" "$(msg step_doctor)"
+    # Doctor is a verification report, not an install gate: a warning (for example a
+    # missing Hermes runtime) must not abort an otherwise successful install under set -e.
     if [ -n "$OMJ_SCOPE" ]; then
-      run_omj --scope "$OMJ_SCOPE" doctor
+      run_omj --scope "$OMJ_SCOPE" doctor || say_note "doctor reported issues; run 'omj doctor' for details."
     else
-      run_omj doctor
+      run_omj doctor || say_note "doctor reported issues; run 'omj doctor' for details."
     fi
   fi
 elif [ "$OMJ_AUTO_APPLY" = "0" ] || [ "$OMJ_WITH_PLUGIN" = "1" ] || [ "$OMJ_WITH_MCP" = "1" ] || [ -n "$OMJ_SCOPE" ] || [ -n "$OMJ_PROFILE_PACKS" ] || [ -n "$OMJ_SETUP_PROFILES" ] || [ -n "$OMJ_DEFAULT_EXECUTOR" ] || [ -n "$OMJ_SETUP_ARGS" ] || [ "$OMJ_RUN_DOCTOR" = "0" ]; then
-  say_note "Setup options were not applied because install.sh now installs the command only by default."
-  say_note "Run 'omj setup' with those choices explicitly, or set OMJ_RUN_SETUP=1 for advanced one-shot bootstrap."
+  say_note "Setup options were not applied because autopilot is disabled (OMJ_AUTOPILOT=0)."
+  say_note "Run 'omj setup' with those choices explicitly, or set OMJ_AUTOPILOT=1 (default) for one-shot Hermes bootstrap."
 fi
 
 printf '\n'
 say "$(color '1;36' "$(msg installed)")"
-if command -v omj >/dev/null 2>&1; then
+if [ "$OMJ_DO_SETUP" = "1" ]; then
+  say "Setup ran. Reload Hermes to use the managed OMJ skills; run 'omj doctor' to verify."
+elif command -v omj >/dev/null 2>&1; then
   say "$(msg next_path)"
 elif [ -n "$OMJ_COMMAND_PATH" ]; then
   say "$(msg next_command_path "$OMJ_COMMAND_PATH")"

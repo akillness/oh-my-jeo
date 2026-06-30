@@ -42,3 +42,6 @@ uv.lock
 .idea/
 .vscode/
 *.swp
+
+# jeo-pi (pi CLI) local session/agent state when OMJ is hosted from this repo
+.pi/

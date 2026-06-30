@@ -97,6 +97,10 @@ OMJ is:
 - a Hermes-facing planning artifact generator
 - a metadata-only evidence ledger for prepared and observed handoffs
 - a delegation-first bridge from Hermes requests to selected coding executors
+- an opt-in bootstrap for the upstream Hermes runtime it wraps
+  (`NousResearch/hermes-agent`), detect-and-advise by default and network
+  install only on explicit opt-in (`omj hermes install --apply`,
+  `omj setup --with-hermes`)
 
 OMJ is not:
 
@@ -105,6 +109,15 @@ OMJ is not:
 - an LLM router or network service
 - a hidden coding runtime
 - a claim that Hermes executed work that only a handoff prepared
+
+The opt-in Hermes runtime bootstrap is a deliberately scoped exception to the
+"no network calls in core" rule. `omj hermes install --apply` and
+`omj setup --with-hermes` run the official upstream Hermes installer only after
+an explicit operator opt-in, record the result with the prepared-vs-observed
+boundary, and never patch Hermes core. Default `omj hermes install` and
+`omj hermes status` stay non-mutating detect-and-advise surfaces. This is not a
+general license for hidden LLM/API/network calls elsewhere in core.
+
 
 ## Ownership Boundary
 
@@ -251,6 +264,6 @@ Before accepting direction-changing work, verify:
 - Does it keep coding execution in a selected executor/runtime handoff when code
   changes are required?
 - Does it preserve `prepared_not_observed` until wrapper evidence exists?
-- Does it avoid Hermes core patching and hidden LLM/API calls?
+- Does it avoid Hermes core patching and hidden LLM/API calls? (The opt-in Hermes runtime bootstrap is the only sanctioned network action, and only on explicit `--apply`/`--with-hermes` opt-in.)
 - Does it keep chat users free from command knowledge?
 - Does it fit one coherent goal PR unless there is a clear reason to split?
