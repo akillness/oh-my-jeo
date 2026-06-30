@@ -57,6 +57,33 @@ full workflow picker. This keeps the first explanation conversational while
 still exposing `omj_context_brief/v1` for adapters that want structured lanes,
 rules, and boundaries.
 
+## Install The Hermes Runtime (Optional Bootstrap)
+
+OMJ wraps the upstream Hermes runtime (`NousResearch/hermes-agent`, MIT). On a
+fresh machine where Hermes is not already managed for you, OMJ can bootstrap it.
+Detection and guidance are the default; the real network install only runs on an
+explicit opt-in.
+
+```sh
+omj hermes status            # detect the local hermes CLI and report its version
+omj hermes install           # print the official upstream install command only
+omj hermes install --apply   # opt in: run the official upstream installer
+```
+
+`omj hermes install` defaults to plan mode and changes nothing. `--apply` runs
+the official installer
+(`curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash` on
+Linux/macOS/WSL2/Termux, PowerShell on Windows, or `--method pip` for the
+`hermes-agent` PyPI package, which needs Python `>=3.11,<3.14`). You can fold the
+opt-in into setup with `omj setup --with-hermes` (use `--hermes-method pip` to
+choose PyPI). `omj doctor` adds a non-blocking `hermes_runtime` check that warns
+when the runtime is missing and points at `omj hermes install`.
+
+Installing the Hermes runtime is not OMJ skill setup, plugin load, review, CI, or
+merge evidence. Those remain separate, separately observed steps, and OMJ never
+patches Hermes core.
+
+
 ## What Setup Changes
 
 OMJ's setup footprint is intentionally bounded:

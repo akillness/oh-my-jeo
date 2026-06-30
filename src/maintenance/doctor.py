@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..command_path import inspect_omj_command_path
 from ..config_adapter import external_dirs, read_config
+from ..hermes_bootstrap import detect_hermes
 from ..hashutil import sha256_file
 from ..local_store import can_write_dir
 from ..manifest import local_modifications, read_manifest
@@ -115,6 +116,29 @@ def run_doctor(paths: OmjPaths) -> list[Check]:
     config_text = read_config(paths.hermes_config_path)
     dirs = external_dirs(config_text)
     checks.append(Check("hermes_config", paths.hermes_config_path.exists(), f"{paths.hermes_config_path}"))
+    hermes_runtime = detect_hermes()
+    checks.append(
+        Check(
+            "hermes_runtime",
+            True,
+            (
+                f"hermes runtime found at {hermes_runtime['path']}"
+                + (f" (version {hermes_runtime['version']})" if hermes_runtime["version"] else "")
+                if hermes_runtime["found"]
+                else (
+                    "hermes runtime CLI not found on PATH; OMJ wraps Hermes but the runtime is not installed. "
+                    "Run `omj hermes install` to see the upstream installer, or `omj hermes install --apply` to install it."
+                )
+            ),
+            severity="ok" if hermes_runtime["found"] else "warning",
+            next_action=(
+                ""
+                if hermes_runtime["found"]
+                else "Run `omj hermes install --apply` to install the Hermes runtime OMJ wraps, then rerun `omj doctor`."
+            ),
+            observed=bool(hermes_runtime["observed"]),
+        )
+    )
     external_registered = str(paths.skills_dir) in dirs
     checks.append(Check("external_dir", external_registered, f"{paths.skills_dir} in skills.external_dirs"))
     checks.append(

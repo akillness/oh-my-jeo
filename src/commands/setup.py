@@ -32,6 +32,14 @@ from ..menubar_app import setup_menubar_app, uninstall_menubar_app
 from ..plugin_pack import PluginPackError, install_plugin_bundle
 from ..probe import probe_capabilities
 from ..release import DEFAULT_HERMES_TAP, HERMES_TAP_SKILL, RELEASE_CHANNELS, package_url_for
+from ..hermes_bootstrap import (
+    DEFAULT_INSTALL_METHOD,
+    HERMES_BOOTSTRAP_SCHEMA,
+    INSTALL_METHODS,
+    build_hermes_install_plan,
+    detect_hermes,
+    run_hermes_install,
+)
 from ..routing.recommend import recommend_skills
 from ..routing.route_plan import build_workflow_route_plan, compact_workflow_route_plan
 from ..runtime.artifacts import read_state_result, update_state
@@ -534,6 +542,41 @@ def _setup_scope(args: argparse.Namespace) -> str:
     return "project" if str(getattr(args, "scope", "") or "").strip().lower() == "project" else "user"
 
 
+def _hermes_runtime_setup_result(args: argparse.Namespace) -> dict[str, object]:
+    """Optionally bootstrap the Hermes runtime as part of `omj setup`.
+
+    Default setup never touches the network: it only detects the runtime and
+    reports presence. `--with-hermes` opts in to running the upstream installer,
+    except under `--dry-run`, which prepares the install command only.
+    """
+
+    method = str(getattr(args, "hermes_method", DEFAULT_INSTALL_METHOD) or DEFAULT_INSTALL_METHOD)
+    if not getattr(args, "with_hermes", False):
+        detected = detect_hermes()
+        return {
+            "schema_version": HERMES_BOOTSTRAP_SCHEMA,
+            "status": "not_requested",
+            "requested": False,
+            "executed": False,
+            "observed": False,
+            "detected": detected,
+            "proof_boundary": (
+                "Hermes runtime install was not requested. Pass `--with-hermes` to install the "
+                "Hermes runtime OMJ wraps, or run `omj hermes install`."
+            ),
+        }
+    if getattr(args, "dry_run", False):
+        plan = build_hermes_install_plan(method)
+        plan["status"] = "would_install"
+        plan["requested"] = True
+        return plan
+    result = run_hermes_install(method)
+    result["requested"] = True
+    result["status"] = "already_present" if result.get("already_present") and not result.get("executed") else ("installed" if result.get("ok") else "install_failed")
+    return result
+
+
+
 def _doctor_operator_summary(checks: list[object]) -> dict[str, object]:
     check_dicts = [
         {
@@ -1017,6 +1060,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         "target_topology": steps["targets"]["topology"],
         "wrapper_backend_surface": "omj chat interact and runtime commands are adapter/operator contracts, not the normal chat UX",
     }
+    steps["hermes_runtime"] = _hermes_runtime_setup_result(args)
 
     if not args.dry_run:
         operator_summary = _setup_operator_summary(args, paths, steps, hermes_native)
@@ -2599,6 +2643,18 @@ def _add_top_level_commands(sub) -> None:
         action="append",
         default=[],
         help="Advanced: install optional visible Hermes role/profile files such as startup-delivery, engineering-delivery, research-strategy, or cto-loop.",
+    )
+    setup.add_argument(
+        "--with-hermes",
+        action="store_true",
+        help="Opt in to install the Hermes runtime OMJ wraps (network, mutating). Default setup only detects and reports it.",
+    )
+    setup.add_argument(
+        "--hermes-method",
+        dest="hermes_method",
+        choices=INSTALL_METHODS,
+        default=DEFAULT_INSTALL_METHOD,
+        help="With --with-hermes, choose 'script' (official installer) or 'pip' (hermes-agent on PyPI).",
     )
     setup.set_defaults(func=cmd_setup)
 
