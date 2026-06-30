@@ -11,21 +11,31 @@ to run, what to report, and what is still unobserved after install.
 
 ## Quick Start
 
-Use this when you just want Hermes to see OMJ skills and have the local
-maintenance command available:
+Use this for the one-shot bootstrap. By default `install.sh` runs autopilot: it
+installs the `omj` command, registers the managed skills with Hermes, bootstraps
+the Hermes runtime OMJ wraps if it is missing (network, mutating), and verifies
+with `omj doctor` — non-interactively:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
+```
+
+To install the `omj` command only and configure later yourself, opt out of
+autopilot and run setup explicitly:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_AUTOPILOT=0 sh
 omj setup
 omj doctor
 ```
 
-First-run expectation:
+First-run expectation (autopilot):
 
-1. `omj setup` installs the managed skills and records safe defaults.
-2. `omj doctor` checks local registration and points to the next repair action.
-3. You restart or reload Hermes Agent.
-4. You ask Hermes: `Use OMJ request-to-handoff for: I want to safely add a feature to this repo.`
+1. The installer installs the managed skills and records safe defaults.
+2. It bootstraps the Hermes runtime if it is not already present.
+3. `omj doctor` checks local registration and points to the next repair action.
+4. You restart or reload Hermes Agent.
+5. You ask Hermes: `Use OMJ request-to-handoff for: I want to safely add a feature to this repo.`
 
 If the next step is still unclear, ask Hermes:
 
@@ -274,6 +284,20 @@ When the managed plugin is actually invoked, hosts can also pass bounded
 same `omj_plugin_host_observation/v1` event automatically, without storing raw
 prompts or tool bodies. This proves only the recorded plugin tool/hook use.
 
+Most hosts do not pass an explicit `observation` block, so the plugin also
+self-detects a live runtime from common session identifiers. If a tool/hook
+call carries any of `session_id`, `session`, `thread_id`, `conversation_id`,
+`run_id`, or `request_id` (with an optional `host`/`agent`/`wrapper` name), or
+the process environment exposes `OMJ_PLUGIN_SESSION_ID` /
+`OMJ_PLUGIN_HOST` (or `HERMES_SESSION_ID` / `HERMES_THREAD_ID` /
+`HERMES_CONVERSATION_ID` / `HERMES_HOST` / `HERMES_AGENT`), the plugin records
+one active `hook_call`/`tool_call` runtime observation per session per process.
+This flips `omj hud` from `plugin-runtime:unobserved` to `plugin-runtime:live`
+the first time the installed plugin actually runs inside a host. With no session
+signal at all (plain CLI use or unit tests) nothing is recorded, preserving the
+metadata-only and prepared-versus-observed boundaries. It still proves only the
+recorded plugin hook/tool use, never coding dispatch, review, CI, or merge.
+
 ## Install Path A: Hermes-Native Skill Tap
 
 Use this path when the target Hermes environment supports skill taps:
@@ -420,11 +444,13 @@ For custom release archives or local package sources accepted by `pip`, pass
 `OMJ_PACKAGE_URL`.
 
 The installer creates an isolated OMJ virtual environment and links the `omj`
-command into `~/.local/bin` when possible. It does not run `omj setup`, register
-Hermes skill directories, install plugin state, or run `omj doctor` by default.
-That avoids Homebrew and distro Python `externally-managed-environment`
-failures while keeping the setup boundary visible: install the command first,
-then run `omj setup` when you are ready to connect OMJ to Hermes.
+command into `~/.local/bin` when possible. By default it then runs autopilot
+(`omj setup --autopilot --yes`): it registers the Hermes skill directories,
+installs plugin state, bootstraps the Hermes runtime OMJ wraps if it is missing
+(network, mutating), and runs `omj doctor` to verify. The isolated virtual
+environment avoids Homebrew and distro Python `externally-managed-environment`
+failures. To keep the setup boundary visible — install the command first, then
+run `omj setup` when you are ready — opt out with `OMJ_AUTOPILOT=0`.
 
 Installer and setup output can be localized with `OMJ_LANG` or `--language`.
 Supported language codes are `en`, `ko`, `ja`, and `zh`:

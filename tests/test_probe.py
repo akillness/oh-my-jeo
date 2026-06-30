@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from _cli_harness import run_cli
+from _local_package import load_local_package
+
+load_local_package()
+
+from omj.catalogs.provider_auth import (
+    PROVIDER_AUTH_CONTRACT_VERSION,
+    PROVIDER_AUTH_DIAGNOSTIC_BOUNDARY,
+)
 
 
 class ProbeCliTests(unittest.TestCase):
@@ -224,6 +233,66 @@ class ProbeCliTests(unittest.TestCase):
             self.assertEqual(actions["repair_plugin_bridge"]["command"], "omj setup")
             self.assertEqual(actions["repair_plugin_bridge"]["fallback_command"], "omj setup --force")
             self.assertIn("not proof that Hermes loaded", actions["repair_plugin_bridge"]["boundary"])
+
+
+class ProbeProviderAuthTests(unittest.TestCase):
+    _MANAGED_ENV_KEYS = (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GROQ_API_KEY",
+        "OLLAMA_HOST",
+        "LMSTUDIO_BASE_URL",
+    )
+
+    def _probe(self, env_overrides):
+        saved = {key: os.environ.get(key) for key in self._MANAGED_ENV_KEYS}
+        try:
+            for key in self._MANAGED_ENV_KEYS:
+                os.environ.pop(key, None)
+            for key, value in env_overrides.items():
+                os.environ[key] = value
+            with TemporaryDirectory() as tmp:
+                base = ["--omj-home", str(Path(tmp) / ".omj"), "--hermes-home", str(Path(tmp) / ".hermes")]
+                status, stdout, stderr = run_cli(base + ["probe"])
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        self.assertEqual(stderr, "")
+        self.assertEqual(status, 0)
+        return stdout, json.loads(stdout)
+
+    def test_probe_surfaces_provider_auth_readiness_capability(self):
+        stdout, payload = self._probe({})
+        caps = {capability["name"]: capability for capability in payload["capabilities"]}
+        self.assertIn("provider_auth_readiness", caps)
+        cap = caps["provider_auth_readiness"]
+        self.assertEqual(cap["status"], "available")
+        self.assertEqual(cap["evidence"], "omj providers doctor")
+        self.assertIn("env-presence metadata only", cap["message"])
+
+        provider_auth = payload["provider_auth"]
+        self.assertEqual(provider_auth["schema_version"], PROVIDER_AUTH_CONTRACT_VERSION)
+        self.assertEqual(provider_auth["boundary"], PROVIDER_AUTH_DIAGNOSTIC_BOUNDARY)
+        summary = provider_auth["summary"]
+        # The catalog size is fixed regardless of host env.
+        self.assertEqual(summary["total"], 30)
+        # With no provider env set, only the two keyless local endpoints are configured.
+        self.assertEqual(sorted(summary["configured_ids"]), ["lmstudio", "ollama"])
+        self.assertEqual(summary["host_managed"], 4)
+
+    def test_probe_provider_auth_reflects_host_env_without_leaking_secret(self):
+        secret = "sk-PROBE-DO-NOT-LEAK-0987654321"
+        stdout, payload = self._probe({"GROQ_API_KEY": secret})
+        summary = payload["provider_auth"]["summary"]
+        self.assertIn("groq", summary["configured_ids"])
+        self.assertNotIn("groq", summary["missing_required_ids"])
+        # The diagnostic reports env-var presence only, never the secret value.
+        self.assertNotIn(secret, stdout)
 
 
 if __name__ == "__main__":

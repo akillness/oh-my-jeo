@@ -282,6 +282,121 @@ class SetupWithHermesTests(unittest.TestCase):
         self.assertFalse(result["executed"])
         self.assertEqual(result["mode"], "plan")
 
+    def test_autopilot_requests_runtime_without_with_hermes_flag(self) -> None:
+        from omj.commands.setup import _hermes_runtime_setup_result
+
+        result = _hermes_runtime_setup_result(self._args(autopilot=True, dry_run=True))
+        self.assertEqual(result["status"], "would_install")
+        self.assertTrue(result["requested"])
+        self.assertTrue(result["autopilot"])
+        self.assertFalse(result["executed"])
+
+    def test_autopilot_dry_run_setup_plans_runtime_and_verification(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = ["--omj-home", str(Path(tmp) / ".omj"), "--hermes-home", str(Path(tmp) / ".hermes")]
+            status, stdout, stderr = run_cli(base + ["setup", "--autopilot", "--dry-run", "--json"])
+        self.assertEqual(stderr, "")
+        self.assertEqual(status, 0)
+        payload = json.loads(stdout)
+        steps = payload["steps"]
+        self.assertEqual(steps["hermes_runtime"]["status"], "would_install")
+        self.assertTrue(steps["hermes_runtime"]["autopilot"])
+        autopilot = steps["autopilot"]
+        self.assertEqual(autopilot["status"], "would_verify")
+        self.assertTrue(autopilot["requested"])
+        self.assertFalse(autopilot["ran_doctor"])
+        # Dry run autopilot must not execute the runtime installer or run doctor.
+        self.assertFalse(steps["hermes_runtime"]["executed"])
+
+    def test_setup_without_autopilot_skips_verification(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = ["--omj-home", str(Path(tmp) / ".omj"), "--hermes-home", str(Path(tmp) / ".hermes")]
+            status, stdout, _ = run_cli(base + ["setup", "--yes", "--skip-apply", "--dry-run", "--json"])
+        self.assertEqual(status, 0)
+        payload = json.loads(stdout)
+        self.assertEqual(payload["steps"]["autopilot"]["status"], "not_requested")
+        self.assertFalse(payload["steps"]["autopilot"]["requested"])
+        self.assertEqual(payload["steps"]["hermes_runtime"]["status"], "not_requested")
+
+    def test_autopilot_verification_runs_doctor_when_runtime_present(self) -> None:
+        import argparse
+        import tempfile
+        from pathlib import Path
+
+        from omj.commands import setup as setup_module
+
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                autopilot=True,
+                dry_run=False,
+                omj_home=str(Path(tmp) / ".omj"),
+                hermes_home=str(Path(tmp) / ".hermes"),
+            )
+            paths = setup_module._paths(args)
+            result = setup_module._autopilot_verification_result(args, paths, {"hermes_runtime": {"status": "installed"}})
+
+        self.assertTrue(result["requested"])
+        self.assertTrue(result["ran_doctor"])
+        self.assertIn(result["status"], ("verified", "needs_attention"))
+        # Verification must report doctor truthfully and carry the runtime status it observed.
+        self.assertEqual(result["doctor_ok"], result["status"] == "verified")
+        self.assertEqual(result["hermes_runtime_status"], "installed")
+        self.assertIn("does not prove Hermes reloaded", result["proof_boundary"])
+
+    def test_setup_summary_surfaces_runtime_and_verification(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+
+        from omj.commands.setup import _print_setup_summary
+
+        payload = {
+            "ok": True,
+            "dry_run": False,
+            "hermes_native": {"discovery_status": "config_registered_reload_required", "skills_dir": "/x"},
+            "operator_summary": {"scope": "user", "status": "configured", "command_path": {"found": True, "path": "omj"}},
+            "steps": {
+                "install": {"skills": []},
+                "hermes_runtime": {"status": "installed"},
+                "autopilot": {"ran_doctor": True, "doctor_ok": True},
+            },
+        }
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            _print_setup_summary(payload, language="en")
+        text = buffer.getvalue()
+        self.assertIn("Hermes runtime: installed by autopilot", text)
+        self.assertIn("Autopilot verified", text)
+
+    def test_setup_summary_surfaces_failed_runtime_and_attention(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+
+        from omj.commands.setup import _print_setup_summary
+
+        payload = {
+            "ok": True,
+            "dry_run": False,
+            "hermes_native": {"discovery_status": "config_registered_reload_required", "skills_dir": "/x"},
+            "operator_summary": {"scope": "user", "status": "configured", "command_path": {"found": True, "path": "omj"}},
+            "steps": {
+                "install": {"skills": []},
+                "hermes_runtime": {"status": "install_failed"},
+                "autopilot": {"ran_doctor": True, "doctor_ok": False},
+            },
+        }
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            _print_setup_summary(payload, language="en")
+        text = buffer.getvalue()
+        self.assertIn("Hermes runtime: install failed", text)
+        self.assertIn("Autopilot: doctor needs attention", text)
+
 
 if __name__ == "__main__":
     unittest.main()

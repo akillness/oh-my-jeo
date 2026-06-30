@@ -1,6 +1,23 @@
 # Changelog
 
 
+## Unreleased
+
+- `install.sh` now bootstraps Hermes by default (`OMJ_AUTOPILOT=1`): a single
+  `curl ... | sh` installs the `omj` command, registers the managed skills with
+  Hermes, runs the upstream Hermes runtime installer if it is missing (network,
+  mutating), and verifies with `omj doctor`. Set `OMJ_AUTOPILOT=0` to install the
+  command only.
+- Added `omj setup --autopilot/--no-autopilot`: a one-shot, non-interactive
+  bootstrap that implies `--with-hermes`, runs the runtime install, and ends in a
+  doctor health check (`steps.autopilot`) reported honestly as `verified` or
+  `needs_attention`.
+- The setup summary now surfaces the Hermes runtime install outcome and the
+  autopilot verification result (en/ko/ja/zh).
+- The doctor step in `install.sh` is no longer an install gate: a warning (for
+  example a still-missing Hermes runtime) no longer aborts an otherwise
+  successful install under `set -e`.
+
 ## 1.1.0 - 2026-06-29
 
 - Ported the jeo-code spec-first workflow disciplines onto OMJ's routing and
