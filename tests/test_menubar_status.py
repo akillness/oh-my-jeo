@@ -14,6 +14,7 @@ load_local_package()
 from omj.menubar_status import build_menubar_status_payload, model_icon_descriptor, source_icon_descriptor
 from omj.paths import resolve_paths
 from omj.targets import record_target_observation
+from omj.version import __version__
 
 
 class MenubarStatusTests(unittest.TestCase):
@@ -53,7 +54,7 @@ class MenubarStatusTests(unittest.TestCase):
             payload = json.loads(stdout)
             self.assertEqual(payload["schema_version"], "menubar_status/v1")
             self.assertEqual(payload["display"]["menu_title"], "omj")
-            self.assertEqual(payload["versions"]["omj"]["value"], "1.1.0")
+            self.assertEqual(payload["versions"]["omj"]["value"], __version__)
             self.assertEqual(payload["versions"]["hermes"]["value"], "unknown")
             self.assertFalse(payload["versions"]["hermes"]["observed"])
             self.assertEqual(payload["settings"]["omj_connection"]["label"], "OMJ connection: Ready")

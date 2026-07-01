@@ -3,6 +3,21 @@
 
 ## Unreleased
 
+## 1.2.0 - 2026-07-01
+
+- Ported jeo-code's failure-first (OKF) memory philosophy into OMJ project
+  memory: added a first-class `failed_attempt` record type and a deterministic,
+  no-LLM `omj memory record-failure "<approach>" --cause "<why>"` capture path
+  (also `omj memory capture --type failed_attempt`). Captured dead ends stay
+  bounded, redacted, and pass through the normal review-first / auto-safe gate.
+- `omj memory recall` now surfaces a query-relevant `failed_attempt` ahead of
+  every other record (`failure_first` flag), gated on a genuine query token/tag
+  hit so an unrelated dead end never crowds out relevant context. Failed
+  attempts get a 90-day staleness default and no forced TTL.
+- The `memory-keeper` role now owns failure-first dead-end capture; regenerated
+  `docs/ROLES.md`, `roles/memory-keeper.md`, and the bundled
+  `role-memory-keeper.md` reference. Documented the model in `docs/MEMORY.md`.
+
 - `install.sh` now bootstraps Hermes by default (`OMJ_AUTOPILOT=1`): a single
   `curl ... | sh` installs the `omj` command, registers the managed skills with
   Hermes, runs the upstream Hermes runtime installer if it is missing (network,

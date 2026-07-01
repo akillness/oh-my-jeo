@@ -6,6 +6,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from _cli_harness import run_cli
+from _local_package import load_local_package
+
+load_local_package()
+from omj.version import __version__
 
 
 class HudCliTests(unittest.TestCase):
@@ -19,7 +23,7 @@ class HudCliTests(unittest.TestCase):
 
             self.assertEqual(stderr, "")
             self.assertEqual(status, 0)
-            self.assertIn("[omj] v1.1.0", stdout)
+            self.assertIn(f"[omj] v{__version__}", stdout)
             self.assertIn("plugin:not-installed", stdout)
             self.assertIn("coding-agent:idle(ask)", stdout)
             self.assertNotIn("tokens:unobserved", stdout)
@@ -71,7 +75,7 @@ class HudCliTests(unittest.TestCase):
             self.assertEqual(status, 0)
             payload = json.loads(stdout)
             self.assertEqual(payload["schema_version"], "omj_hud/v1")
-            self.assertEqual(payload["version"], "1.1.0")
+            self.assertEqual(payload["version"], __version__)
             self.assertEqual(payload["plugin"]["status"], "ready")
             self.assertNotIn("skills", payload)
             self.assertEqual(payload["target_topology"]["mode"], "single_agent_target")
