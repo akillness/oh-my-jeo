@@ -173,7 +173,6 @@ def _trim_observation_journal(paths: OmjPaths, *, limit: int | None = None) -> N
 
 
 def read_observation_events_result(paths: OmjPaths) -> tuple[list[dict[str, Any]], list[str]]:
-
     return read_jsonl_objects(paths.runtime_journal_events_path)
 
 

@@ -812,7 +812,6 @@ class RuntimeArtifactTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertTrue(any("missing coding_delegation.json" in error for error in result["runs"][0]["errors"]))
 
-
     def test_validate_runtime_rejects_runtime_observations_on_plain_runs(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
