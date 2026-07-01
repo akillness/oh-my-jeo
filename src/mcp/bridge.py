@@ -7,9 +7,8 @@ from typing import Any, TextIO
 
 from ..version import __version__
 from ..hud import build_hud_payload
-from ..memory import build_project_memory_recall_pack, capture_project_memory_failed_attempt
-
 from ..local_store import ensure_dir, ensure_file, read_jsonl_objects, utc_now
+from ..memory import build_project_memory_recall_pack, capture_project_memory_failed_attempt
 from ..paths import OmjPaths
 from ..probe import probe_capabilities
 from ..routing.recommend import recommend_skills
@@ -360,7 +359,6 @@ def _codex_mcp_toml(command: str, args: list[str]) -> str:
 
 
 def record_mcp_host_session(
-
     paths: OmjPaths,
     *,
     host: str,
