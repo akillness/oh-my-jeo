@@ -103,6 +103,9 @@ LOOP_WORKFLOW_PATTERNS = (
 LOOP_VERIFICATION_TIERS = ("none", "inner", "outer")
 LOOP_CONTEXT_POLICY_REF = "loop_engineering.context_policy"
 LOOP_COST_POLICY_REF = "loop_engineering.cost_policy"
+LOOP_QUEUE_HISTORY_LIMIT = 200
+LOOP_FEEDBACK_HISTORY_LIMIT = 200
+
 LOOP_EXECUTOR_OPTIONS = (
     {"id": "choose", "label": "Ask me each time", "dispatchable_by_default": False},
     {"id": "codex", "label": "Codex", "dispatchable_by_default": True},
@@ -605,6 +608,8 @@ def record_loop_feedback(
             "external_wait": _safe_summary(external_wait) if external_wait.strip() else "",
         }
     )
+    _trim_feedback_history(cycle)
+
     return _write_loop(paths, cycle)
 
 
@@ -653,6 +658,15 @@ def tick_loop_runtime(
     cycle = read_loop_cycle(paths, loop_id)
     envelope = _dict_value(cycle, "authority_envelope")
     plan = _next_runtime_plan(cycle, envelope)
+    runtime = _runtime_state(cycle.get("runtime"))
+    stalled_item = _stalled_head_queue_item(runtime)
+
+    if stalled_item is not None:
+        runtime["skipped_tick_count"] = int(runtime.get("skipped_tick_count", 0)) + 1
+        cycle["runtime"] = runtime
+        cycle["phase"] = str(stalled_item.get("phase", cycle.get("phase", "handoff")))
+        cycle["next_action"] = str(plan["next_action"])
+        return _write_loop(paths, cycle)
     queue_item = _runtime_queue_item(
         cycle,
         envelope,
@@ -667,13 +681,13 @@ def tick_loop_runtime(
         workflow_pattern=workflow_pattern,
         note=note,
     )
-    runtime = _runtime_state(cycle.get("runtime"))
     runtime["heartbeat_count"] = int(runtime.get("heartbeat_count", 0)) + 1
+    runtime["skipped_tick_count"] = 0
     runtime["last_tick_at"] = queue_item["created_at"]
     runtime["last_trigger"] = queue_item["trigger"]
     runtime["last_planned_action"] = queue_item["planned_action"]
     runtime["last_queue_id"] = queue_item["queue_id"]
-    runtime.setdefault("queue", []).append(queue_item)
+    _append_queue_item(runtime, queue_item)
     cycle["runtime"] = runtime
     if queue_item["status"] == "prepared_not_observed":
         cycle["phase"] = str(plan["phase"])
@@ -682,6 +696,8 @@ def tick_loop_runtime(
     else:
         cycle["next_action"] = str(plan["next_action"])
     return _write_loop(paths, cycle)
+
+
 
 
 def run_loop_once(paths: OmjPaths, loop_id: str) -> dict[str, Any]:
@@ -1577,6 +1593,14 @@ def _runtime_state(value: object | None = None) -> dict[str, Any]:
         heartbeat_count = int(runtime.get("heartbeat_count", 0) or 0)
     except (TypeError, ValueError):
         heartbeat_count = 0
+    try:
+        skipped_tick_count = int(runtime.get("skipped_tick_count", 0) or 0)
+    except (TypeError, ValueError):
+        skipped_tick_count = 0
+    try:
+        queue_trimmed_count = int(runtime.get("queue_trimmed_count", 0) or 0)
+    except (TypeError, ValueError):
+        queue_trimmed_count = 0
     return {
         "schema_version": LOOP_RUNTIME_SCHEMA,
         "heartbeat_count": heartbeat_count,
@@ -1585,8 +1609,88 @@ def _runtime_state(value: object | None = None) -> dict[str, Any]:
         "last_planned_action": _safe_summary(str(runtime.get("last_planned_action", "")), limit=80),
         "last_queue_id": _safe_summary(str(runtime.get("last_queue_id", "")), limit=140),
         "queue": queue,
+        "skipped_tick_count": skipped_tick_count,
+        "queue_trimmed_count": queue_trimmed_count,
         "claim_boundary": _runtime_claim_boundary(),
     }
+
+
+def _pending_queue_items(runtime: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in runtime.get("queue", [])
+        if isinstance(item, dict) and item.get("status") == "prepared_not_observed"
+    ]
+
+
+_UNRESOLVED_QUEUE_STATUSES = ("prepared_not_observed", "blocked_by_permission", "blocked_by_wait")
+
+
+def _stalled_head_queue_item(runtime: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the most recent queue item while it is still unresolved, so
+    callers can skip enqueuing another one on top of it.
+
+    A naive "does the freshly computed plan match the last queue item"
+    comparison misses a real growth path: ticking an unresolved
+    ``prepared_not_observed`` item optimistically advances ``cycle['phase']``
+    before the item is ever observed, so the *next* tick computes a
+    *different* planned action (research -> planning -> handoff -> ...)
+    every time it is called. A wrapper or scheduler that ticks repeatedly
+    without observing in between would therefore race through the whole
+    phase pipeline and enqueue a distinct, unbounded queue item on every
+    call. Blocking on "any unresolved head item" (regardless of what the
+    freshly computed plan would be) is what actually keeps a loop at exactly
+    one in-flight item until it is observed or explicitly blocked.
+    """
+    queue = [item for item in runtime.get("queue", []) if isinstance(item, dict)]
+    if not queue:
+        return None
+    last = queue[-1]
+    if last.get("status") not in _UNRESOLVED_QUEUE_STATUSES:
+        return None
+
+    queue = [item for item in runtime.get("queue", []) if isinstance(item, dict)]
+    if not queue:
+        return None
+    last = queue[-1]
+    if last.get("status") not in _UNRESOLVED_QUEUE_STATUSES:
+        return None
+    return last
+
+
+
+
+def _append_queue_item(runtime: dict[str, Any], queue_item: dict[str, Any]) -> None:
+    queue = runtime.setdefault("queue", [])
+    queue.append(queue_item)
+    _trim_queue_history(runtime)
+
+
+def _trim_queue_history(runtime: dict[str, Any]) -> None:
+    queue = runtime.get("queue", [])
+    if not isinstance(queue, list) or len(queue) <= LOOP_QUEUE_HISTORY_LIMIT:
+        return
+    overflow = len(queue) - LOOP_QUEUE_HISTORY_LIMIT
+    kept: list[dict[str, Any]] = []
+    trimmed = 0
+    for item in queue:
+        if trimmed < overflow and isinstance(item, dict) and item.get("status") != "prepared_not_observed":
+            trimmed += 1
+            continue
+        kept.append(item)
+    runtime["queue"] = kept
+    runtime["queue_trimmed_count"] = int(runtime.get("queue_trimmed_count", 0) or 0) + trimmed
+
+
+def _trim_feedback_history(cycle: dict[str, Any]) -> None:
+    cycles = cycle.get("cycles")
+    if not isinstance(cycles, list) or len(cycles) <= LOOP_FEEDBACK_HISTORY_LIMIT:
+        return
+    overflow = len(cycles) - LOOP_FEEDBACK_HISTORY_LIMIT
+    cycle["cycles"] = cycles[overflow:]
+    cycle["feedback_trimmed_count"] = int(cycle.get("feedback_trimmed_count", 0) or 0) + overflow
+
+
 
 
 def _next_runtime_plan(cycle: dict[str, Any], envelope: dict[str, Any]) -> dict[str, str]:
@@ -1931,8 +2035,11 @@ def _runtime_summary(cycle: dict[str, Any]) -> dict[str, Any]:
         "last_queue_reason": str(last.get("reason", "")),
         "blocked_queue_count": sum(1 for item in queue if item.get("status") in {"blocked", "blocked_by_permission", "blocked_by_wait"}),
         "observed_queue_count": sum(1 for item in queue if item.get("status") == "observed" and item.get("observed") is True),
+        "skipped_tick_count": runtime["skipped_tick_count"],
+        "queue_trimmed_count": runtime["queue_trimmed_count"],
         "claim_boundary": _runtime_claim_boundary(),
     }
+
 
 
 def _loop_verification_policy() -> dict[str, Any]:
@@ -1977,7 +2084,13 @@ def _failure_mode_definitions() -> list[dict[str, str]]:
             "label": "cognitive surrender",
             "meaning": "The loop is broad enough that a human-owned judgment, acceptance signal, or stop condition should be refreshed.",
         },
+        {
+            "id": "stalled_repetition",
+            "label": "stalled repetition",
+            "meaning": "The loop keeps ticking into the same unresolved gate without progress; the underlying permission, wait, or observation blocker needs resolving instead of more ticks.",
+        },
     ]
+
 
 
 def _failure_mode_summary(cycle: dict[str, Any]) -> dict[str, Any]:
@@ -1989,7 +2102,9 @@ def _failure_mode_summary(cycle: dict[str, Any]) -> dict[str, Any]:
         _verification_gap_mode(cycle, queue, feedback),
         _comprehension_debt_mode(cycle, queue, feedback),
         _cognitive_surrender_mode(cycle, envelope),
+        _stalled_repetition_mode(runtime),
     ]
+
     warnings = [mode for mode in modes if mode["state"] == "warning"]
     return {
         "schema_version": LOOP_FAILURE_MODE_SUMMARY_SCHEMA,
@@ -2056,6 +2171,21 @@ def _cognitive_surrender_mode(cycle: dict[str, Any], envelope: dict[str, Any]) -
             "show_loop_status",
         )
     return _failure_mode("cognitive_surrender", "clear", "Authority and stop conditions are explicit enough for the current loop state.", "continue_loop")
+def _stalled_repetition_mode(runtime: dict[str, Any]) -> dict[str, str]:
+    skipped = int(runtime.get("skipped_tick_count", 0) or 0)
+    if skipped >= 3:
+        return _failure_mode(
+            "stalled_repetition",
+            "warning",
+            (
+                f"The loop has been ticked {skipped} times in a row without creating a new queue item; "
+                "resolve the current permission, wait, or observation gate instead of ticking again."
+            ),
+            "show_loop_status",
+        )
+    return _failure_mode("stalled_repetition", "clear", "Recent ticks are still making forward progress.", "continue_loop")
+
+
 
 
 def _failure_mode(mode_id: str, state: str, detail: str, next_action: str) -> dict[str, str]:

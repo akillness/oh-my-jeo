@@ -9,6 +9,8 @@ from _local_package import load_local_package
 load_local_package()
 from omj.goal_loop import (
     LOOP_CYCLE_SCHEMA,
+    LOOP_FEEDBACK_HISTORY_LIMIT,
+    LOOP_QUEUE_HISTORY_LIMIT,
     LOOP_START_CARD_SCHEMA,
     LOOP_STATUS_CARD_SCHEMA,
     assess_loopability,
@@ -589,6 +591,113 @@ class GoalLoopTests(unittest.TestCase):
         self.assertEqual(blocked_by_permission["runtime"]["queue"][0]["status"], "blocked_by_permission")
         self.assertEqual(blocked_by_permission["runtime"]["queue"][0]["planned_action"], "request_permission")
         self.assertEqual(blocked_by_permission["runtime"]["queue"][0]["worktree_plan"]["strategy"], "none")
+    def test_loop_tick_does_not_grow_queue_when_repeated_without_observation(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            cycle = create_loop_cycle(
+                paths,
+                goal_summary="Keep loop ticks safe under repetition",
+                goal_reframe="Prepare one queue item and stop growing the queue while it waits for observation.",
+                success_criteria=["Repeated ticks do not create duplicate queue items"],
+                permission_profile="handoff_only",
+            )
+
+            first = tick_loop_runtime(paths, cycle["loop_id"], trigger="automation")
+            second = tick_loop_runtime(paths, cycle["loop_id"], trigger="automation")
+            third = tick_loop_runtime(paths, cycle["loop_id"], trigger="automation")
+
+        self.assertEqual(len(first["runtime"]["queue"]), 1)
+        self.assertEqual(len(second["runtime"]["queue"]), 1)
+        self.assertEqual(len(third["runtime"]["queue"]), 1)
+        self.assertEqual(first["runtime"]["skipped_tick_count"], 0)
+        self.assertEqual(second["runtime"]["skipped_tick_count"], 1)
+        self.assertEqual(third["runtime"]["skipped_tick_count"], 2)
+        self.assertEqual(third["runtime"]["heartbeat_count"], 1)
+        self.assertEqual(validate_loop_cycle(third), {"ok": True, "errors": []})
+
+    def test_loop_tick_does_not_grow_queue_while_blocked_by_external_wait(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            cycle = create_loop_cycle(
+                paths,
+                goal_summary="Keep waiting loops bounded",
+                goal_reframe="Wait for external evidence without growing the runtime queue on every tick.",
+                success_criteria=["Repeated ticks while waiting stay bounded"],
+            )
+            record_loop_feedback(paths, cycle["loop_id"], external_wait="Waiting for market response")
+
+            first = tick_loop_runtime(paths, cycle["loop_id"], trigger="scheduled")
+            second = tick_loop_runtime(paths, cycle["loop_id"], trigger="scheduled")
+            third = tick_loop_runtime(paths, cycle["loop_id"], trigger="scheduled")
+
+        self.assertEqual(len(first["runtime"]["queue"]), 1)
+        self.assertEqual(len(second["runtime"]["queue"]), 1)
+        self.assertEqual(len(third["runtime"]["queue"]), 1)
+        self.assertEqual(first["runtime"]["skipped_tick_count"], 0)
+        self.assertEqual(third["runtime"]["skipped_tick_count"], 2)
+
+    def test_loop_status_card_warns_on_stalled_repetition(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            cycle = create_loop_cycle(
+                paths,
+                goal_summary="Surface stalled repetition",
+                goal_reframe="Warn once repeated ticks stop making progress.",
+                success_criteria=["Stalled repetition is surfaced as a warning"],
+            )
+            record_loop_feedback(paths, cycle["loop_id"], external_wait="Waiting for market response")
+            for _ in range(4):
+                tick_loop_runtime(paths, cycle["loop_id"], trigger="scheduled")
+            card = build_loop_status_card(paths, cycle["loop_id"])
+
+        modes = {mode["id"]: mode for mode in card["failure_mode_summary"]["modes"]}
+        self.assertEqual(modes["stalled_repetition"]["state"], "warning")
+
+    def test_loop_queue_history_is_bounded_across_many_ticks(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            cycle = create_loop_cycle(
+                paths,
+                goal_summary="Keep long-running loop history bounded",
+                goal_reframe="Tick and observe repeatedly without unbounded queue growth.",
+                success_criteria=["Queue history stays bounded past the retention limit"],
+                permission_profile="handoff_only",
+            )
+            loop_id = cycle["loop_id"]
+            total_ticks = LOOP_QUEUE_HISTORY_LIMIT + 5
+            updated = cycle
+            for _ in range(total_ticks):
+                updated = tick_loop_runtime(paths, loop_id, trigger="automation")
+                queue_id = updated["runtime"]["queue"][-1]["queue_id"]
+                updated = observe_loop_queue_item(
+                    paths,
+                    loop_id,
+                    queue_id,
+                    evidence_refs=["evidence"],
+                )
+
+        self.assertLessEqual(len(updated["runtime"]["queue"]), LOOP_QUEUE_HISTORY_LIMIT)
+        self.assertEqual(updated["runtime"]["queue_trimmed_count"], total_ticks - LOOP_QUEUE_HISTORY_LIMIT)
+
+    def test_loop_feedback_history_is_bounded_across_many_cycles(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            cycle = create_loop_cycle(
+                paths,
+                goal_summary="Keep feedback history bounded",
+                goal_reframe="Record feedback repeatedly without unbounded cycle history growth.",
+                success_criteria=["Feedback history stays bounded past the retention limit"],
+            )
+            loop_id = cycle["loop_id"]
+            total_feedback_calls = LOOP_FEEDBACK_HISTORY_LIMIT + 5
+            updated = cycle
+            for _ in range(total_feedback_calls):
+                updated = record_loop_feedback(paths, loop_id, observed_artifacts=["artifact"])
+
+        self.assertLessEqual(len(updated["cycles"]), LOOP_FEEDBACK_HISTORY_LIMIT)
+        self.assertEqual(updated["feedback_trimmed_count"], total_feedback_calls - LOOP_FEEDBACK_HISTORY_LIMIT)
+
+
 
     def test_loop_runtime_validation_rejects_prepared_items_with_observed_claims(self) -> None:
         with TemporaryDirectory() as tmp:
