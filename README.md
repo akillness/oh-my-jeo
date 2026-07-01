@@ -15,7 +15,7 @@
   <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-941%20passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-946%20passing-success">
   <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
@@ -251,7 +251,7 @@ omj doctor       # health check that names the exact repair command if something
 OMJ quickstart
 Summary
   Status: needs attention
-  OMJ version: 1.2.0
+  OMJ version: 1.2.1
   Local install: needs_attention (7/55 checks)
   Plugin bridge: missing
 Try one prompt
@@ -383,7 +383,7 @@ omj hud --watch --interval 5  # refresh the line until interrupted
 A populated home prints every segment straight from a real source file:
 
 ```text
-[omj] v1.2.0 | plugin:ready | plugin-runtime:live | target:multi:2 | coding-agent:execution(codex) | evidence:dispatch_observed
+[omj] v1.2.1 | plugin:ready | plugin-runtime:live | target:multi:2 | coding-agent:execution(codex) | evidence:dispatch_observed
 ```
 
 Each segment maps to a concrete file under `~/.omj` (or `~/.hermes`), so the
@@ -391,7 +391,7 @@ line moves the moment those files change:
 
 | Segment | Source it reflects |
 | --- | --- |
-| `v1.2.0` | `runtime/state.json` → `version` |
+| `v1.2.1` | `runtime/state.json` → `version` |
 | `plugin:ready` | real `~/.hermes/plugins/omj` payload (tools, hooks, role catalog) |
 | `plugin-runtime:live` | `runtime/state.json` → `last_plugin_host_observation` (host hook log) |
 | `target:multi:2` | `targets.json` → topology (`active_agent_count`) |

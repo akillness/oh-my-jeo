@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-jeo"
-version = "1.2.0"
+version = "1.2.1"
 description = "Install a Hermes-native skill and workflow pack for the oh-my-jeo coding agent."
 readme = "README.md"
 requires-python = ">=3.11"

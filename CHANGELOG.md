@@ -3,6 +3,25 @@
 
 ## Unreleased
 
+## 1.2.1 - 2026-07-01
+
+- Fixed unbounded growth of the `loop` workflow's persisted runtime state:
+  `cycle["runtime"]["queue"]` and the `cycle["cycles"]` feedback history now
+  trim their oldest resolved entries once a 200-item bound is exceeded
+  (`queue_trimmed_count` / `feedback_trimmed_count`), instead of growing the
+  on-disk JSON without limit across long-running loop sessions.
+- Fixed `tick_loop_runtime` enqueuing a duplicate queue item and racing the
+  cycle phase forward on every tick even while the loop was still parked on
+  an unresolved `prepared_not_observed`, `blocked_by_permission`, or
+  `blocked_by_wait` item. Repeated ticks against a blocked loop now just
+  increment `runtime["skipped_tick_count"]` and refresh `phase`/`next_action`
+  without enqueuing a duplicate; a real advancing tick resets the counter.
+- Added a `stalled_repetition` failure mode that surfaces a warning in
+  `loop_status_card/v1` once a loop has been ticked 3+ times without the
+  pending queue item being observed/resolved, instead of the stall staying
+  silently invisible. See `src/workflows/goal_loop.py`.
+
+
 ## 1.2.0 - 2026-07-01
 
 - Ported jeo-code's failure-first (OKF) memory philosophy into OMJ project
