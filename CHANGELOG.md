@@ -3,6 +3,8 @@
 
 ## Unreleased
 
+## 1.3.1 - 2026-07-02
+
 - Fixed unbounded growth of the global observation journal
   (`runtime/journal/events.jsonl`): every lifecycle event ever recorded for
   the life of an OMJ home directory was appended to a single file that was
