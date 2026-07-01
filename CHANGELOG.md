@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Unreleased
+## 1.3.0 - 2026-07-01
 
 - Coding-delegation prompts now embed reviewed project memory as literal
   prompt text: when a coding handoff carries a `memory_recall_pack`, OMJ
