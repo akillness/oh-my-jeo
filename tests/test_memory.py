@@ -20,6 +20,7 @@ from omj.memory import (
     build_project_memory_review,
     build_project_memory_status,
     capture_project_memory_candidate,
+    capture_project_memory_failed_attempt,
     memory_recall_pack_for_handoff,
     read_handoff_context_pack_file,
     reject_project_memory_candidate,
@@ -433,6 +434,76 @@ class MemoryContractTests(unittest.TestCase):
                 read_handoff_context_pack_file(pack_path)
             with self.assertRaises(ValueError):
                 build_coding_delegation_payload("risky refactor", source="discord", executor_target="codex", context_pack=malformed)
+
+    def test_query_relevant_failed_attempt_is_recalled_before_higher_scoring_records(self) -> None:
+        # Failure-first: a dead end relevant to the task must resurface AHEAD of a
+        # record that scores higher on raw keyword overlap, so the next run is
+        # reminded what NOT to repeat (ported from jeo-code memory.ts priorityOrder).
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            write_setup_profile(paths, memory_mode="auto-safe")
+
+            strong = capture_project_memory_candidate(
+                paths,
+                "alpha beta gamma workflow reference",
+                record_type="fact",
+                tags=["alpha", "beta", "gamma"],
+            )
+            self.assertTrue(strong["auto_approved"])
+            failure = capture_project_memory_failed_attempt(
+                paths,
+                "alpha shortcut path",
+                cause="the shortcut skipped a required validation step",
+                tags=["alpha"],
+            )
+            self.assertTrue(failure["auto_approved"])
+            self.assertEqual(failure["candidate"]["record_type"], "failed_attempt")
+
+            recall = build_project_memory_recall_pack(paths, "alpha beta gamma", executor_target="codex")
+            self.assertEqual(recall["record_count"], 2)
+            top = recall["included_records"][0]
+            second = recall["included_records"][1]
+            # The failed_attempt is first despite the fact scoring strictly higher.
+            self.assertEqual(top["record_type"], "failed_attempt")
+            self.assertTrue(top["failure_first"])
+            self.assertEqual(second["record_type"], "fact")
+            self.assertGreater(int(second["score"]), int(top["score"]))
+            self.assertFalse(second["failure_first"])
+
+    def test_failed_attempt_is_not_boosted_without_a_genuine_query_hit(self) -> None:
+        # The failure boost is gated on real query overlap: an empty query (score 1
+        # for everything) and an unrelated query must never surface a dead end first.
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            write_setup_profile(paths, memory_mode="auto-safe")
+
+            capture_project_memory_candidate(paths, "release checklist runs unittest discovery", record_type="procedure", tags=["release"])
+            capture_project_memory_failed_attempt(paths, "monkeypatched the loader in place", cause="import cache kept the old module", tags=["loader"])
+
+            empty = build_project_memory_recall_pack(paths, "", executor_target="codex")
+            self.assertTrue(empty["included_records"])
+            self.assertFalse(any(item["failure_first"] for item in empty["included_records"]))
+
+            unrelated = build_project_memory_recall_pack(paths, "release checklist", executor_target="codex")
+            types = [item["record_type"] for item in unrelated["included_records"]]
+            self.assertIn("procedure", types)
+            self.assertNotIn("failed_attempt", types)
+
+    def test_record_failure_helper_keeps_review_first_governance_and_rejects_empty(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            # Default policy is review-first: the dead end is a pending candidate,
+            # not an auto-recalled record (governance boundary preserved).
+            captured = capture_project_memory_failed_attempt(paths, "retried the same failing edit unchanged", cause="anchor drift")
+            self.assertTrue(captured["captured"])
+            self.assertFalse(captured["auto_approved"])
+            self.assertEqual(captured["candidate"]["status"], "pending_review")
+            self.assertIn("failed-attempt", captured["candidate"]["tags"])
+            self.assertIn("Change approach before retrying", captured["candidate"]["summary"])
+            self.assertEqual(build_project_memory_status(paths)["counts"]["approved_records"], 0)
+            self.assertFalse(build_project_memory_recall_pack(paths, "retried edit")["included_records"])
+            with self.assertRaises(ValueError):
+                capture_project_memory_failed_attempt(paths, "   ")
 
 
 def _wrapper_snapshot(items: list[dict[str, object]]) -> dict[str, object]:

@@ -54,7 +54,7 @@ SOURCE_PRECEDENCE = {
 ALLOWED_UPDATE_OPS = {"keep", "forget", "update", "change_scope", "dismiss_conflict"}
 ALLOWED_SCOPE_KINDS = {"project", "target", "thread", "run"}
 PROJECT_MEMORY_MODES = ("off", "review-first", "auto-safe")
-PROJECT_MEMORY_RECORD_TYPES = ("fact", "decision", "lesson", "procedure", "episode")
+PROJECT_MEMORY_RECORD_TYPES = ("fact", "decision", "lesson", "procedure", "episode", "failed_attempt")
 MEMORY_ACTION_IDS = (
     "keep_memory",
     "forget_memory",
@@ -111,6 +111,7 @@ _PROJECT_MEMORY_RECALL_ITEM_KEYS = {
     "approved_at",
     "staleness",
     "score",
+    "failure_first",
 }
 _PROJECT_MEMORY_EXCLUDED_KEYS = {"record_id", "reason", "staleness"}
 _PROJECT_MEMORY_TASK_REF_KEYS = {"sha256", "length", "query_supplied"}
@@ -262,6 +263,56 @@ def capture_project_memory_candidate(
         ),
     }
 
+def capture_project_memory_failed_attempt(
+    paths: OmjPaths,
+    approach: str,
+    *,
+    cause: str = "",
+    scope_kind: str = "project",
+    scope_ref: str = "default",
+    source: str = "runtime",
+    source_ref: str = "",
+    tags: list[str] | tuple[str, ...] | None = None,
+    stale_after_days: int | None = None,
+) -> dict[str, object]:
+    """Deterministically (no LLM) capture ONE dead end as a ``failed_attempt``.
+
+    Ports jeo-code's ``recordFailedAttempt`` philosophy: when an executor run or
+    workflow step stalls or fails, the exact approach that did not work -- plus its
+    cause/symptom -- is filed so a later task's recall surfaces it FIRST (see
+    ``build_project_memory_recall_pack`` failure-first ordering). Each captured
+    attempt covers exactly one approach and its cause, phrased so the next session
+    avoids that dead end instead of retrying it unchanged.
+
+    OMJ governance is preserved: this still flows through capture (review-first by
+    default; auto-approved only under the ``auto-safe`` policy when the bounded
+    summary passes the local safety classifier). It never persists raw logs or
+    transcripts -- only a bounded, redacted, metadata-only summary.
+    """
+    approach_text = " ".join(str(approach or "").split()).strip()
+    if not approach_text:
+        raise ValueError("failed attempt capture requires a non-empty approach description")
+    cause_text = " ".join(str(cause or "").split()).strip()
+    summary = f"Dead end: {approach_text}"
+    if cause_text:
+        summary += f" -- cause: {cause_text}"
+    summary += ". Change approach before retrying; do not repeat this unchanged."
+    normalized_tags = list(tags or [])
+    if "failed-attempt" not in normalized_tags:
+        normalized_tags.append("failed-attempt")
+    return capture_project_memory_candidate(
+        paths,
+        summary,
+        record_type="failed_attempt",
+        scope_kind=scope_kind,
+        scope_ref=scope_ref,
+        source=source,
+        source_ref=source_ref,
+        tags=normalized_tags,
+        stale_after_days=stale_after_days,
+    )
+
+
 
 def build_project_memory_review(
     paths: OmjPaths,
@@ -407,8 +458,22 @@ def build_project_memory_recall_pack(
         if query and score <= 0:
             excluded.append({"record_id": str(record.get("record_id", "")), "reason": "no_query_overlap", "staleness": staleness})
             continue
-        included.append(_recall_item(record, score=score, staleness=staleness))
-    included.sort(key=lambda item: (-int(item.get("score", 0)), str(item.get("record_id", ""))))
+        # Failure-first: a query-relevant failed_attempt is a dead end the next run
+        # must not repeat, so it is surfaced ahead of everything else -- but ONLY when
+        # the query actually hits it (real token/tag overlap, never the empty-query
+        # score of 1). An unrelated dead end therefore never crowds out relevant
+        # context. Ported from jeo-code memory.ts priorityOrder: resurfacing a known
+        # failure is higher-leverage than reinforcing what already works ("close the
+        # gaps, don't just polish strengths").
+        failure_first = bool(query.strip()) and str(record.get("record_type", "")) == "failed_attempt" and score > 0
+        included.append(_recall_item(record, score=score, staleness=staleness, failure_first=failure_first))
+    included.sort(
+        key=lambda item: (
+            0 if item.get("failure_first") else 1,
+            -int(item.get("score", 0)),
+            str(item.get("record_id", "")),
+        )
+    )
     included = included[: max(limit, 0)]
     return {
         "schema_version": PROJECT_MEMORY_RECALL_PACK_SCHEMA_VERSION,
@@ -817,7 +882,13 @@ def _empty_recall_pack(
     }
 
 
-def _recall_item(record: dict[str, Any], *, score: int, staleness: dict[str, object]) -> dict[str, object]:
+def _recall_item(
+    record: dict[str, Any],
+    *,
+    score: int,
+    staleness: dict[str, object],
+    failure_first: bool = False,
+) -> dict[str, object]:
     return {
         "record_id": str(record.get("record_id", "")),
         "record_type": str(record.get("record_type", "")),
@@ -828,6 +899,7 @@ def _recall_item(record: dict[str, Any], *, score: int, staleness: dict[str, obj
         "approved_at": str(record.get("approved_at", "")),
         "staleness": staleness,
         "score": int(score),
+        "failure_first": bool(failure_first),
     }
 
 
@@ -930,7 +1002,7 @@ def _ttl_metadata(ttl_days: int | None, *, record_type: str, created_at: str) ->
 
 
 def _staleness_metadata(stale_after_days: int | None, *, record_type: str, created_at: str) -> dict[str, object]:
-    default_days = 90 if record_type in {"fact", "decision", "lesson", "procedure"} and stale_after_days is None else stale_after_days
+    default_days = 90 if record_type in {"fact", "decision", "lesson", "procedure", "failed_attempt"} and stale_after_days is None else stale_after_days
     return {
         "stale_after_days": default_days,
         "stale_after": _days_after(created_at, default_days) if default_days else "",
