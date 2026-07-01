@@ -3,6 +3,23 @@
 
 ## Unreleased
 
+- Coding-delegation prompts now embed reviewed project memory as literal
+  prompt text: when a coding handoff carries a `memory_recall_pack`, OMJ
+  appends a hardened `<project_memory>` block onto the prepared
+  `prompt_template` (and `*_prompt` fields), so Codex/Claude Code/generic
+  executor prompts actually contain prior-session learnings instead of only a
+  JSON sidecar. Ports jeo-code's `memoryPromptSection`/`frameMemory`
+  convention: `failed_attempt` records render under `## Failed Attempts`
+  ahead of every other record (matching `omj memory recall`'s failure-first
+  order), the block is framed as DATA, embedded `<project_memory>` tags in
+  captured text are neutralized, and the block is char-capped. Persisted
+  lifecycle/runtime artifacts strip the block back out of the stored
+  `prompt_template` so persisted records still keep only a compact recall
+  summary, matching the existing `included_records` redaction. See
+  `render_memory_prompt_section` in `src/workflows/memory.py` and
+  `docs/MEMORY.md`.
+
+
 ## 1.2.1 - 2026-07-01
 
 - Fixed unbounded growth of the `loop` workflow's persisted runtime state:

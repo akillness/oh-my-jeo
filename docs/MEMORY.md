@@ -147,6 +147,29 @@ adds `memory_recall_pack/v1` to prepared coding handoffs. This applies to:
 Persisted lifecycle records keep only a compact recall summary. They do not
 persist raw recalled summaries in status cards.
 
+When a coding handoff carries an included `memory_recall_pack`, OMJ also
+appends a hardened `<project_memory>` block directly onto the prepared
+`prompt_template` text (and therefore the `*_prompt` convenience fields), so
+the selected executor actually reads prior-session learnings as literal
+prompt text instead of only receiving them as a JSON sidecar it could ignore.
+This ports jeo-code's `memoryPromptSection`/`frameMemory` convention:
+
+- `failed_attempt` records are grouped under a `## Failed Attempts` heading
+  placed BEFORE every other record group, mirroring the failure-first recall
+  order above — a query-relevant dead end is the first thing the executor
+  sees.
+- The block is framed as DATA, not instructions ("treat it as advisory notes
+  ... verify before relying on it"), and any `<project_memory>` /
+  `</project_memory>` sequence inside a captured summary is neutralized so
+  distilled content can never smuggle a fence break out of the block.
+- The block is hard-capped (`PROJECT_MEMORY_PROMPT_MAX_CHARS`).
+
+Persisted lifecycle/runtime artifacts strip this block back out of the stored
+`prompt_template` (`_redact_persisted_prompt_template`) so the same
+"persisted records keep only a compact recall summary" rule holds for the
+literal prompt text, not only for the `included_records` field.
+
+
 Recall packs are prepared context. They can help the selected coding owner —
 Codex, Claude Code, Hermes runtime/handoff paths, or a generic executor — start
 with known project facts, decisions, lessons, or procedures, but they do not

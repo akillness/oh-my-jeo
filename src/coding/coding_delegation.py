@@ -30,7 +30,8 @@ from ..executor_readiness import (
 from ..harness_quality import with_wrapper_actions
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..isolation import build_isolation_plan
-from ..memory import validate_handoff_context_blocked, validate_handoff_context_pack, validate_project_memory_recall_pack
+from ..memory import render_memory_prompt_section, validate_handoff_context_blocked, validate_handoff_context_pack, validate_project_memory_recall_pack
+
 from ..routing.recommend import recommend_skills
 from ..skills.catalog import (
     CODING_INTENT_PRIORITY,
@@ -361,6 +362,14 @@ def _attach_memory_recall_pack(handoff: object, memory_recall_pack: dict[str, ob
     if errors:
         raise ValueError("; ".join(errors))
     handoff["memory_recall_pack"] = memory_recall_pack
+    # Append the hardened <project_memory> block to the literal prompt text so
+    # the selected executor actually reads prior-session learnings (failure-first)
+    # instead of only receiving them as a JSON sidecar it could ignore. Ports
+    # jeo-code's system-prompt-append convention (memoryPromptSection).
+    memory_block = render_memory_prompt_section(memory_recall_pack)
+    if memory_block and isinstance(handoff.get("prompt_template"), str):
+        handoff["prompt_template"] = f"{handoff['prompt_template']}\n\n{memory_block}"
+
 
 
 def coding_delegation_record_payload(

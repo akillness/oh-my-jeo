@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import re
+
 from typing import Any
 
 from ..coding_contracts import (
@@ -905,7 +907,8 @@ def _compact_executor_handoff(value: Any) -> dict[str, Any]:
         "status": str(value.get("status", "")),
         "recording_contract": str(value.get("recording_contract", "")),
         "dispatch_contract": str(value.get("dispatch_contract", "")),
-        "prompt_template": str(value.get("prompt_template", "")),
+        "prompt_template": _redact_persisted_prompt_template(str(value.get("prompt_template", ""))),
+
         "execution_brief": _compact_execution_brief(value.get("execution_brief", {})),
         "isolation_plan": _compact_isolation_plan(value.get("isolation_plan")),
         "scope": _compact_string_list(value.get("scope", [])),
@@ -955,7 +958,8 @@ def _compact_prompt_handoff(value: Any) -> dict[str, Any]:
         "status": str(value.get("status", "")),
         "recording_contract": str(value.get("recording_contract", "")),
         "dispatch_contract": str(value.get("dispatch_contract", "")),
-        "prompt_template": str(value.get("prompt_template", "")),
+        "prompt_template": _redact_persisted_prompt_template(str(value.get("prompt_template", ""))),
+
         "isolation_plan": _compact_isolation_plan(value.get("isolation_plan")),
         "scope": _compact_string_list(value.get("scope", [])),
         "non_goals": _compact_string_list(value.get("non_goals", [])),
@@ -1004,7 +1008,8 @@ def _compact_runtime_handoff(value: Any) -> dict[str, Any]:
         "status": str(value.get("status", "")),
         "recording_contract": str(value.get("recording_contract", "")),
         "dispatch_contract": str(value.get("dispatch_contract", "")),
-        "prompt_template": str(value.get("prompt_template", "")),
+        "prompt_template": _redact_persisted_prompt_template(str(value.get("prompt_template", ""))),
+
         "runtime_brief": _compact_runtime_brief(value.get("runtime_brief", {})),
         "isolation_plan": _compact_isolation_plan(value.get("isolation_plan")),
         "runtime_templates": _compact_runtime_templates(value.get("runtime_templates", [])),
@@ -1349,6 +1354,23 @@ def _compact_context_pack_blocked(value: Any) -> dict[str, Any]:
         "blocked_by_conflicts": _compact_context_dict_list(value.get("blocked_by_conflicts", [])),
         "claim_boundary": str(value.get("claim_boundary", "")),
     }
+
+_PERSISTED_PROMPT_MEMORY_BLOCK_RE = re.compile(r"\n\n<project_memory>.*?</project_memory>", re.DOTALL)
+
+
+def _redact_persisted_prompt_template(prompt_template: str) -> str:
+    """Strip the literal ``<project_memory>`` block from a persisted ``prompt_template``.
+
+    The live coding-delegation payload embeds recalled project-memory context as
+    literal prompt text (see ``coding_delegation._attach_memory_recall_pack``) so
+    the selected executor actually reads prior-session learnings instead of only
+    receiving them as a JSON sidecar. Persisted lifecycle/runtime records must
+    still carry only a compact recall summary -- ``_compact_memory_recall_pack``
+    already strips ``included_records``/``excluded_records`` for that reason --
+    so this drops the same content from the stored ``prompt_template`` instead of
+    duplicating unredacted recalled text into a persisted artifact.
+    """
+    return _PERSISTED_PROMPT_MEMORY_BLOCK_RE.sub("", prompt_template)
 
 
 def _compact_memory_recall_pack(value: Any) -> dict[str, Any]:
