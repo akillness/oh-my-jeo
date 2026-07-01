@@ -18,6 +18,22 @@
   summary, matching the existing `included_records` redaction. See
   `render_memory_prompt_section` in `src/workflows/memory.py` and
   `docs/MEMORY.md`.
+- Every coding-delegation prompt template now carries a failure-capture nudge
+  telling the selected executor to run
+  `omj memory record-failure "<approach>" --cause "<why>"` itself if the
+  delegated task stalls or fails, before finishing -- closing the loop from
+  "prompt tells you about past failures" to "prompt also tells you to record
+  new ones."
+- The OMJ MCP bridge (`omj mcp serve`) now exposes the same failure-first
+  memory loop as two allowlisted tools: `omj_memory_recall` (query-relevant
+  `failed_attempt` first, same ordering as `omj memory recall`) and
+  `omj_memory_record_failure` (deterministic, no-LLM dead-end capture, same
+  review-gate as the CLI). `omj mcp manifest`, `omj mcp config-recipe`, and
+  `omj setup --with-mcp` now report all five bridge tools instead of three;
+  the Codex TOML recipe's `enabled_tools` list is generated from the live
+  tool registry so it can no longer drift out of sync. See
+  `docs/ARCHITECTURE.md` and `docs/MEMORY.md`.
+
 
 
 ## 1.2.1 - 2026-07-01

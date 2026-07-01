@@ -993,7 +993,11 @@ def _codex_prompt_template(delegation: CodingDelegation, *, codex_skill: str) ->
         "- Implement only after inspecting the repository and confirming the scope.\n"
         "- Preserve unrelated behavior and user changes.\n"
         "- Run targeted verification and report exact evidence.\n"
+        "- If this task stalls or fails, capture the exact dead end before finishing: "
+        "`omj memory record-failure \"<approach>\" --cause \"<why>\"` (deterministic, no LLM call inside omj; "
+        "review-gated; never persists raw logs).\n"
         "- Do not say Hermes performed the implementation; Hermes prepared this handoff.\n\n"
+
         "Report back with: status, changed_files, commits, tests_run, blockers, and evidence_refs.\n\n"
         "Task:\n{message}"
     ).format(
@@ -1022,6 +1026,9 @@ def _prompt_only_template(delegation: CodingDelegation, *, profile: str, label: 
         "- Treat this as a prompt prepared by Hermes/OMJ, not as observed execution.\n"
         "- Inspect the repository or local context before claiming a code change.\n"
         "- Report exact files changed, verification commands, blockers, and evidence refs.\n"
+        "- If this task stalls or fails, capture the exact dead end before finishing: "
+        "`omj memory record-failure \"<approach>\" --cause \"<why>\"` (deterministic, no LLM call inside omj; "
+        "review-gated; never persists raw logs).\n"
         "- Do not claim Hermes performed implementation, review, CI, or merge work.\n\n"
         "Task:\n{message}"
     ).format(
@@ -1055,6 +1062,9 @@ def _runtime_prompt_template(delegation: CodingDelegation, *, profile: str, labe
         "- Use a worktree or equivalent isolation before risky or parallel coding.\n"
         "- Workers must ACK, claim scope/files, report results, and escalate blockers to the leader.\n"
         "- Report exact files changed, worktrees used, verification commands, blockers, and evidence refs.\n"
+        "- If this task stalls or fails, capture the exact dead end before finishing: "
+        "`omj memory record-failure \"<approach>\" --cause \"<why>\"` (deterministic, no LLM call inside omj; "
+        "review-gated; never persists raw logs).\n"
         "- Do not claim Hermes, OMJ, or this runtime completed implementation, review, CI, or merge work without observed evidence.\n\n"
         "Task:\n{message}"
     ).format(

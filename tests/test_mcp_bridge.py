@@ -24,7 +24,17 @@ class McpBridgeTests(unittest.TestCase):
             self.assertEqual(payload["server"]["command"], "/tmp/omj")
             self.assertEqual(payload["server"]["args"][-2:], ["mcp", "serve"])
             tools = {tool["name"] for tool in payload["tools"]}
-            self.assertEqual(tools, {"omj_status", "omj_recommend", "omj_probe"})
+            self.assertEqual(
+                tools,
+                {
+                    "omj_status",
+                    "omj_recommend",
+                    "omj_probe",
+                    "omj_memory_recall",
+                    "omj_memory_record_failure",
+                },
+            )
+
             self.assertIn("observe-host", payload["setup"]["host_observation_command"])
             self.assertEqual(payload["setup"]["host_config_recipes_command"], "/tmp/omj mcp config-recipe --host <host>")
             self.assertIn("allowlisted local status", payload["claim_boundary"])
@@ -64,7 +74,11 @@ class McpBridgeTests(unittest.TestCase):
             self.assertIn("[mcp_servers.omj]", codex["snippet_text"])
             self.assertIn('command = "omj"', codex["snippet_text"])
             self.assertIn('args = ["mcp", "serve"]', codex["snippet_text"])
-            self.assertIn('enabled_tools = ["omj_status", "omj_recommend", "omj_probe"]', codex["snippet_text"])
+            self.assertIn(
+                'enabled_tools = ["omj_status", "omj_recommend", "omj_probe", "omj_memory_recall", "omj_memory_record_failure"]',
+                codex["snippet_text"],
+            )
+
             self.assertIn("https://developers.openai.com/codex/config-reference", codex["source_urls"])
 
             status, stdout, stderr = run_cli(base + ["mcp", "config-recipe", "--host", "opencode"])
@@ -136,7 +150,17 @@ class McpBridgeTests(unittest.TestCase):
             self.assertEqual(lines[0]["result"]["protocolVersion"], "2025-06-18")
             listed_tools = lines[1]["result"]["tools"]
             tools = {tool["name"] for tool in listed_tools}
-            self.assertEqual(tools, {"omj_status", "omj_recommend", "omj_probe"})
+            self.assertEqual(
+                tools,
+                {
+                    "omj_status",
+                    "omj_recommend",
+                    "omj_probe",
+                    "omj_memory_recall",
+                    "omj_memory_record_failure",
+                },
+            )
+
             probe_tool = next(tool for tool in listed_tools if tool["name"] == "omj_probe")
             self.assertIn("capability roadmap", probe_tool["description"])
             self.assertIn("include_roadmap", probe_tool["inputSchema"]["properties"])
@@ -278,6 +302,104 @@ class McpBridgeTests(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertEqual(stdout, "")
             self.assertIn("requires --tool", stderr)
+    def test_mcp_memory_tools_recall_failure_first_and_capture_dead_ends(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes")]
+
+            status, stdout, stderr = run_cli(
+                base
+                + [
+                    "memory",
+                    "record-failure",
+                    "ran a whole-file sed pass over the config parser",
+                    "--cause",
+                    "the parser is line-oriented so a whole-file sed pass corrupted multi-line entries",
+                    "--tag",
+                    "mcp-seed",
+                ]
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            captured = json.loads(stdout)
+            self.assertTrue(captured["captured"])
+            candidate_id = captured["candidate"]["candidate_id"]
+
+            status, stdout, stderr = run_cli(
+                base + ["memory", "approve", candidate_id, "--approved-by", "mcp-bridge-test"]
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+
+            requests = [
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "omj_memory_recall",
+                        "arguments": {"query": "whole-file sed pass config parser", "limit": 5},
+                    },
+                },
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "omj_memory_record_failure",
+                        "arguments": {
+                            "approach": "matched the router regex across the whole file with finditer",
+                            "cause": "the scanner is line-oriented so the whole-file scan missed the hit",
+                            "tags": ["mcp-tool"],
+                        },
+                    },
+                },
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {"name": "omj_memory_record_failure", "arguments": {"approach": "   "}},
+                },
+            ]
+            stdin_text = "\n".join(json.dumps(request) for request in requests) + "\n"
+
+            status, stdout, stderr = run_cli(base + ["mcp", "serve"], output_json=False, stdin_text=stdin_text)
+
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            lines = [json.loads(line) for line in stdout.splitlines()]
+            self.assertEqual([line["id"] for line in lines], [1, 2, 3])
+
+            recall_payload = lines[0]["result"]["structuredContent"]["payload"]["recall"]
+            self.assertGreaterEqual(recall_payload["record_count"], 1)
+            top = recall_payload["included_records"][0]
+            self.assertTrue(top["failure_first"])
+            self.assertEqual(top["record_type"], "failed_attempt")
+            self.assertIn("whole-file sed pass", top["summary"])
+            self.assertIn("Change approach before retrying", top["summary"])
+
+            record_failure_result = lines[1]["result"]["structuredContent"]["payload"]["captured"]
+            self.assertTrue(record_failure_result["captured"])
+            self.assertFalse(record_failure_result["auto_approved"])
+            new_candidate = record_failure_result["candidate"]
+            self.assertEqual(new_candidate["record_type"], "failed_attempt")
+            self.assertIn("mcp-tool", new_candidate["tags"])
+            self.assertIn("failed-attempt", new_candidate["tags"])
+            self.assertIn("matched the router regex", new_candidate["summary"])
+
+            error_result = lines[2]["result"]
+            self.assertTrue(error_result["isError"])
+            self.assertEqual(error_result["structuredContent"]["status"], "tool_error")
+            self.assertIn("approach is required", error_result["structuredContent"]["error"])
+
+            status, stdout, stderr = run_cli(
+                base + ["memory", "recall", "whole-file sed pass config parser", "--executor", "mcp"]
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            cli_recall = json.loads(stdout)
+            self.assertEqual(cli_recall["record_count"], recall_payload["record_count"])
+
 
 
 if __name__ == "__main__":

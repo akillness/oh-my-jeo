@@ -7,6 +7,8 @@ from typing import Any, TextIO
 
 from ..version import __version__
 from ..hud import build_hud_payload
+from ..memory import build_project_memory_recall_pack, capture_project_memory_failed_attempt
+
 from ..local_store import ensure_dir, ensure_file, read_jsonl_objects, utc_now
 from ..paths import OmjPaths
 from ..probe import probe_capabilities
@@ -111,7 +113,51 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
             },
             "outputSchema": _tool_result_schema("omj_probe_result/v1"),
         },
+        {
+            "name": "omj_memory_recall",
+            "title": "OMJ Project Memory Recall",
+            "description": (
+                "Recall reviewed OMJ project memory relevant to a task, failure-first: a query-relevant "
+                "failed_attempt (a prior dead end) is surfaced ahead of every other record so the caller "
+                "does not repeat a known-bad approach. Metadata-only; not execution/review/CI/merge evidence."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "default": ""},
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                        "default": 6,
+                    },
+                },
+                "additionalProperties": False,
+            },
+            "outputSchema": _tool_result_schema("omj_memory_recall_result/v1"),
+        },
+        {
+            "name": "omj_memory_record_failure",
+            "title": "OMJ Record Failed Attempt",
+            "description": (
+                "Deterministically capture ONE dead end (an approach that stalled or failed, plus its cause) "
+                "as a failed_attempt project-memory candidate, so a later omj_memory_recall surfaces it first. "
+                "No LLM call; never persists raw logs or transcripts; still review-gated by project memory policy."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "approach": {"type": "string", "minLength": 1},
+                    "cause": {"type": "string", "default": ""},
+                    "tags": {"type": "array", "items": {"type": "string"}, "default": []},
+                },
+                "required": ["approach"],
+                "additionalProperties": False,
+            },
+            "outputSchema": _tool_result_schema("omj_memory_record_failure_result/v1"),
+        },
     ]
+
 
 
 def _mcp_server_args(paths: OmjPaths, *, include_absolute_homes: bool) -> list[str]:
@@ -301,18 +347,20 @@ def _toml_array(values: list[str]) -> str:
 
 
 def _codex_mcp_toml(command: str, args: list[str]) -> str:
+    tool_names = _toml_array([str(tool["name"]) for tool in mcp_tool_definitions()])
     return "\n".join(
         [
             "[mcp_servers.omj]",
             f"command = {_toml_string(command)}",
             f"args = {_toml_array(args)}",
             "enabled = true",
-            'enabled_tools = ["omj_status", "omj_recommend", "omj_probe"]',
+            f"enabled_tools = {tool_names}",
         ]
     ) + "\n"
 
 
 def record_mcp_host_session(
+
     paths: OmjPaths,
     *,
     host: str,
@@ -496,6 +544,21 @@ def _call_tool(paths: OmjPaths, name: str, arguments: dict[str, Any]) -> dict[st
         include_roadmap = bool(arguments.get("include_roadmap", False))
         probe = probe_capabilities(paths, include_parity=include_parity, include_roadmap=include_roadmap)
         return _tool_result("omj_probe_result/v1", "omj_probe", {"probe": probe})
+    if name == "omj_memory_recall":
+        query = str(arguments.get("query") or "")
+        limit = _bounded_int(arguments.get("limit"), default=6, minimum=1, maximum=20)
+        recall = build_project_memory_recall_pack(paths, query, executor_target="mcp", limit=limit)
+        return _tool_result("omj_memory_recall_result/v1", "omj_memory_recall", {"recall": recall})
+    if name == "omj_memory_record_failure":
+        approach = str(arguments.get("approach") or "").strip()
+        if not approach:
+            raise ValueError("omj_memory_record_failure.approach is required")
+        cause = str(arguments.get("cause") or "")
+        raw_tags = arguments.get("tags")
+        tags = [str(tag) for tag in raw_tags if str(tag).strip()] if isinstance(raw_tags, list) else []
+        captured = capture_project_memory_failed_attempt(paths, approach, cause=cause, source="mcp", tags=tags)
+        return _tool_result("omj_memory_record_failure_result/v1", "omj_memory_record_failure", {"captured": captured})
+
     raise ValueError(f"Unknown tool: {name}")
 
 

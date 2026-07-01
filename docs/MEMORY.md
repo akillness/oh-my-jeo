@@ -169,6 +169,31 @@ Persisted lifecycle/runtime artifacts strip this block back out of the stored
 "persisted records keep only a compact recall summary" rule holds for the
 literal prompt text, not only for the `included_records` field.
 
+Every prepared coding-delegation prompt template also carries a short
+failure-capture nudge instructing the selected executor to run
+`omj memory record-failure "<approach>" --cause "<why>"` itself if the
+delegated task stalls or fails, before finishing. This is deterministic (no
+LLM call inside OMJ), still flows through the normal review-gate, and never
+persists raw logs or transcripts — it just makes sure a fresh dead end is
+captured at the moment it happens, closest to the executor that hit it,
+instead of relying on a human to notice and file it later.
+
+For hosts that speak MCP instead of shelling out to the `omj` CLI, the OMJ
+MCP bridge (`omj mcp serve`, see [ARCHITECTURE.md](ARCHITECTURE.md)) exposes
+the same failure-first memory loop as two allowlisted tools:
+
+- `omj_memory_recall` — returns a `project_memory_recall_pack/v1`, ordering a
+  query-relevant `failed_attempt` first, exactly like `omj memory recall`.
+- `omj_memory_record_failure` — deterministically files ONE dead end
+  (approach + cause) as a review-gated `failed_attempt` candidate, exactly
+  like `omj memory record-failure`.
+
+Both tools are metadata-only, call no LLM, and are still subject to the
+project memory policy (`off` / `review-first` / `auto-safe`); an MCP-captured
+candidate sits in the normal review queue until approved unless the project
+runs in `auto-safe` mode.
+
+
 
 Recall packs are prepared context. They can help the selected coding owner —
 Codex, Claude Code, Hermes runtime/handoff paths, or a generic executor — start
