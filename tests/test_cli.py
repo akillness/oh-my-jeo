@@ -5317,6 +5317,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("These are examples, not requirements.", handoff["prompt_template"])
         self.assertIn("proceed as plain Codex", handoff["prompt_template"])
         self.assertIn("Do not claim OMJ observed local capability availability", handoff["prompt_template"])
+        self.assertIn("omj memory record-failure", handoff["prompt_template"])
         self.assertIn("changed_files", handoff["report_contract"]["required_fields"])
         self.assertIn("executor_result", " ".join(handoff["evidence_contract"]["observed_required_for"]))
         self.assertIn("send_to_executor", payload["harness_quality"]["wrapper_actions"])
@@ -5444,6 +5445,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("slash commands, skills, subagents, MCP tools", handoff["prompt_template"])
         self.assertIn("plain Claude Code task", handoff["prompt_template"])
         self.assertIn("Do not claim OMJ observed capability availability", handoff["prompt_template"])
+        self.assertIn("omj memory record-failure", handoff["prompt_template"])
         self.assertIn("Local capability discovery:", payload["prompt_handoff_prompt"])
         self.assertNotIn("risky refactor", json.dumps(handoff))
 
@@ -5501,6 +5503,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("workflow templates, skills, worker lanes, subagents, MCP tools", payload["runtime_handoff"]["prompt_template"])
             self.assertIn("OMX/OMO/OMC templates are examples, not proof of availability", payload["runtime_handoff"]["prompt_template"])
             self.assertIn("continue with solo runtime execution", payload["runtime_handoff"]["prompt_template"])
+            self.assertIn("omj memory record-failure", payload["runtime_handoff"]["prompt_template"])
             self.assertIn("show_runtime_handoff", payload["harness_quality"]["wrapper_actions"])
             self.assertIn("start_team", payload["harness_quality"]["wrapper_actions"])
             self.assertIn("start_swarm", payload["harness_quality"]["wrapper_actions"])

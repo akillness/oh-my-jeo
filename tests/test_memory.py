@@ -24,7 +24,10 @@ from omj.memory import (
     memory_recall_pack_for_handoff,
     read_handoff_context_pack_file,
     reject_project_memory_candidate,
+    render_memory_prompt_section,
 )
+
+
 from omj.paths import resolve_paths
 from omj.profiles.setup import write_setup_profile
 from omj.targets import record_target_observation
@@ -136,6 +139,65 @@ class MemoryContractTests(unittest.TestCase):
             self.assertEqual(record_handoff["memory_recall_pack"]["record_count"], 1)
             self.assertEqual(record_handoff["memory_recall_pack"]["included_records"], [])
             self.assertIn("not execution", record_handoff["memory_recall_pack"]["claim_boundary"])
+
+    def test_memory_recall_pack_is_embedded_as_literal_prompt_text_and_redacted_when_persisted(self) -> None:
+        # Ports jeo-code's memoryPromptSection convention: the live executor prompt
+        # must carry the failure-first <project_memory> block as literal text (not
+        # only a JSON sidecar a downstream consumer could ignore), while a persisted
+        # runtime artifact must still keep only the compact recall summary.
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+
+            other = capture_project_memory_candidate(
+                paths,
+                "Run setup diagnostics before changing installation health checks",
+                record_type="procedure",
+                tags=["setup", "diagnose"],
+            )
+            approve_project_memory_candidate(paths, other["candidate"]["candidate_id"])
+
+            failure = capture_project_memory_failed_attempt(
+                paths,
+                "diagnosed installation health with a whole-file regex scan",
+                cause="the scanner is line-by-line so the whole-file scan missed the hit",
+                tags=["setup", "diagnose"],
+            )
+            approve_project_memory_candidate(paths, failure["candidate"]["candidate_id"])
+
+            message = "diagnose installation health in src/commands/setup.py"
+            recall = memory_recall_pack_for_handoff(paths, message, executor_target="codex")
+            self.assertEqual(recall["record_count"], 2)
+            self.assertTrue(recall["included_records"][0]["failure_first"])
+
+            payload = build_coding_delegation_payload(
+                message,
+                source="discord",
+                executor_target="codex",
+                include_message=True,
+                memory_recall_pack=recall,
+            )
+            live_prompt = payload["executor_handoff_prompt"]
+            self.assertIn("<project_memory>", live_prompt)
+            self.assertIn("## Failed Attempts", live_prompt)
+            failed_attempt_pos = live_prompt.index("## Failed Attempts")
+            notes_pos = live_prompt.index("## Notes")
+            self.assertLess(failed_attempt_pos, notes_pos)
+            self.assertIn("the scanner is line-by-line", live_prompt)
+            self.assertIn("</project_memory>", live_prompt)
+            self.assertTrue(live_prompt.rstrip().endswith("</project_memory>"))
+
+            lifecycle = start_codex_delegation_lifecycle(
+                paths, message, source="discord", include_message=True
+            )
+            persisted_prompt = lifecycle["coding_delegation"]["executor_handoff"]["prompt_template"]
+            self.assertNotIn("<project_memory>", persisted_prompt)
+            self.assertNotIn("the scanner is line-by-line", persisted_prompt)
+            self.assertIn("{message}", persisted_prompt)
+
+            self.assertEqual(render_memory_prompt_section(None), "")
+            self.assertEqual(render_memory_prompt_section({"enabled": False}), "")
+            self.assertEqual(render_memory_prompt_section({"enabled": True, "included_records": []}), "")
+
 
     def test_inspection_separates_sources_and_detects_stale_conflicts(self) -> None:
         with TemporaryDirectory() as tmp:

@@ -555,9 +555,14 @@ requested bridge preference or config file from being mistaken for observed MCP
 host load, connector invocation, or coding execution.
 
 The MCP bridge is intentionally narrow. `omj mcp serve` speaks newline-delimited
-stdio JSON-RPC and exposes only `omj_status`, `omj_recommend`, and `omj_probe`;
-`omj_probe` can include parity and capability-roadmap projections when a host
-requests those advisory views.
+stdio JSON-RPC and exposes only `omj_status`, `omj_recommend`, `omj_probe`,
+`omj_memory_recall`, and `omj_memory_record_failure`; `omj_probe` can include
+parity and capability-roadmap projections when a host requests those advisory
+views, `omj_memory_recall` returns an approved, failure-first project-memory
+recall pack, and `omj_memory_record_failure` deterministically captures one
+dead end (approach + cause) as a review-gated `failed_attempt` candidate. None
+of the memory tools call an LLM or persist raw logs/transcripts.
+
 `omj mcp config-recipe --host ...` can print host-shaped config snippets for
 Claude Code, Codex, OpenCode, Cursor, and generic MCP hosts, but it does not
 mutate those host files. The bridge does not expose arbitrary shell commands,

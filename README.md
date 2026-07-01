@@ -15,7 +15,7 @@
   <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-946%20passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-948%20passing-success">
   <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
@@ -185,8 +185,9 @@ On the next session the host spawns `omj mcp serve` and completes the standard
 handshake — verified end to end:
 
 - `initialize` → `protocolVersion 2025-06-18`, `serverInfo omj`.
-- `tools/list` → the three allowlisted bridge tools `omj_status`,
-  `omj_recommend`, `omj_probe`.
+- `tools/list` → the five allowlisted bridge tools `omj_status`,
+  `omj_recommend`, `omj_probe`, `omj_memory_recall`, and
+  `omj_memory_record_failure`.
 - `tools/call` → structured JSON; missing required args are rejected with
   `omj_*` schema errors, unknown methods return JSON-RPC `-32601`.
 
@@ -194,8 +195,9 @@ For any other host, print a copy-paste recipe with
 `omj mcp config-recipe --host <generic|claude-code|codex|opencode|cursor>` and
 merge the `mcpServers.omj` entry into that host's config.
 
-> **MCP host scope.** Over MCP a host gets the three read-only bridge tools
-> (status, recommend, probe) — not the full nine native plugin tools or the
+> **MCP host scope.** Over MCP a host gets the five allowlisted bridge tools
+> (status, recommend, probe, memory recall, memory record-failure) — not the
+> full nine native plugin tools or the
 > `pre_llm_call`/`pre_tool_call`/`on_session_end` hooks, which require the
 > native Hermes plugin path. See [Evidence Boundaries](#evidence-boundaries).
 
@@ -251,7 +253,7 @@ omj doctor       # health check that names the exact repair command if something
 OMJ quickstart
 Summary
   Status: needs attention
-  OMJ version: 1.2.1
+  OMJ version: 1.3.0
   Local install: needs_attention (7/55 checks)
   Plugin bridge: missing
 Try one prompt
@@ -383,7 +385,7 @@ omj hud --watch --interval 5  # refresh the line until interrupted
 A populated home prints every segment straight from a real source file:
 
 ```text
-[omj] v1.2.1 | plugin:ready | plugin-runtime:live | target:multi:2 | coding-agent:execution(codex) | evidence:dispatch_observed
+[omj] v1.3.0 | plugin:ready | plugin-runtime:live | target:multi:2 | coding-agent:execution(codex) | evidence:dispatch_observed
 ```
 
 Each segment maps to a concrete file under `~/.omj` (or `~/.hermes`), so the
@@ -391,7 +393,7 @@ line moves the moment those files change:
 
 | Segment | Source it reflects |
 | --- | --- |
-| `v1.2.1` | `runtime/state.json` → `version` |
+| `v1.3.0` | `runtime/state.json` → `version` |
 | `plugin:ready` | real `~/.hermes/plugins/omj` payload (tools, hooks, role catalog) |
 | `plugin-runtime:live` | `runtime/state.json` → `last_plugin_host_observation` (host hook log) |
 | `target:multi:2` | `targets.json` → topology (`active_agent_count`) |
@@ -413,6 +415,31 @@ them and it stays `unobserved`. An empty home never fakes activity — it report
 
 A prepared handoff is **not** execution proof. Observed evidence only exists once
 a runtime record is written under `runtime/` — see [Evidence Boundaries](#evidence-boundaries).
+
+### 8. Capture and recall failure-first project memory
+
+OMJ keeps a local, reviewed, per-project memory store under `.omj/memory/` and
+deliberately surfaces **what did not work** ahead of everything else. Record a
+dead end deterministically (no LLM call) the moment an approach stalls:
+
+```sh
+omj memory record-failure "ran the router regex over the whole file with finditer" \
+  --cause "the scanner matches line-by-line so the whole-file scan missed the hit"
+omj memory review          # approve/reject captured candidates (review-first is the default policy)
+omj memory recall "router regex scan"
+```
+
+A later `omj memory recall` for a matching query returns that `failed_attempt`
+first — marked `failure_first: true` — even over higher-scoring records, and
+`omj coding delegate` embeds the same reviewed memory as literal
+`<project_memory>` prompt text in the prepared handoff, so a delegated executor
+actually reads prior dead ends instead of repeating them. The same failure-first
+recall and record-failure capture are exposed to any MCP host (Claude Code,
+Codex, Cursor, jeo-pi) as the `omj_memory_recall` / `omj_memory_record_failure`
+bridge tools — see [step 5](#5-use-omj-from-an-mcp-host-jeo-pi--pi-claude-code-codex-cursor).
+Recall is review-gated and deterministic: it never calls an LLM and never
+persists raw logs or transcripts, only a bounded, redacted summary. See
+[Project Memory](docs/MEMORY.md) for the full model.
 
 <br>
 
@@ -569,6 +596,7 @@ execution evidence.
 | Representative workflows | [Application Cases](docs/APPLICATION_CASES.md) |
 | oh-my-jeo agent spec (spec-stack) | [Agent Spec](docs/OH_MY_JEO_AGENT_SPEC.md) |
 | Provider-auth readiness (metadata-only) | [Provider Auth](docs/PROVIDER_AUTH.md) |
+| Failure-first project memory (capture, recall, MCP tools) | [Project Memory](docs/MEMORY.md) |
 
 <br>
 

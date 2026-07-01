@@ -147,7 +147,9 @@ def _mcp_bridge_server_capability() -> Capability:
         "mcp_bridge_server",
         "available",
         "omj mcp manifest; omj mcp serve",
-        "OMJ ships an allowlisted stdio MCP bridge with omj_status, omj_recommend, and omj_probe tools",
+        "OMJ ships an allowlisted stdio MCP bridge with omj_status, omj_recommend, omj_probe, "
+        "omj_memory_recall, and omj_memory_record_failure tools",
+
     )
 
 

@@ -28,7 +28,9 @@ from ..hashutil import sha256_file
 from ..installer import OmjError, install_skill_pack, uninstall_skill_pack
 from ..local_store import atomic_write_text
 from ..manifest import read_manifest
+from ..mcp.bridge import mcp_tool_definitions
 from ..menubar_app import setup_menubar_app, uninstall_menubar_app
+
 from ..plugin_pack import PluginPackError, install_plugin_bundle
 from ..probe import probe_capabilities
 from ..release import DEFAULT_HERMES_TAP, HERMES_TAP_SKILL, RELEASE_CHANNELS, package_url_for
@@ -2537,7 +2539,8 @@ def _mcp_setup_result(args: argparse.Namespace, paths) -> dict[str, object]:
                 "--event host_load --evidence-ref <host-log-or-session-ref>"
             ),
             "transport": "stdio",
-            "tools": ["omj_status", "omj_recommend", "omj_probe"],
+            "tools": [tool["name"] for tool in mcp_tool_definitions()],
+
         },
         "claim_boundary": (
             "OMJ setup records the operator MCP bridge preference only; it does not prove an MCP host "

@@ -30,7 +30,8 @@ from ..executor_readiness import (
 from ..harness_quality import with_wrapper_actions
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..isolation import build_isolation_plan
-from ..memory import validate_handoff_context_blocked, validate_handoff_context_pack, validate_project_memory_recall_pack
+from ..memory import render_memory_prompt_section, validate_handoff_context_blocked, validate_handoff_context_pack, validate_project_memory_recall_pack
+
 from ..routing.recommend import recommend_skills
 from ..skills.catalog import (
     CODING_INTENT_PRIORITY,
@@ -361,6 +362,14 @@ def _attach_memory_recall_pack(handoff: object, memory_recall_pack: dict[str, ob
     if errors:
         raise ValueError("; ".join(errors))
     handoff["memory_recall_pack"] = memory_recall_pack
+    # Append the hardened <project_memory> block to the literal prompt text so
+    # the selected executor actually reads prior-session learnings (failure-first)
+    # instead of only receiving them as a JSON sidecar it could ignore. Ports
+    # jeo-code's system-prompt-append convention (memoryPromptSection).
+    memory_block = render_memory_prompt_section(memory_recall_pack)
+    if memory_block and isinstance(handoff.get("prompt_template"), str):
+        handoff["prompt_template"] = f"{handoff['prompt_template']}\n\n{memory_block}"
+
 
 
 def coding_delegation_record_payload(
@@ -984,7 +993,11 @@ def _codex_prompt_template(delegation: CodingDelegation, *, codex_skill: str) ->
         "- Implement only after inspecting the repository and confirming the scope.\n"
         "- Preserve unrelated behavior and user changes.\n"
         "- Run targeted verification and report exact evidence.\n"
+        "- If this task stalls or fails, capture the exact dead end before finishing: "
+        "`omj memory record-failure \"<approach>\" --cause \"<why>\"` (deterministic, no LLM call inside omj; "
+        "review-gated; never persists raw logs).\n"
         "- Do not say Hermes performed the implementation; Hermes prepared this handoff.\n\n"
+
         "Report back with: status, changed_files, commits, tests_run, blockers, and evidence_refs.\n\n"
         "Task:\n{message}"
     ).format(
@@ -1013,6 +1026,9 @@ def _prompt_only_template(delegation: CodingDelegation, *, profile: str, label: 
         "- Treat this as a prompt prepared by Hermes/OMJ, not as observed execution.\n"
         "- Inspect the repository or local context before claiming a code change.\n"
         "- Report exact files changed, verification commands, blockers, and evidence refs.\n"
+        "- If this task stalls or fails, capture the exact dead end before finishing: "
+        "`omj memory record-failure \"<approach>\" --cause \"<why>\"` (deterministic, no LLM call inside omj; "
+        "review-gated; never persists raw logs).\n"
         "- Do not claim Hermes performed implementation, review, CI, or merge work.\n\n"
         "Task:\n{message}"
     ).format(
@@ -1046,6 +1062,9 @@ def _runtime_prompt_template(delegation: CodingDelegation, *, profile: str, labe
         "- Use a worktree or equivalent isolation before risky or parallel coding.\n"
         "- Workers must ACK, claim scope/files, report results, and escalate blockers to the leader.\n"
         "- Report exact files changed, worktrees used, verification commands, blockers, and evidence refs.\n"
+        "- If this task stalls or fails, capture the exact dead end before finishing: "
+        "`omj memory record-failure \"<approach>\" --cause \"<why>\"` (deterministic, no LLM call inside omj; "
+        "review-gated; never persists raw logs).\n"
         "- Do not claim Hermes, OMJ, or this runtime completed implementation, review, CI, or merge work without observed evidence.\n\n"
         "Task:\n{message}"
     ).format(
