@@ -20,6 +20,7 @@ Role selection is prepared guidance only. It is not worker dispatch, tool execut
 
 - Memory and wiki context review
 - Stale, duplicate, or conflicting context candidates
+- Failure-first dead-end capture: filing failed_attempt records so recall resurfaces relevant dead ends before other context, feeding each retry the lesson instead of repeating it
 - Human-approved context pack preparation
 
 ## Primary Skills

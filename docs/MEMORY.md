@@ -25,10 +25,39 @@ Approved records can be typed as:
 - `lesson`
 - `procedure`
 - `episode`
+- `failed_attempt`
 
 Records include TTL and staleness metadata. `episode` records default to a
 short TTL. Other records default to staleness review metadata so recall can
 skip stale context unless an operator explicitly includes it.
+
+## Failure-First Recall
+
+OMJ project memory prioritizes what did **not** work. A `failed_attempt` record
+captures one dead end — the exact approach that stalled or failed plus its
+cause — so a later task avoids repeating it. When a recall query actually
+matches a `failed_attempt`, that record is surfaced **ahead of every other
+record**, even ones with a higher raw keyword-overlap score. The intent is to
+close capability gaps rather than only reinforce known strengths: resurfacing a
+relevant dead end is higher-leverage than restating what already works.
+
+The failure boost is gated on a genuine query hit (real token/tag overlap). An
+empty query or a query that does not match the dead end never lets an unrelated
+`failed_attempt` crowd out relevant context, and each recall item carries a
+`failure_first` boolean so a handoff can see why it was ordered first.
+
+Capture a dead end deterministically (no LLM) as a bounded, review-gated
+summary:
+
+```sh
+omj memory record-failure "ran the router regex over the whole file with finditer" \
+  --cause "the scanner matches line-by-line so the whole-file scan missed the hit"
+```
+
+`record-failure` still honors the memory policy: under `review-first` the dead
+end waits for approval before it can be recalled; under `auto-safe` a bounded,
+non-sensitive summary is auto-approved. It never persists raw logs or
+transcripts — only a redacted, metadata-only summary.
 
 ## Policy
 

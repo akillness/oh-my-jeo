@@ -15,6 +15,7 @@ from ..memory import (
     build_project_memory_review,
     build_project_memory_status,
     capture_project_memory_candidate,
+    capture_project_memory_failed_attempt,
     read_memory_snapshot_file,
     reject_project_memory_candidate,
 )
@@ -53,6 +54,28 @@ def cmd_memory_capture(args: argparse.Namespace) -> int:
         raise OmjError(str(exc)) from exc
     _print_json(payload)
     return 0
+
+def cmd_memory_record_failure(args: argparse.Namespace) -> int:
+    try:
+        approach = " ".join(args.approach).strip()
+        if not approach:
+            raise ValueError("memory record-failure requires an approach description")
+        payload = capture_project_memory_failed_attempt(
+            _paths(args),
+            approach,
+            cause=str(args.cause or ""),
+            scope_kind=args.scope_kind,
+            scope_ref=args.scope_ref,
+            source=args.source,
+            source_ref=args.source_ref,
+            tags=args.tag or [],
+            stale_after_days=args.stale_after_days,
+        )
+    except (OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(payload)
+    return 0
+
 
 
 def cmd_memory_review(args: argparse.Namespace) -> int:
@@ -202,7 +225,7 @@ def _add_memory_commands(sub) -> None:
 
     capture = memory_sub.add_parser("capture", help="Capture an OMJ project-memory candidate for review.")
     capture.add_argument("summary", nargs="*", help="Short reviewed-memory summary to capture.")
-    capture.add_argument("--type", choices=("fact", "decision", "lesson", "procedure", "episode"), default="fact", help="Typed memory record category.")
+    capture.add_argument("--type", choices=("fact", "decision", "lesson", "procedure", "episode", "failed_attempt"), default="fact", help="Typed memory record category.")
     capture.add_argument("--content", default="", help="Optional raw source text. It is hashed/length-counted, not persisted raw.")
     capture.add_argument("--stdin", action="store_true", help="Read optional raw source text from stdin without persisting it raw.")
     capture.add_argument("--scope-kind", choices=("project", "target", "thread", "run"), default="project")
@@ -213,6 +236,20 @@ def _add_memory_commands(sub) -> None:
     capture.add_argument("--ttl-days", type=int, default=None)
     capture.add_argument("--stale-after-days", type=int, default=None)
     capture.set_defaults(func=cmd_memory_capture)
+
+    record_failure = memory_sub.add_parser(
+        "record-failure",
+        help="Deterministically capture ONE dead end (approach + cause) as a failed_attempt so later recall surfaces it first.",
+    )
+    record_failure.add_argument("approach", nargs="*", help="The specific approach/action that stalled or failed.")
+    record_failure.add_argument("--cause", default="", help="Why it failed (symptom, error class, or root cause).")
+    record_failure.add_argument("--scope-kind", choices=("project", "target", "thread", "run"), default="project")
+    record_failure.add_argument("--scope-ref", default="default")
+    record_failure.add_argument("--source", default="runtime")
+    record_failure.add_argument("--source-ref", default="")
+    record_failure.add_argument("--tag", action="append", default=[])
+    record_failure.add_argument("--stale-after-days", type=int, default=None)
+    record_failure.set_defaults(func=cmd_memory_record_failure)
 
     review = memory_sub.add_parser("review", help="Return review cards for pending OMJ project-memory candidates.")
     review.add_argument("--candidate", default=None, help="Limit review output to one candidate id.")
