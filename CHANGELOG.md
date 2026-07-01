@@ -1,6 +1,24 @@
 # Changelog
 
 
+## Unreleased
+
+- Fixed unbounded growth of the global observation journal
+  (`runtime/journal/events.jsonl`): every lifecycle event ever recorded for
+  the life of an OMJ home directory was appended to a single file that was
+  never rotated or capped, and both writes (`append_observation_event`
+  re-reads the whole file to validate event ordering) and reads (HUD polling,
+  `omj hud --watch`, status/journal projection) fully re-parsed it every
+  time. During a long persistent workflow (e.g. `ralph`) this made
+  per-operation memory/CPU cost grow without bound for as long as the
+  process or a `--watch` poller kept running -- observed as a steady memory
+  increase over the session. The journal is now trimmed to the most recent
+  `OBSERVATION_JOURNAL_EVENT_LIMIT` (2000) events, oldest-first, after every
+  append, mirroring the `queue_trimmed_count`/`feedback_trimmed_count`
+  bounded-history convention already shipped for the `loop` workflow in
+  1.2.1. See `_trim_observation_journal` in `src/workflows/observation_journal.py`.
+
+
 ## 1.3.0 - 2026-07-01
 
 - Coding-delegation prompts now embed reviewed project memory as literal

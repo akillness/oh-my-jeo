@@ -18,6 +18,14 @@ from ..paths import OmjPaths
 OBSERVATION_EVENT_SCHEMA_VERSION = "omj_observation_event/v1"
 LIFECYCLE_PROJECTION_SCHEMA_VERSION = "omj_lifecycle_projection/v1"
 OBSERVATION_PRIVACY = "metadata_only"
+# The journal is a single append-only file shared by every run and loop cycle
+# for the life of the OMJ home directory. Without a bound, a long-running
+# persistent workflow (e.g. `ralph`) makes every read AND every write re-parse
+# an ever-growing file, so per-operation memory/CPU cost grows without limit
+# for as long as the process (or a --watch poller) keeps running. Cap and
+# trim it the same way loop queue/feedback history is bounded.
+OBSERVATION_JOURNAL_EVENT_LIMIT = 2000
+
 OBSERVATION_STATUSES = ("observed", "blocked", "failed", "not_observed")
 CANONICAL_OBSERVATION_EVENTS = (
     "prepared_handoff_created",
@@ -121,10 +129,51 @@ def append_observation_event(paths: OmjPaths, event: dict[str, Any]) -> dict[str
         finally:
             if fcntl is not None:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    _trim_observation_journal(paths)
     return record
 
 
+def _trim_observation_journal(paths: OmjPaths, *, limit: int | None = None) -> None:
+    """Bound the global journal file so it cannot grow forever.
+
+    Every read of this file (HUD polling, status projection, prerequisite
+    validation on the next append) re-parses it in full, so an unbounded file
+    means unbounded per-operation memory/CPU cost across the lifetime of the
+    OMJ home directory -- exactly the growth pattern a long persistent `ralph`
+    session would keep hitting. Trim oldest-first, mirroring the
+    `_trim_queue_history`/`_trim_feedback_history` convention in
+    `workflows/goal_loop.py`.
+
+    `limit` is resolved from the module constant at call time (not bound as a
+    default argument) so tests can patch `OBSERVATION_JOURNAL_EVENT_LIMIT`
+    without needing a much larger fixture to exercise the real cap.
+    """
+
+    effective_limit = OBSERVATION_JOURNAL_EVENT_LIMIT if limit is None else limit
+    path = paths.runtime_journal_events_path
+    if not path.exists():
+        return
+
+    with path.open("r+", encoding="utf-8") as handle:
+        if fcntl is not None:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            handle.seek(0)
+            lines = [line for line in handle.read().splitlines() if line.strip()]
+            if len(lines) <= effective_limit:
+                return
+            kept = lines[-effective_limit:]
+            handle.seek(0)
+            handle.write("\n".join(kept) + "\n")
+            handle.truncate()
+            handle.flush()
+        finally:
+            if fcntl is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def read_observation_events_result(paths: OmjPaths) -> tuple[list[dict[str, Any]], list[str]]:
+
     return read_jsonl_objects(paths.runtime_journal_events_path)
 
 
