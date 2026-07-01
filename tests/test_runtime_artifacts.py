@@ -5,6 +5,8 @@ import json
 import os
 import stat
 import unittest
+from unittest import mock
+
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -749,6 +751,53 @@ class RuntimeArtifactTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertFalse(result["journal"]["ok"])
             self.assertIn("observation_event event is unsupported", "\n".join(result["journal"]["errors"]))
+
+    def test_append_journal_observation_bounds_journal_file_growth(self) -> None:
+        # Regression test for the "ralph"-style long-running persistent loop
+        # memory leak: the global journal file (`runtime/journal/events.jsonl`)
+        # used to be pure append-only with no cap, so every read (HUD polling,
+        # status projection) and every write (prerequisite validation on the
+        # next append) re-parsed a file that grew forever for the life of the
+        # OMJ home directory. Patch the cap low so the real trim path in
+        # `append_observation_event` is exercised without needing thousands
+        # of real appends.
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            with mock.patch("omj.workflows.observation_journal.OBSERVATION_JOURNAL_EVENT_LIMIT", 10):
+                for index in range(15):
+                    append_journal_observation(
+                        paths,
+                        {
+                            "target_type": "runtime",
+                            "target_id": f"probe-{index}",
+                            "event": "blocked",
+                            "status": "observed",
+                            "summary": f"probe event {index}",
+                            "evidence_refs": [],
+                        },
+                    )
+
+            lines = paths.runtime_journal_events_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 10)
+            kept_summaries = [json.loads(line)["summary"] for line in lines]
+            self.assertEqual(kept_summaries, [f"probe event {i}" for i in range(5, 15)])
+
+            # The bound must survive a fresh (unpatched, production-limit)
+            # append too -- trimming is not a one-shot effect of the patched
+            # call site.
+            append_journal_observation(
+                paths,
+                {
+                    "target_type": "runtime",
+                    "target_id": "probe-after-patch",
+                    "event": "blocked",
+                    "status": "observed",
+                    "summary": "probe event after patch",
+                    "evidence_refs": [],
+                },
+            )
+            lines_after = paths.runtime_journal_events_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines_after), 11)
 
     def test_validate_runtime_requires_coding_delegation_for_prepared_runs(self) -> None:
         with TemporaryDirectory() as tmp:
