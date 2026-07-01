@@ -44,7 +44,7 @@ Bad example:
 
 - The request is classified as task, project, north-star ambition, external-wait, or unclear before a loop starts.
 - The current loop_status_card/v1 names the queue item, tick status, verification_plan, and next action.
-- failure_mode_summary checks verification_gap, comprehension_debt, and cognitive_surrender before progress advances.
+- failure_mode_summary checks verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition before progress advances.
 - Completion is backed by linked goal/runtime evidence; queued loop ticks alone are not observed work.
 
 ## Recovery Notes
@@ -94,7 +94,7 @@ Quality bar:
 - Keep prepared worktree/subagent/connector plans, observed executor work, linked goal completion, and external waiting as distinct evidence states.
 - Use cheap inner-loop checks frequently and expensive outer-loop checks sparingly.
 - Keep the practical small-loop recipe visible: test as stop signal, plan -> execute -> verify, one task at a time.
-- Surface verification_gap, comprehension_debt, and cognitive_surrender as warnings before a loop starts looking self-steering.
+- Surface verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition as warnings before a loop starts looking self-steering.
 
 Handoff policy:
 

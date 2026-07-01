@@ -927,7 +927,7 @@ _DEFINITIONS = [
             "Keep prepared worktree/subagent/connector plans, observed executor work, linked goal completion, and external waiting as distinct evidence states.",
             "Use cheap inner-loop checks frequently and expensive outer-loop checks sparingly.",
             "Keep the practical small-loop recipe visible: test as stop signal, plan -> execute -> verify, one task at a time.",
-            "Surface verification_gap, comprehension_debt, and cognitive_surrender as warnings before a loop starts looking self-steering.",
+            "Surface verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition as warnings before a loop starts looking self-steering.",
         ),
         why_this_exists="`loop` exists for goals whose correct implementation cannot be known upfront but can be discovered through bounded cycles of definition, action, verification, and revision without confusing planned cycles with observed progress.",
         do_not_use_when=(
@@ -950,7 +950,7 @@ _DEFINITIONS = [
         final_checklist=(
             "The request is classified as task, project, north-star ambition, external-wait, or unclear before a loop starts.",
             "The current loop_status_card/v1 names the queue item, tick status, verification_plan, and next action.",
-            "failure_mode_summary checks verification_gap, comprehension_debt, and cognitive_surrender before progress advances.",
+            "failure_mode_summary checks verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition before progress advances.",
             "Completion is backed by linked goal/runtime evidence; queued loop ticks alone are not observed work.",
         ),
         recovery_notes=(
@@ -4296,7 +4296,7 @@ _HARNESSES = [
             "Use fan-out, adversarial verification, tournament, or triage-batch workflow patterns for research validation, support triage, or implementation review only when the extra lanes add evidence value.",
             "Keep the schema scaffold stable for repeated ticks and avoid re-scanning or re-emitting large context when evidence refs are enough.",
             "Use inner-loop checks for frequent cheap confidence and outer-loop checks for expensive semantic or integration confidence.",
-            "Surface verification_gap, comprehension_debt, and cognitive_surrender before the loop continues without enough judgment.",
+            "Surface verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition before the loop continues without enough judgment.",
             "Keep small-loop guidance visible: test as stop signal, plan -> execute -> verify, one task at a time.",
             "Treat feedback as a gate: clear internal actionable gaps continue the loop; external waiting records a wait state.",
             "Never report goal completion from loop state unless linked goal_ledger/v1 completion evidence is ready.",
