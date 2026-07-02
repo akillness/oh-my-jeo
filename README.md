@@ -263,7 +263,7 @@ OMJ quickstart
 Summary
   Status: needs attention
   OMJ version: 1.3.1
-  Local install: needs_attention (7/55 checks)
+  Local install: needs_attention (8/56 checks)
   Plugin bridge: missing
 Try one prompt
   - safe feature work: Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
