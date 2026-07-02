@@ -70,6 +70,13 @@ omj setup                     # connect OMJ; Hermes is the default coding runtim
 omj doctor
 ```
 
+> This exact copy-paste path — `install.sh`, `omj setup`, `omj doctor`, plus a
+> live Hermes tap/setup skill smoke (`skill tap list/add`, `skills list`,
+> `skill check`, `doctor`) — is periodically re-verified end to end against an
+> isolated temp `HOME`/Hermes profile with `omj release install-smoke --live`
+> and `omj release hermes-smoke --live`, not just exercised in plan mode. See
+> [Release Process](docs/RELEASE.md) for the full live-smoke gate.
+
 Then talk to Hermes in plain language (no new CLI needed for daily work):
 
 ```text
