@@ -77,8 +77,8 @@ def _add_demo_commands(sub) -> None:
     orchestration.add_argument(
         "--executor",
         choices=CODING_EXECUTOR_TARGETS,
-        default="choose",
-        help="Executor/runtime profile to demonstrate. Defaults to an explicit choice-required handoff.",
+        default="hermes",
+        help="Executor/runtime profile to demonstrate. Defaults to the Hermes runtime handoff baseline.",
     )
     orchestration.set_defaults(func=cmd_demo_orchestration)
 

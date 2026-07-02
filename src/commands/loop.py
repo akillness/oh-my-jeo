@@ -335,7 +335,7 @@ def _add_loop_commands(sub) -> None:
     start_card.add_argument("--include-goal", action="store_true", help="Include the raw goal text in stdout.")
     start_card.add_argument("--source", default="omj")
     start_card.add_argument("--permission-profile", choices=PERMISSION_PROFILES, default="handoff_only")
-    start_card.add_argument("--default-executor", choices=LOOP_EXECUTOR_OPTION_IDS, default="choose")
+    start_card.add_argument("--default-executor", choices=LOOP_EXECUTOR_OPTION_IDS, default="hermes")
     start_card.set_defaults(func=cmd_loop_start_card)
 
     assess = loop_sub.add_parser("assess")

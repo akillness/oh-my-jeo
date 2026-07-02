@@ -261,26 +261,67 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_welcome() -> None:
-    print(
-        """OMJ - oh-my-jeo
+def _welcome_hermes_status(args: argparse.Namespace) -> str:
+    """Build the Hermes-first status block for the bare `omj` welcome screen.
 
-Install OMJ, then talk to Hermes. The `omj` command is the setup, doctor,
-update, verifier, and wrapper/backend surface; the normal user experience is
-Hermes Agent chat with installed OMJ skills.
+    Local detection only: reads the setup profile and probes `hermes --version`.
+    Never mutates state and never installs anything.
+    """
+
+    from ..hermes_bootstrap import detect_hermes
+    from ..setup_profiles import read_setup_profile
+
+    runtime_line = "Hermes runtime: not detected (run `omj hermes install` for the plan)"
+    profile_line = "Default coding owner: hermes (baseline; run `omj setup` to record it)"
+    try:
+        detected = detect_hermes(timeout_seconds=5)
+        if detected.get("found"):
+            version = str(detected.get("version", "")).strip()
+            runtime_line = f"Hermes runtime: detected ({version})" if version else "Hermes runtime: detected"
+    except Exception:  # noqa: BLE001 - welcome must never fail on detection
+        runtime_line = "Hermes runtime: detection unavailable"
+    try:
+        profile = read_setup_profile(_paths_for_welcome(args))
+        if isinstance(profile, dict) and str(profile.get("default_executor", "")).strip():
+            profile_line = f"Default coding owner: {profile['default_executor']} (from `omj setup`)"
+    except Exception:  # noqa: BLE001 - welcome must never fail on a bad profile
+        pass
+    return f"Hermes-first status:\n  {runtime_line}\n  {profile_line}"
+
+
+def _paths_for_welcome(args: argparse.Namespace):
+    from ..paths import resolve_paths
+
+    return resolve_paths(
+        getattr(args, "omj_home", None),
+        getattr(args, "hermes_home", None),
+        scope=getattr(args, "scope", None),
+    )
+
+
+def _print_welcome(args: argparse.Namespace) -> None:
+    print(
+        f"""OMJ - oh-my-jeo
+
+OMJ is Hermes-first: install once, and OMJ starts against the Hermes runtime
+with Hermes as the default coding owner. The `omj` command is the setup,
+doctor, update, verifier, and wrapper/backend surface; the normal user
+experience is Hermes Agent chat with installed OMJ skills.
+
+{_welcome_hermes_status(args)}
 
 If this screen appears after `omj uninstall`, the command package is still on
 PATH. `uninstall` removes OMJ-managed Hermes files and removes the command only
 when it can prove the command came from the install.sh-managed OMJ venv.
 
 Start:
-  omj setup              Install skills and connect them to Hermes
+  omj setup              Install skills and connect them to Hermes (defaults to Hermes)
   omj doctor             Check local OMJ health and registration
   omj quickstart         Show what to do next in Hermes
   omj update             Refresh managed skills and update metadata
 
 First five minutes:
-  1. Run `omj setup` and accept the recommended choices.
+  1. Run `omj setup` and accept the recommended choices (Hermes is the default).
   2. Restart or reload Hermes Agent.
   3. Ask Hermes the prompt below.
 
@@ -327,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):
-        _print_welcome()
+        _print_welcome(args)
         return 0
     try:
         return int(args.func(args))

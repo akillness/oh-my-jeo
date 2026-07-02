@@ -516,11 +516,11 @@ def _target_topology_summary(registry: dict[str, Any]) -> dict[str, Any]:
 def _executor_summary(profile: dict[str, Any]) -> dict[str, Any]:
     executor = str(profile.get("default_executor", "") or "").strip() if isinstance(profile, dict) else ""
     if not executor:
-        executor = "choose"
+        executor = "hermes"
     return {
         "default": executor,
         "configured": bool(profile),
-        "dispatch_policy": str(profile.get("dispatch_policy", "ask_before_dispatch") if isinstance(profile, dict) else "ask_before_dispatch"),
+        "dispatch_policy": str(profile.get("dispatch_policy", "prepare_only") if isinstance(profile, dict) else "prepare_only"),
     }
 
 

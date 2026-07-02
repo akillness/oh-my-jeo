@@ -25,7 +25,7 @@ class HudCliTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertIn(f"[omj] v{__version__}", stdout)
             self.assertIn("plugin:not-installed", stdout)
-            self.assertIn("coding-agent:idle(ask)", stdout)
+            self.assertIn("coding-agent:idle(hermes)", stdout)
             self.assertNotIn("tokens:unobserved", stdout)
             self.assertNotIn("executor:", stdout)
             self.assertNotIn("handoff:", stdout)

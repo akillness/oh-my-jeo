@@ -738,7 +738,7 @@ def build_chat_interaction_payload(
 def _resolve_delegate_executor_target(executor_target: str, paths: OmjPaths | None, *, message: str = "") -> tuple[str, dict[str, object]]:
     requested = str(executor_target or "choose").strip() or "choose"
     message_hint = _executor_target_from_message(message)
-    setup_default = "choose"
+    setup_default = "hermes"
     setup_available = False
     if paths is not None:
         try:
@@ -761,8 +761,8 @@ def _resolve_delegate_executor_target(executor_target: str, paths: OmjPaths | No
         resolved = setup_default
         source = "setup_profile"
     else:
-        resolved = "choose"
-        source = "caller_default"
+        resolved = "hermes"
+        source = "hermes_baseline"
 
     return resolved, {
         "schema_version": "executor_resolution/v1",

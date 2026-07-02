@@ -279,7 +279,7 @@ class WrapperContractTests(unittest.TestCase):
         self.assertFalse(state["executor_choice_required"])
         self.assertIn("not dispatch", state["prepared_handoff_boundary"])
 
-    def test_plan_mode_choose_executor_default_exposes_choice_requirement(self) -> None:
+    def test_plan_mode_defaults_to_hermes_runtime_handoff(self) -> None:
         payload = build_chat_interaction_payload(
             "risky refactor with tests",
             source="discord",
@@ -289,9 +289,33 @@ class WrapperContractTests(unittest.TestCase):
         coding_delegate = payload["plan"]["wrapper_contract"]["coding_delegate"]
         actions = {action["id"]: action for action in payload["chat_response"]["actions"]}
         self.assertEqual(payload["mode"], "plan")
+        self.assertEqual(coding_delegate["executor_target"], "hermes")
+        self.assertFalse(coding_delegate["executor_choice_required"])
+        self.assertEqual(coding_delegate["after_acceptance_next_action"], "show_runtime_handoff")
+        self.assertEqual(coding_delegate["executor_resolution"]["source"], "hermes_baseline")
+        self.assertFalse(payload["chat_response"]["state"]["executor_choice_required"])
+        self.assertIn("accept_plan", actions)
+        self.assertIn("prepare_handoff", actions)
+
+    def test_plan_mode_choose_profile_still_exposes_choice_requirement(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            write_setup_profile(paths, default_executor="choose")
+
+            payload = build_chat_interaction_payload(
+                "risky refactor with tests",
+                source="discord",
+                mode="plan",
+                paths=paths,
+            )
+
+        coding_delegate = payload["plan"]["wrapper_contract"]["coding_delegate"]
+        actions = {action["id"]: action for action in payload["chat_response"]["actions"]}
+        self.assertEqual(payload["mode"], "plan")
         self.assertEqual(coding_delegate["executor_target"], "choose")
         self.assertTrue(coding_delegate["executor_choice_required"])
         self.assertEqual(coding_delegate["after_acceptance_next_action"], "choose_executor")
+        self.assertEqual(coding_delegate["executor_resolution"]["source"], "setup_profile")
         self.assertTrue(payload["chat_response"]["state"]["executor_choice_required"])
         self.assertIn("choose_executor", actions)
         self.assertTrue(actions["choose_executor"]["enabled"])
@@ -318,11 +342,32 @@ class WrapperContractTests(unittest.TestCase):
         self.assertIn("prepared only", payload["chat_response"]["claim_boundary"])
         self.assertIn("has not started", payload["chat_response"]["claim_boundary"])
 
-    def test_route_coding_workflow_requires_executor_choice_without_default(self) -> None:
+    def test_route_coding_workflow_defaults_to_hermes_runtime_handoff(self) -> None:
         payload = build_chat_interaction_payload(
             "research the repo, plan, implement, code-review, sync docs, and prepare a PR",
             source="discord",
         )
+
+        self.assertEqual(payload["mode"], "route")
+        self.assertEqual(payload["route"]["selected_skill"], "ultraprocess")
+        self.assertEqual(payload["next_action"], "show_runtime_handoff")
+        self.assertEqual(payload["executor_resolution"]["source"], "hermes_baseline")
+        self.assertEqual(payload["executor_resolution"]["resolved_executor_target"], "hermes")
+        self.assertEqual(payload["delegation"]["selected_executor_profile"], "hermes")
+        self.assertEqual(payload["delegation"]["runtime_handoff"]["status"], "prepared_not_observed")
+        self.assertFalse(payload["chat_response"]["state"]["executor_choice_required"])
+        self.assertIn("prepared only", payload["chat_response"]["claim_boundary"])
+
+    def test_route_coding_workflow_choose_profile_requires_executor_choice(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            write_setup_profile(paths, default_executor="choose")
+
+            payload = build_chat_interaction_payload(
+                "research the repo, plan, implement, code-review, sync docs, and prepare a PR",
+                source="discord",
+                paths=paths,
+            )
 
         actions = {action["id"]: action for action in payload["chat_response"]["actions"]}
         self.assertEqual(payload["mode"], "route")
@@ -361,8 +406,28 @@ class WrapperContractTests(unittest.TestCase):
         self.assertIn("send_to_executor", actions)
         self.assertIn("send_to_codex", actions)
 
-    def test_delegate_mode_defaults_to_executor_choice(self) -> None:
+    def test_delegate_mode_defaults_to_hermes_runtime_handoff(self) -> None:
         payload = build_chat_interaction_payload("risky refactor", mode="delegate", source="discord")
+
+        actions = {action["id"] for action in payload["chat_response"]["actions"] if action["enabled"]}
+        readiness = payload["delegation"]["executor_readiness"]
+        self.assertEqual(payload["next_action"], "show_runtime_handoff")
+        self.assertEqual(payload["delegation"]["executor_selection"]["status"], "runtime_handoff_prepared")
+        self.assertFalse(payload["delegation"]["executor_selection"]["choice_required"])
+        self.assertEqual(payload["delegation"]["runtime_handoff"]["status"], "prepared_not_observed")
+        self.assertEqual(readiness["schema_version"], "executor_readiness/v1")
+        self.assertEqual(readiness["status"], "not_observed")
+        self.assertEqual(readiness["profile"], "hermes")
+        self.assertNotIn("executor_handoff", payload["delegation"])
+        self.assertIn("show_runtime_handoff", actions)
+        self.assertIn("choose_executor", actions)
+
+    def test_delegate_mode_choose_profile_defaults_to_executor_choice(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            write_setup_profile(paths, default_executor="choose")
+
+            payload = build_chat_interaction_payload("risky refactor", mode="delegate", source="discord", paths=paths)
 
         actions = {action["id"] for action in payload["chat_response"]["actions"] if action["enabled"]}
         readiness = payload["delegation"]["executor_readiness"]
@@ -1383,10 +1448,11 @@ class WrapperContractTests(unittest.TestCase):
         cases = (
             (
                 "research the repo, plan, implement, code-review, sync docs, and prepare a PR",
-                "choose_executor",
-                True,
-                "choose_executor",
-                "Choose coding agent",
+                "show_runtime_handoff",
+                False,
+                "show_runtime_handoff",
+                "Show runtime",
+                "prepared only",
             ),
             (
                 "이 이슈를 Codex로 구현하게 맡기고 진행상태 추적해줘",
@@ -1394,10 +1460,11 @@ class WrapperContractTests(unittest.TestCase):
                 False,
                 "send_to_executor",
                 "Open in Codex",
+                "not execution evidence",
             ),
         )
 
-        for message, next_action, choice_required, primary_action, primary_label in cases:
+        for message, next_action, choice_required, primary_action, primary_label, boundary in cases:
             with self.subTest(message=message):
                 payload = build_chat_interaction_payload(message, source="discord")
 
@@ -1412,16 +1479,13 @@ class WrapperContractTests(unittest.TestCase):
                 self.assertEqual(explanation["workflow_context_id"], "intent_to_plan")
                 self.assertIn("ultraprocess", explanation["workflow_context_card"]["representative_workflows"])
                 self.assertIn(
-                    "executor/runtime dispatch" if choice_required else "execution",
+                    "executor/runtime dispatch" if next_action == "show_runtime_handoff" else "execution",
                     explanation["not_evidence_yet"],
                 )
                 actions = {action["id"]: action for action in payload["chat_response"]["actions"]}
                 self.assertTrue(actions[primary_action]["enabled"])
                 self.assertEqual(actions[primary_action]["label"], primary_label)
-                if choice_required:
-                    self.assertIn("not dispatch", payload["chat_response"]["claim_boundary"])
-                else:
-                    self.assertIn("not execution evidence", payload["chat_response"]["claim_boundary"])
+                self.assertIn(boundary, payload["chat_response"]["claim_boundary"])
 
     def test_codex_status_question_surfaces_session_evidence_boundary(self) -> None:
         payload = build_chat_interaction_payload("Codex 작업이 어디까지 진행됐는지 알려줘", source="discord")

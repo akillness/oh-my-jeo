@@ -1365,21 +1365,21 @@ def _ask_default_executor(*, use_color: bool, language: str) -> str:
     options = [
         {
             "choice": "1",
+            "value": "hermes",
+            "label": tr(language, "executor_hermes_label"),
+            "description": tr(language, "executor_hermes_desc"),
+        },
+        {
+            "choice": "2",
             "value": "codex",
             "label": tr(language, "executor_codex_label"),
             "description": tr(language, "executor_codex_desc"),
         },
         {
-            "choice": "2",
+            "choice": "3",
             "value": "claude-code",
             "label": tr(language, "executor_claude_label"),
             "description": tr(language, "executor_claude_desc"),
-        },
-        {
-            "choice": "3",
-            "value": "hermes",
-            "label": tr(language, "executor_hermes_label"),
-            "description": tr(language, "executor_hermes_desc"),
         },
     ]
     value = _ask_single_choice(
@@ -1397,7 +1397,7 @@ def _ask_default_executor(*, use_color: bool, language: str) -> str:
         build_setup_profile(default_executor=value)
     except ValueError as exc:
         print(_color(tr(language, "invalid_executor", error=exc), "31", use_color))
-        return "choose"
+        return "hermes"
     return value
 
 
@@ -2694,7 +2694,7 @@ def _add_top_level_commands(sub) -> None:
         "--default-executor",
         choices=CODING_EXECUTOR_TARGETS,
         default=None,
-        help="Default coding agent suggestion. Interactive setup only shows Codex, Claude Code, and Hermes.",
+        help="Default coding agent suggestion (default: hermes). Interactive setup shows Hermes first, then Codex and Claude Code.",
     )
     setup.add_argument(
         "--operating-model",

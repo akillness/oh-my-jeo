@@ -148,7 +148,7 @@ def _selected_categories(
     if not values:
         if default_executor:
             return [_CATEGORY_BY_ID[setup_profile_categories_for_executor(default_executor)[0]]]
-        return [_CATEGORY_BY_ID["safety-first"]]
+        return [_CATEGORY_BY_ID["hermes-retained"]]
     selected: list[dict[str, object]] = []
     seen: set[str] = set()
     for raw in values:
