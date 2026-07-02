@@ -170,7 +170,7 @@ def _resolved_executor_for_delegate(args: argparse.Namespace) -> str:
         return str(args.executor)
     if getattr(args, "from_plan", None):
         return "codex"
-    return _resolved_executor(args, default="generic")
+    return _resolved_executor(args, default="hermes")
 
 
 def _plan_source_metadata(artifact: dict[str, object]) -> dict[str, str]:

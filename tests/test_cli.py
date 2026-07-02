@@ -27,6 +27,10 @@ class CliTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(stderr, "")
         self.assertIn("OMJ - oh-my-jeo", stdout)
+        self.assertIn("OMJ is Hermes-first", stdout)
+        self.assertIn("Hermes-first status:", stdout)
+        self.assertIn("Hermes runtime:", stdout)
+        self.assertIn("Default coding owner:", stdout)
         self.assertIn("omj setup", stdout)
         self.assertIn("omj quickstart", stdout)
         self.assertIn("Agent chat with installed OMJ skills", stdout)
@@ -732,7 +736,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("Terminal command: omj found at /usr/local/bin/omj", stdout)
             self.assertIn("Hermes connection:", stdout)
             self.assertIn("Coding requests:", stdout)
-            self.assertIn("Coding requests: Ask every time", stdout)
+            self.assertIn("Coding requests: Hermes", stdout)
             self.assertIn("Hermes profile check:", stdout)
             self.assertIn("OMJ status helper:", stdout)
             self.assertIn("Restart or reload Hermes Agent", stdout)
@@ -1441,9 +1445,9 @@ class CliTests(unittest.TestCase):
             self.assertIn("OMJ setup", stdout)
             self.assertIn("Default coding agent", stdout)
             self.assertIn("Choose who Hermes should suggest for coding work", stdout)
-            self.assertIn("1) Codex", stdout)
-            self.assertIn("2) Claude Code", stdout)
-            self.assertIn("3) Hermes", stdout)
+            self.assertIn("1) Hermes", stdout)
+            self.assertIn("2) Codex", stdout)
+            self.assertIn("3) Claude Code", stdout)
             self.assertIn("Show advanced tool bridge options", stdout)
             self.assertNotIn("Ask every time", stdout)
             self.assertNotIn("Other coding agent", stdout)
@@ -1456,8 +1460,8 @@ class CliTests(unittest.TestCase):
             self.assertIn("Advanced tool bridge: preference recorded", stdout)
             self.assertIn(str(omj_home / "skills"), (hermes_home / "config.yaml").read_text(encoding="utf-8"))
             profile = json.loads((omj_home / "setup-profile.json").read_text(encoding="utf-8"))
-            self.assertEqual(profile["selected_categories"], ["codex-lifecycle"])
-            self.assertEqual(profile["default_executor"], "codex")
+            self.assertEqual(profile["selected_categories"], ["hermes-retained"])
+            self.assertEqual(profile["default_executor"], "hermes")
             self.assertTrue((hermes_home / "plugins" / "omj" / "plugin.yaml").exists())
             self.assertFalse((hermes_home / "agents" / "omj-cto-loop-cto.md").exists())
             self.assertFalse((omj_home / "team-profile-packs" / "cto-loop.json").exists())
@@ -1484,8 +1488,8 @@ class CliTests(unittest.TestCase):
             self.assertIn("OMJ setup complete.", stdout)
             star.assert_called_once_with()
             profile = json.loads((omj_home / "setup-profile.json").read_text(encoding="utf-8"))
-            self.assertEqual(profile["selected_categories"], ["codex-lifecycle"])
-            self.assertEqual(profile["default_executor"], "codex")
+            self.assertEqual(profile["selected_categories"], ["hermes-retained"])
+            self.assertEqual(profile["default_executor"], "hermes")
             self.assertTrue((hermes_home / "plugins" / "omj" / "plugin.yaml").exists())
 
     def test_setup_project_scope_uses_project_local_paths(self) -> None:
@@ -1556,7 +1560,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("OMJ 워크플로 설치", stdout)
             self.assertIn("OMJ 설정이 완료되었습니다.", stdout)
             self.assertIn("설치 위치:", stdout)
-            self.assertIn("코딩 요청: 매번 물어보기", stdout)
+            self.assertIn("코딩 요청: Hermes", stdout)
             self.assertNotIn("skills.external_dirs", stdout)
             self.assertNotIn("토폴로지", stdout)
             self.assertNotIn("플러그인 브리지", stdout)
@@ -4217,7 +4221,7 @@ class CliTests(unittest.TestCase):
             ("run a CTO loop for roadmap architecture tradeoffs delivery risk and release readiness", "cto-loop", "ack", "run_cto_loop"),
             ("deploy and monitor this release with rollback and health checks", "deploy-and-monitor", "ack", "prepare_deploy_monitor_plan"),
             ("./loop make this project a 10k star OSS", "loop", "loop", "start_loop_cycle"),
-            ("research the repo, plan, implement, code-review, sync docs, and prepare a PR", "ultraprocess", "handoff", "choose_executor"),
+            ("research the repo, plan, implement, code-review, sync docs, and prepare a PR", "ultraprocess", "handoff", "show_runtime_handoff"),
             ("Hermes가 기억하는 맥락을 점검하고 정리해줘", "memory-curation-review", "ack", "prepare_memory_curation_review"),
             ("GitHub issue 들어온 걸 PR 만들 수 있게 정리해줘", "github-event-ops", "ack", "prepare_github_event_ops_card"),
             ("리서치 요청했는데 OMJ를 안 썼어", "web-research", "ack", "run_hermes_research"),
@@ -5111,6 +5115,7 @@ class CliTests(unittest.TestCase):
                     "discord",
                     "risky",
                     "refactor",
+                    "zorbtangle987",
                 ]
             )
 
@@ -5130,14 +5135,29 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["harness_quality"]["schema_version"], "harness_quality/v1")
         self.assertEqual(payload["harness_quality"]["harness"], "coding-handling")
         self.assertIn("coding_delegation_prepared", payload["harness_quality"]["evidence_ladder"])
-        self.assertEqual(payload["harness_quality"]["wrapper_actions"], ["show_prompt_handoff", "copy_prompt_handoff", "choose_executor", "show_status"])
-        self.assertEqual(payload["work_owner_mode"], "prompt_only_handoff")
-        self.assertEqual(payload["selected_executor_profile"], "generic")
+        self.assertEqual(
+            payload["harness_quality"]["wrapper_actions"],
+            [
+                "show_runtime_handoff",
+                "show_coding_team_path",
+                "start_hermes_coding",
+                "prepare_worktree",
+                "start_team",
+                "start_swarm",
+                "record_runtime_observation",
+                "choose_executor",
+                "show_status",
+            ],
+        )
+        self.assertEqual(payload["work_owner_mode"], "runtime_handoff")
+        self.assertEqual(payload["selected_executor_profile"], "hermes")
         self.assertFalse(payload["dispatchable"])
-        self.assertEqual(payload["prompt_handoff"]["schema_version"], "coding_prompt_handoff/v1")
+        self.assertEqual(payload["runtime_handoff"]["schema_version"], "coding_runtime_handoff/v1")
+        self.assertEqual(payload["runtime_handoff"]["status"], "prepared_not_observed")
         self.assertNotIn("executor_handoff", payload)
+        self.assertNotIn("prompt_handoff", payload)
         self.assertNotIn("suggested_prompt", json.dumps(payload))
-        self.assertNotIn("risky refactor", json.dumps(payload))
+        self.assertNotIn("zorbtangle987", json.dumps(payload))
 
     def test_demo_orchestration_shows_recommend_chat_plan_handoff_status(self) -> None:
         message = "I want to safely add a feature to this repo"
@@ -5147,15 +5167,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(status, 0)
         payload = json.loads(stdout)
         self.assertEqual(payload["schema_version"], "orchestration_demo/v1")
-        self.assertEqual(payload["executor_target"], "choose")
+        self.assertEqual(payload["executor_target"], "hermes")
         self.assertEqual([step["id"] for step in payload["steps"]], ["recommend", "chat", "plan", "handoff", "status_card"])
         self.assertEqual(payload["steps"][0]["payload"]["recommendations"][0]["skill"], "ralplan")
         handoff_payload = payload["steps"][3]["payload"]
-        self.assertEqual(handoff_payload["chat_response"]["state"]["next_action"], "choose_executor")
+        self.assertEqual(handoff_payload["chat_response"]["state"]["next_action"], "show_runtime_handoff")
         self.assertEqual(handoff_payload["executor_handoff"], {})
         status_card = payload["steps"][4]["payload"]["status_card"]
         self.assertEqual(status_card["schema_version"], "status_card/v1")
-        self.assertEqual(status_card["next_action"], "choose_executor")
+        self.assertEqual(status_card["next_action"], "show_runtime_handoff")
         self.assertIn("executor_result", payload["not_observed"])
         self.assertNotIn(message, json.dumps(payload))
 
@@ -5393,6 +5413,8 @@ class CliTests(unittest.TestCase):
                     "coding",
                     "delegate",
                     "--record",
+                    "--executor",
+                    "generic",
                     "--source",
                     "discord",
                     "--source-event-id",
@@ -6111,7 +6133,7 @@ class CliTests(unittest.TestCase):
             status, stdout, stderr = run_cli(base + ["setup"])
             self.assertEqual(stderr, "")
             self.assertEqual(status, 0)
-            self.assertEqual(json.loads(stdout)["steps"]["profile"]["default_executor"], "choose")
+            self.assertEqual(json.loads(stdout)["steps"]["profile"]["default_executor"], "hermes")
 
             status, stdout, stderr = run_cli(
                 base
@@ -6129,19 +6151,15 @@ class CliTests(unittest.TestCase):
             self.assertEqual(stderr, "")
             self.assertEqual(status, 0)
             payload = json.loads(stdout)
-            self.assertTrue(payload["executor_selection"]["choice_required"])
+            self.assertFalse(payload["executor_selection"]["choice_required"])
+            self.assertEqual(payload["selected_executor_profile"], "hermes")
+            self.assertEqual(payload["work_owner_mode"], "runtime_handoff")
             self.assertEqual(payload["runtime"]["recorded"], False)
-            self.assertEqual(payload["runtime"]["reason"], "executor_choice_required")
+            self.assertEqual(payload["runtime"]["reason"], "runtime_handoff_is_wrapper_session_only")
             self.assertEqual(payload["runtime"]["run_created"], False)
-            self.assertEqual(payload["runtime"]["record_status"], "record_skipped_until_executor_selected")
-            self.assertIn("skipped until executor selected", payload["runtime"]["record_notice"])
-            self.assertEqual(payload["runtime"]["next_action"], "select_executor_then_record")
-            self.assertEqual(payload["executor_readiness"]["schema_version"], "executor_readiness/v1")
-            self.assertEqual(payload["executor_readiness"]["status"], "choice_required")
-            self.assertTrue(payload["executor_readiness"]["first_use_only"])
-            options = {option["profile"]: option for option in payload["executor_selection"]["options"]}
-            self.assertEqual(options["codex"]["readiness_probe"]["probe"]["command"], "codex")
-            self.assertEqual(options["claude-code"]["readiness_probe"]["probe"]["command"], "claude")
+            self.assertEqual(payload["runtime"]["record_status"], "record_skipped")
+            self.assertIn("prepared until runtime evidence is observed", payload["runtime"]["record_notice"])
+            self.assertEqual(payload["runtime"]["next_action"], "observe_runtime_start_before_recording_execution")
             self.assertFalse((omj_home / "runtime" / "runs").exists())
 
             status, stdout, stderr = run_cli(base + ["runtime", "validate"])
@@ -6742,7 +6760,7 @@ class CliTests(unittest.TestCase):
         self.assertNotIn(message, stdout)
         self.assertNotIn("omj ", json.dumps(payload["chat_response"]).lower())
 
-    def test_chat_interact_delegate_mode_defaults_to_executor_choice(self) -> None:
+    def test_chat_interact_delegate_mode_defaults_to_hermes_runtime_handoff(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             base = ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes")]
@@ -6754,9 +6772,11 @@ class CliTests(unittest.TestCase):
             self.assertEqual(status, 0)
             payload = json.loads(stdout)
             actions = {action["id"] for action in payload["chat_response"]["actions"] if action["enabled"]}
-            self.assertEqual(payload["next_action"], "choose_executor")
-            self.assertTrue(payload["delegation"]["executor_selection"]["choice_required"])
+            self.assertEqual(payload["next_action"], "show_runtime_handoff")
+            self.assertFalse(payload["delegation"]["executor_selection"]["choice_required"])
+            self.assertEqual(payload["delegation"]["runtime_handoff"]["status"], "prepared_not_observed")
             self.assertNotIn("executor_handoff", payload["delegation"])
+            self.assertIn("show_runtime_handoff", actions)
             self.assertIn("choose_executor", actions)
 
     def test_chat_interact_delegate_mode_can_prepare_codex_handoff(self) -> None:

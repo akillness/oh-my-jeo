@@ -495,7 +495,7 @@ def _setting_value(settings: dict[str, Any], key: str, *, default: str = "") -> 
 def _coding_agent_menu_value(settings: dict[str, Any], current_executor_row: dict[str, Any]) -> str:
     if current_executor_row:
         return str(current_executor_row.get("name", "") or "selected")
-    return _executor_setting_label(_setting_value(settings, "coding_handoff", default="choose"))
+    return _executor_setting_label(_setting_value(settings, "coding_handoff", default="hermes"))
 
 
 def _agent_status_menu_rows(hermes_agents: list[dict[str, Any]]) -> list[dict[str, str]]:

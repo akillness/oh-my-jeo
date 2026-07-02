@@ -29,31 +29,41 @@ def _payload(step: dict[str, object]) -> dict[str, object]:
 
 
 class OrchestrationDemoTests(unittest.TestCase):
-    def test_default_demo_requires_executor_choice_without_codex_run_id(self) -> None:
+    def test_default_demo_prepares_hermes_runtime_handoff(self) -> None:
         demo = build_orchestration_demo()
 
         self.assertEqual(demo["schema_version"], "orchestration_demo/v1")
-        self.assertEqual(demo["executor_target"], "choose")
-        self.assertIn("executor choice", demo["summary"])
+        self.assertEqual(demo["executor_target"], "hermes")
+        self.assertIn("Hermes", demo["summary"])
 
         handoff_step = _payload(_step(demo, "handoff"))
         handoff_response = handoff_step["chat_response"]
         self.assertIsInstance(handoff_response, dict)
-        self.assertEqual(handoff_response["state"]["next_action"], "choose_executor")
-        self.assertEqual(handoff_response["state"]["selected_executor_profile"], None)
+        self.assertEqual(handoff_response["state"]["next_action"], "show_runtime_handoff")
+        self.assertEqual(handoff_response["state"]["selected_executor_profile"], "hermes")
         self.assertEqual(handoff_step["executor_handoff"], {})
 
         status_step = _payload(_step(demo, "status_card"))
         status = status_step["status"]
         self.assertIsInstance(status, dict)
-        self.assertEqual(status["run_id"], "demo-prepared-executor-choice")
-        self.assertEqual(status["next_action"], "choose_executor")
-        self.assertEqual(status["prepared"]["executor_target"], "choose")
-        self.assertTrue(status["prepared"]["choice_required"])
-        self.assertFalse(status["prepared"]["handoff_available"])
+        self.assertEqual(status["run_id"], "demo-prepared-hermes-handoff")
+        self.assertEqual(status["next_action"], "show_runtime_handoff")
+        self.assertEqual(status["prepared"]["executor_target"], "hermes")
+        self.assertFalse(status["prepared"]["choice_required"])
+        self.assertTrue(status["prepared"]["handoff_available"])
         self.assertNotEqual(status["run_id"], "demo-prepared-codex-handoff")
-        self.assertEqual(status_step["chat_response"]["state"]["phase"], "executor_choice_required")
-        self.assertIn("Choose coding agent", [action["label"] for action in status_step["chat_response"]["actions"]])
+        self.assertEqual(status_step["chat_response"]["state"]["phase"], "runtime_handoff_prepared")
+        self.assertIn("Show runtime", [action["label"] for action in status_step["chat_response"]["actions"]])
+
+    def test_choose_demo_resolves_to_hermes_baseline(self) -> None:
+        demo = build_orchestration_demo(executor_target="choose")
+
+        self.assertEqual(demo["executor_target"], "choose")
+        self.assertIn("runtime handoff baseline", demo["summary"])
+
+        handoff_step = _payload(_step(demo, "handoff"))
+        self.assertEqual(handoff_step["chat_response"]["state"]["next_action"], "show_runtime_handoff")
+        self.assertEqual(handoff_step["chat_response"]["state"]["selected_executor_profile"], "hermes")
 
     def test_codex_demo_keeps_codex_specific_alias_only_when_selected(self) -> None:
         demo = build_orchestration_demo(executor_target="codex")

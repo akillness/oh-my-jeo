@@ -333,7 +333,7 @@ GROUNDED_SCENARIOS: tuple[GroundedScenario, ...] = (
         "$ultraprocess research the repo, plan, implement, code-review, sync docs, and prepare a PR",
         "ultraprocess",
         "handoff",
-        "choose_executor",
+        "show_runtime_handoff",
         "clarify",
         False,
         invocation_mode="direct_skill",

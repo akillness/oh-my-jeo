@@ -3,6 +3,24 @@
 
 ## Unreleased
 
+- OMJ is now Hermes-first out of the box. A plain `omj setup` (interactive or
+  `--yes`) records **Hermes** as the default coding owner
+  (`default_executor: hermes`, `dispatch_policy: prepare_only`) instead of
+  `choose`; the interactive wizard lists Hermes as option 1; and the
+  `solo-operator` operating model defaults to the Hermes runtime handoff.
+  Zero-config chat/plan/delegate interactions resolve to a prepared Hermes
+  runtime handoff (`executor_resolution.source: hermes_baseline`) instead of
+  demanding an executor choice; storing `--default-executor choose` restores
+  ask-every-time behavior. Bare `omj` now opens with a local Hermes-first
+  status block (runtime detection via `hermes --version` plus the recorded
+  default owner) — detection only, never an install. `coding delegate`,
+  `loop start-card`, `demo orchestration`, the HUD idle label, the menubar
+  fallback, and the plugin status summary all follow the same Hermes
+  baseline. Prepared-vs-observed boundaries are unchanged: the Hermes
+  runtime handoff stays `prepared_not_observed` until wrapper evidence
+  exists, and the Hermes runtime install remains opt-in
+  (`omj hermes install --apply`, `omj setup --with-hermes`).
+
 ## 1.3.1 - 2026-07-02
 
 - Fixed unbounded growth of the global observation journal

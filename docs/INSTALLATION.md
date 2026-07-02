@@ -1058,19 +1058,22 @@ The `cto-loop` pack is an optional CTO, PM, Dev, QA, Security, and Ops
 team-shaped preset. It is not installed by default; use it only when the target
 Hermes workspace benefits from visible role files.
 
-Record a default coding agent during setup:
+Record a default coding agent during setup. When no explicit value is given,
+setup records **Hermes** as the default coding owner, so a plain `omj setup`
+is already Hermes-first:
 
 ```sh
-omj setup --default-executor claude-code
+omj setup --default-executor claude-code   # override the Hermes default
 ```
 
 Supported values are `choose`, `hermes`, `codex`, `claude-code`, `generic`,
 `omx-runtime`, `omo-runtime`, and `omc-runtime`. The interactive wizard
-intentionally shows only `Codex`, `Claude Code`, and `Hermes` so first setup
-stays understandable. Use the wider flag values only for wrappers, scripts, or
-advanced runtime profiles. Legacy `OMJ_SETUP_PROFILES=1,3` still maps to setup
-profile categories for automation that already uses it, but new scripts should
-prefer `OMJ_DEFAULT_EXECUTOR`.
+intentionally shows only `Hermes` (default), `Codex`, and `Claude Code` so
+first setup stays understandable. Use `choose` to restore ask-every-time
+behavior, and the wider flag values only for wrappers, scripts, or advanced
+runtime profiles. Legacy `OMJ_SETUP_PROFILES=1,3` still maps to setup profile
+categories for automation that already uses it, but new scripts should prefer
+`OMJ_DEFAULT_EXECUTOR`.
 
 Record a Hermes-facing operating model only when a specific profile should
 start from that collaboration posture:
@@ -1086,7 +1089,7 @@ right pattern per request:
 
 | ID | Use when |
 | --- | --- |
-| `solo-operator` | One operator wants safe defaults and explicit executor choice. |
+| `solo-operator` | One operator wants safe Hermes-first defaults with explicit owner switches. |
 | `small-team` | A small team wants product, technical, QA, and release ownership to be visible in chat. |
 | `research-ops` | Hermes should favor research, strategy, and meeting preparation instead of coding. |
 | `coding-runtime-team` | Hermes should prepare Hermes/OMX/OMO/OMC runtime handoffs with runtime templates and observed ladder status. |

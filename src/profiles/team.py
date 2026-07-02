@@ -294,10 +294,10 @@ OPERATING_MODELS: tuple[OperatingModel, ...] = (
         title="Solo Operator",
         summary="One Hermes surface routes, plans, prepares handoffs, and narrates status without pretending extra agents exist.",
         use_when="Use for personal or first-time OMJ installs where clarity and low setup friction matter most.",
-        default_executor="choose",
+        default_executor="hermes",
         recommended_profile_packs=(),
         runtime_guidance=(
-            "Ask before choosing a coding owner.",
+            "Default to the Hermes runtime handoff and switch the coding owner explicitly when another executor fits better.",
             "Prefer retained Hermes workflows for research, planning, triage, and status.",
             "Prepare executor/runtime handoffs only after scope is accepted.",
         ),

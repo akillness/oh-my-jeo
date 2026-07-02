@@ -21,7 +21,7 @@ def build_orchestration_demo(
     *,
     source: str = "discord",
     limit: int = 3,
-    executor_target: str = "choose",
+    executor_target: str = "hermes",
 ) -> dict[str, object]:
     task = message.strip()
     if not task:
@@ -197,8 +197,8 @@ def _prepared_status_from_handoff(handoff: dict[str, object], *, source: str) ->
 def _demo_summary(executor_target: str) -> str:
     if executor_target == "choose":
         return (
-            "Deterministic local Hermes chat orchestration demo with routing, planning, executor choice, "
-            "handoff, and status contracts."
+            "Deterministic local Hermes chat orchestration demo with routing, planning, and the Hermes "
+            "runtime handoff baseline that applies when no executor preference is stored."
         )
     return (
         "Deterministic local Hermes chat orchestration demo with routing, planning, selected executor/runtime "

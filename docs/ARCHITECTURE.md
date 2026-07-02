@@ -258,11 +258,15 @@ not turn prepared handoffs into observed execution, review, CI, or merge
 evidence. Plain `omj menubar status` remains metadata-only.
 
 `cli.py` is a compatibility adapter. `commands/main.py` owns parser assembly,
-top-level error handling, and the public command handler re-export surface.
-Domain command modules under `commands/` own support JSON output for bootstrap,
-repair, verification, wrapper backends, and operator debugging. New command
-handlers should be added to the matching domain module rather than growing
-`commands/main.py`.
+top-level error handling, and the public command handler re-export surface. It
+also owns the bare-`omj` welcome screen, including the Hermes-first status
+block (`_welcome_hermes_status`): a bounded, read-only `hermes --version`
+detection plus the recorded setup-profile default executor. That block is
+detect-and-advise only — it never installs Hermes and never fails the
+welcome screen on a detection error. Domain command modules under `commands/`
+own support JSON output for bootstrap, repair, verification, wrapper
+backends, and operator debugging. New command handlers should be added to
+the matching domain module rather than growing `commands/main.py`.
 
 `ingress.py` owns platform-neutral message text and source metadata extraction
 for Discord, Slack, Hermes, and generic wrapper event shapes.
@@ -357,7 +361,11 @@ Roles are descriptors for chat/status clarity, not runtime agent evidence.
 `roles.py` remains only as a compatibility adapter.
 
 `profiles/setup.py` owns setup profile categories, executor defaults, and the
-selected operating model recorded by `omj setup --operating-model <id>`.
+selected operating model recorded by `omj setup --operating-model <id>`. The
+zero-config default executor is Hermes (`hermes-retained` category,
+`dispatch_policy: prepare_only`); `--default-executor choose` still restores
+ask-every-time behavior.
+
 Operating models are lightweight collaboration defaults such as solo operator,
 small team, research ops, or coding runtime team. They change routing and
 status narration defaults; setup state persists only the stable

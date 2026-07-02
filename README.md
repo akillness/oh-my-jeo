@@ -15,7 +15,7 @@
   <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-949%20passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-953%20passing-success">
   <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
@@ -63,12 +63,19 @@ and more repeatable.
 curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
 
 # 2. install Hermes if you don't have it yet, then wire OMJ into it
-omj hermes install --apply             # bootstraps github.com/nousresearch/hermes-agent
-omj setup --default-executor hermes    # connect OMJ + pick Hermes as your coding runtime
+omj hermes install --apply    # bootstraps github.com/nousresearch/hermes-agent
+omj setup                     # connect OMJ; Hermes is the default coding runtime
 
 # 3. restart Hermes, then sanity-check
 omj doctor
 ```
+
+> This exact copy-paste path — `install.sh`, `omj setup`, `omj doctor`, plus a
+> live Hermes tap/setup skill smoke (`skill tap list/add`, `skills list`,
+> `skill check`, `doctor`) — is periodically re-verified end to end against an
+> isolated temp `HOME`/Hermes profile with `omj release install-smoke --live`
+> and `omj release hermes-smoke --live`, not just exercised in plan mode. See
+> [Release Process](docs/RELEASE.md) for the full live-smoke gate.
 
 Then talk to Hermes in plain language (no new CLI needed for daily work):
 
@@ -103,11 +110,12 @@ hermes skills install akillness/oh-my-jeo/skills/oh-my-jeo --yes
 `omj setup` is the one explicit step that makes OMJ usable from Hermes. It
 expects the [Hermes Agent](https://github.com/nousresearch/hermes-agent) runtime
 to be present — if it isn't, run `omj hermes install --apply` first (or add
-`--with-hermes` to the setup command below). Run setup once and pick Hermes as
-your coding runtime:
+`--with-hermes` to the setup command below). OMJ is **Hermes-first**: setup
+records Hermes as the default coding owner unless you pick another executor,
+and a bare `omj` invocation opens with a Hermes runtime status block:
 
 ```sh
-omj setup --default-executor hermes   # add --with-mcp to also expose the MCP bridge
+omj setup   # Hermes is the default; add --with-mcp to also expose the MCP bridge
 ```
 
 The setup wizard performs six bounded actions and prints what each one touched:
@@ -116,7 +124,8 @@ The setup wizard performs six bounded actions and prints what each one touched:
 2. Connects OMJ to Hermes via `~/.hermes/config.yaml` (`skills.external_dirs`).
 3. Installs the OMJ status helper / plugin bridge to `~/.hermes/plugins/omj`.
 4. Records your optional tool-bridge (MCP) preference.
-5. Saves your coding-request preference (here, **Hermes**).
+5. Saves your coding-request preference (**Hermes** by default; pass
+   `--default-executor` to change it, or `choose` to be asked every time).
 6. Checks that at least one Hermes profile is detected.
 
 Run `omj setup --dry-run` first to preview every path without changing files,
@@ -254,7 +263,7 @@ OMJ quickstart
 Summary
   Status: needs attention
   OMJ version: 1.3.1
-  Local install: needs_attention (7/55 checks)
+  Local install: needs_attention (8/56 checks)
   Plugin bridge: missing
 Try one prompt
   - safe feature work: Use OMJ request-to-handoff for: I want to safely add a feature to this repo.
@@ -411,7 +420,7 @@ Token metadata is honest about provenance: pass real host counters
 (`omj hud --json --tokens-remaining 12000 --token-budget 30000`) and `tokens`
 reports `status: observed_from_host_metadata` with the computed summary; omit
 them and it stays `unobserved`. An empty home never fakes activity — it reports
-`plugin:not-installed | plugin-runtime:unobserved | coding-agent:idle(ask)`.
+`plugin:not-installed | plugin-runtime:unobserved | coding-agent:idle(hermes)`.
 
 A prepared handoff is **not** execution proof. Observed evidence only exists once
 a runtime record is written under `runtime/` — see [Evidence Boundaries](#evidence-boundaries).
