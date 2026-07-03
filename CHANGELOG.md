@@ -3,6 +3,22 @@
 
 ## Unreleased
 
+- Bare `omj` now offers a one-time interactive install prompt when the Hermes
+  runtime is missing and no auto-install decision has been recorded yet: a
+  "yes" answer (or the top-level `--assume-yes` flag) runs the same opt-in
+  upstream installer as `omj hermes install --apply` and records the consent;
+  a "no" answer (or the top-level `--no-hermes-prompt` flag) keeps the
+  welcome screen at plain detect-and-advise and never asks again either way.
+  The decision is persisted as `hermes_auto_install` in the setup profile via
+  `record_hermes_auto_install_consent` (`src/profiles/setup.py`), and the
+  bare-`omj` entry point is `_bare_omj_hermes_bootstrap`
+  (`src/commands/main.py`). Running `omj setup --with-hermes` or
+  `omj setup --autopilot` for real (not `--dry-run`) records the same
+  consent after a successful install request, so either entry point suffices
+  and the two never ask twice between them. This stays fully opt-in: there is
+  no silent or unconditional install, and non-interactive/CI runs with no
+  recorded decision are completely unaffected — unchanged detect-and-advise
+  only, exactly as before.
 - OMJ is now Hermes-first out of the box. A plain `omj setup` (interactive or
   `--yes`) records **Hermes** as the default coding owner
   (`default_executor: hermes`, `dispatch_policy: prepare_only`) instead of

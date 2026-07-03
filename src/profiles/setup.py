@@ -98,6 +98,8 @@ def build_setup_profile(
         "hidden_execution": False,
         "choices": setup_profile_choices(),
         "claim_boundary": "Setup records routing defaults only; it does not prove Hermes used a skill or any executor ran.",
+        "hermes_auto_install": None,
+        "hermes_auto_install_recorded_at": None,
     }
 
 
@@ -110,12 +112,36 @@ def write_setup_profile(
     memory_mode: str | None = None,
 ) -> dict[str, Any]:
     profile = build_setup_profile(values, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+    existing = read_setup_profile(paths)
+    if isinstance(existing, dict) and existing.get("hermes_auto_install") is not None:
+        # Preserve a previously recorded Hermes auto-install decision (yes or no)
+        # across profile rewrites so re-running `omj setup` never silently
+        # re-asks or forgets an explicit operator opt-in.
+        profile["hermes_auto_install"] = existing.get("hermes_auto_install")
+        profile["hermes_auto_install_recorded_at"] = existing.get("hermes_auto_install_recorded_at")
     atomic_write_json(paths.setup_profile_path, profile, private=True)
     return profile
 
 
 def read_setup_profile(paths: OmjPaths) -> dict[str, Any] | None:
     return read_json_object(paths.setup_profile_path)
+
+
+def record_hermes_auto_install_consent(paths: OmjPaths, consent: bool) -> dict[str, Any]:
+    """Persist an explicit operator decision on Hermes runtime auto-install.
+
+    Called after an operator answers the bare `omj` welcome prompt, or after an
+    explicit `omj setup --with-hermes`/`--autopilot` opt-in. Once recorded, the
+    decision (yes or no) is never asked again; `omj` reads it back to decide
+    whether to auto-install a missing Hermes runtime without prompting.
+    """
+
+    existing = read_setup_profile(paths)
+    profile = dict(existing) if isinstance(existing, dict) else build_setup_profile()
+    profile["hermes_auto_install"] = bool(consent)
+    profile["hermes_auto_install_recorded_at"] = utc_now()
+    atomic_write_json(paths.setup_profile_path, profile, private=True)
+    return profile
 
 
 def setup_profile_categories_for_executor(executor: str) -> list[str]:

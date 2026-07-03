@@ -39,6 +39,43 @@ class CliTests(unittest.TestCase):
         self.assertIn("If this screen appears after `omj uninstall`", stdout)
         self.assertIn("omj --help", stdout)
 
+    def test_no_arg_cli_stays_advise_only_by_default_when_hermes_missing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            args = [
+                "--omj-home", str(Path(tmp) / ".omj"),
+                "--hermes-home", str(Path(tmp) / ".hermes"),
+            ]
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch("omj.hermes_bootstrap.run_hermes_install") as mock_install, \
+                 patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                status, stdout, stderr = run_cli(args, output_json=False)
+        self.assertEqual(status, 0)
+        self.assertEqual(stderr, "")
+        self.assertIn(
+            "Hermes runtime: not detected (run `omj hermes install` for the plan)",
+            stdout,
+        )
+        mock_install.assert_not_called()
+
+    def test_no_arg_cli_with_no_hermes_prompt_stays_advise_only(self) -> None:
+        with TemporaryDirectory() as tmp:
+            args = [
+                "--omj-home", str(Path(tmp) / ".omj"),
+                "--hermes-home", str(Path(tmp) / ".hermes"),
+                "--no-hermes-prompt",
+            ]
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch("omj.hermes_bootstrap.run_hermes_install") as mock_install, \
+                 patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                status, stdout, stderr = run_cli(args, output_json=False)
+        self.assertEqual(status, 0)
+        self.assertEqual(stderr, "")
+        self.assertIn(
+            "Hermes runtime: not detected (run `omj hermes install` for the plan)",
+            stdout,
+        )
+        mock_install.assert_not_called()
+
     def test_root_help_explains_command_lanes(self) -> None:
         help_text = build_parser().format_help()
 

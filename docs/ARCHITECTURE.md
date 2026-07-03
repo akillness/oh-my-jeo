@@ -261,9 +261,16 @@ evidence. Plain `omj menubar status` remains metadata-only.
 top-level error handling, and the public command handler re-export surface. It
 also owns the bare-`omj` welcome screen, including the Hermes-first status
 block (`_welcome_hermes_status`): a bounded, read-only `hermes --version`
-detection plus the recorded setup-profile default executor. That block is
-detect-and-advise only — it never installs Hermes and never fails the
-welcome screen on a detection error. Domain command modules under `commands/`
+detection plus the recorded setup-profile default executor. That block stays
+read-only and never fails the welcome screen on a detection error, but when no
+auto-install decision is recorded yet and Hermes is missing, an interactive
+run (or one passed `--assume-yes`) is offered a one-time install prompt via
+the `_bare_omj_hermes_bootstrap` helper; the top-level `--assume-yes` and
+`--no-hermes-prompt` flags control that prompt without a subcommand, and the
+answer is persisted through `record_hermes_auto_install_consent` in
+`profiles/setup.py` (`hermes_auto_install` in the setup profile) so later
+invocations never ask twice.
+Domain command modules under `commands/`
 own support JSON output for bootstrap, repair, verification, wrapper
 backends, and operator debugging. New command handlers should be added to
 the matching domain module rather than growing `commands/main.py`.

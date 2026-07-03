@@ -112,7 +112,10 @@ expects the [Hermes Agent](https://github.com/nousresearch/hermes-agent) runtime
 to be present — if it isn't, run `omj hermes install --apply` first (or add
 `--with-hermes` to the setup command below). OMJ is **Hermes-first**: setup
 records Hermes as the default coding owner unless you pick another executor,
-and a bare `omj` invocation opens with a Hermes runtime status block:
+and a bare `omj` invocation opens with a Hermes runtime status block. If
+Hermes isn't installed yet, that first bare `omj` run asks once whether to
+install it (pass `--assume-yes` to skip the prompt, or `--no-hermes-prompt`
+to never ask and stay detect-only) — the answer is remembered for later runs:
 
 ```sh
 omj setup   # Hermes is the default; add --with-mcp to also expose the MCP bridge
@@ -510,6 +513,15 @@ understand first. The rest live in [Workflow Reference](docs/WORKFLOWS.md) and
 - **Source Finder** (`source-finder`) — prepare typed source candidates.
 - **Idea To Deploy** (`idea-to-deploy`) — scope coding work for Codex, Claude
   Code, Hermes, or another runtime without claiming execution.
+- **Team** (`team`) — coordinate multiple workers in parallel or sequential
+  lanes; each lane keeps its own owner, disjoint scope, and ACK/result
+  evidence instead of blurring progress into one narration.
+- **Ultrawork** (`ultrawork`) — split an *accepted* plan into disjoint
+  parallel implementation lanes for higher throughput, with per-lane
+  acceptance criteria, verification commands, and worktree isolation.
+- **Ralph** (`ralph`) — keep one owner on persistent execution until a
+  concrete pass/block stop condition is met, with evidence recorded after
+  every step.
 - **Workflow Learning** (`workflow-learning`) — turn missed routes into traces,
   evals, review queues, regression cases, and patch proposals.
 
@@ -587,11 +599,34 @@ execution evidence.
 
 <br>
 
+## Recent Changes
+
+- **Unreleased** — Bare `omj` now offers a one-time interactive prompt (or
+  `--assume-yes`) to install a missing Hermes runtime, remembers the answer
+  (`hermes_auto_install`) so it never asks twice, and Hermes is now the
+  default coding owner out of the box.
+- **1.3.1** (2026-07-02) — Bounded the global observation journal so
+  long-running workflows (`ralph`, `omj hud --watch`) no longer grow
+  memory/CPU cost without limit.
+- **1.3.0** (2026-07-01) — Coding-delegation prompts now embed reviewed
+  project memory directly in the prompt text, plus a failure-capture nudge
+  and two new MCP memory tools.
+- **1.2.1** (2026-07-01) — Bounded the `loop` workflow's persisted
+  queue/feedback history and fixed a duplicate-enqueue race on blocked loops.
+- **1.2.0** (2026-07-01) — Ported failure-first (OKF) project memory
+  (`omj memory record-failure`, failure-first recall ordering) and made
+  `install.sh`/`omj setup --autopilot` bootstrap Hermes by default.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full history.
+
+<br>
+
 ## Documentation
 
 | Need | Read |
 | --- | --- |
 | Full docs map | [Documentation](docs/README.md) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Install, update, reapply, uninstall | [Installation](docs/INSTALLATION.md) |
 | Install the Hermes Agent runtime | [Hermes Agent repo](https://github.com/nousresearch/hermes-agent) · [OMJ bootstrap](docs/INSTALLATION.md) |
 | AI-agent pasteable install protocol | [Agent Install](INSTALL_FOR_AGENTS.md) |

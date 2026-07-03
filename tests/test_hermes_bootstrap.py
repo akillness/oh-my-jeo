@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from _local_package import load_local_package
 
@@ -396,6 +399,155 @@ class SetupWithHermesTests(unittest.TestCase):
         text = buffer.getvalue()
         self.assertIn("Hermes runtime: install failed", text)
         self.assertIn("Autopilot: doctor needs attention", text)
+
+
+class BareOmjHermesAutoInstallTests(unittest.TestCase):
+    def _paths(self, tmp: str):
+        from omj.paths import resolve_paths
+
+        return resolve_paths(str(Path(tmp) / ".omj"), str(Path(tmp) / ".hermes"), scope=None)
+
+    def test_interactive_first_run_yes_answer_installs_and_persists_consent(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch(
+                     "omj.hermes_bootstrap.run_hermes_install",
+                     return_value={"ok": True, "detected": {"version": "1.2.3"}},
+                 ) as mock_install, \
+                 patch("builtins.input", return_value="y"):
+                line = _bare_omj_hermes_bootstrap(paths, None, assume_yes=False, no_prompt=False, interactive=True)
+            self.assertEqual(line, "Hermes runtime: installed and detected (1.2.3)")
+            mock_install.assert_called_once()
+            profile = read_setup_profile(paths)
+            self.assertIsNotNone(profile)
+            self.assertTrue(profile["hermes_auto_install"])
+            self.assertIsNotNone(profile["hermes_auto_install_recorded_at"])
+
+    def test_interactive_first_run_other_answer_declines_and_never_installs(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch("omj.hermes_bootstrap.run_hermes_install") as mock_install, \
+                 patch("builtins.input", return_value="whatever"):
+                line = _bare_omj_hermes_bootstrap(paths, None, assume_yes=False, no_prompt=False, interactive=True)
+            self.assertEqual(line, "Hermes runtime: not detected (run `omj hermes install` for the plan)")
+            mock_install.assert_not_called()
+            profile = read_setup_profile(paths)
+            self.assertIsNotNone(profile)
+            self.assertFalse(profile["hermes_auto_install"])
+            self.assertIsNotNone(profile["hermes_auto_install_recorded_at"])
+
+    def test_recorded_consent_true_auto_installs_without_prompting(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile, record_hermes_auto_install_consent
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            record_hermes_auto_install_consent(paths, True)
+            profile = read_setup_profile(paths)
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch(
+                     "omj.hermes_bootstrap.run_hermes_install",
+                     return_value={"ok": True, "detected": {"version": "9.9.9"}},
+                 ) as mock_install, \
+                 patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                line = _bare_omj_hermes_bootstrap(paths, profile, assume_yes=False, no_prompt=False, interactive=False)
+        self.assertEqual(line, "Hermes runtime: installed and detected (9.9.9)")
+        mock_install.assert_called_once()
+
+    def test_recorded_consent_false_never_prompts_or_installs_again(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile, record_hermes_auto_install_consent
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            record_hermes_auto_install_consent(paths, False)
+            profile = read_setup_profile(paths)
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch("omj.hermes_bootstrap.run_hermes_install") as mock_install, \
+                 patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                line = _bare_omj_hermes_bootstrap(paths, profile, assume_yes=False, no_prompt=False, interactive=True)
+        self.assertEqual(line, "Hermes runtime: not detected (run `omj hermes install` for the plan)")
+        mock_install.assert_not_called()
+
+    def test_non_interactive_no_recorded_consent_never_prompts_or_installs(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch("omj.hermes_bootstrap.run_hermes_install") as mock_install, \
+                 patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                line = _bare_omj_hermes_bootstrap(paths, None, assume_yes=False, no_prompt=False, interactive=False)
+        self.assertEqual(line, "Hermes runtime: not detected (run `omj hermes install` for the plan)")
+        mock_install.assert_not_called()
+        self.assertIsNone(read_setup_profile(paths))
+
+    def test_no_prompt_flag_short_circuits_regardless_of_interactive(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            for interactive_flag in (True, False):
+                with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                     patch("omj.hermes_bootstrap.run_hermes_install") as mock_install, \
+                     patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                    line = _bare_omj_hermes_bootstrap(
+                        paths, None, assume_yes=False, no_prompt=True, interactive=interactive_flag
+                    )
+                self.assertEqual(line, "Hermes runtime: not detected (run `omj hermes install` for the plan)")
+                mock_install.assert_not_called()
+            self.assertIsNone(read_setup_profile(paths))
+
+    def test_assume_yes_auto_confirms_without_input_installs_and_records(self) -> None:
+        from omj.commands.main import _bare_omj_hermes_bootstrap
+        from omj.setup_profiles import read_setup_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            with patch("omj.hermes_bootstrap.detect_hermes", return_value={"found": False}), \
+                 patch(
+                     "omj.hermes_bootstrap.run_hermes_install",
+                     return_value={"ok": True, "detected": {"version": "2.0.0"}},
+                 ) as mock_install, \
+                 patch("builtins.input", side_effect=AssertionError("input must not be called")):
+                line = _bare_omj_hermes_bootstrap(paths, None, assume_yes=True, no_prompt=False, interactive=False)
+            self.assertEqual(line, "Hermes runtime: installed and detected (2.0.0)")
+            mock_install.assert_called_once()
+            profile = read_setup_profile(paths)
+            self.assertIsNotNone(profile)
+            self.assertTrue(profile["hermes_auto_install"])
+
+    def test_build_setup_profile_includes_hermes_auto_install_defaults(self) -> None:
+        from omj.setup_profiles import build_setup_profile
+
+        profile = build_setup_profile()
+        self.assertIn("hermes_auto_install", profile)
+        self.assertIsNone(profile["hermes_auto_install"])
+        self.assertIn("hermes_auto_install_recorded_at", profile)
+        self.assertIsNone(profile["hermes_auto_install_recorded_at"])
+
+    def test_write_setup_profile_preserves_recorded_hermes_auto_install(self) -> None:
+        from omj.setup_profiles import record_hermes_auto_install_consent, write_setup_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(tmp)
+            recorded = record_hermes_auto_install_consent(paths, True)
+            recorded_at = recorded["hermes_auto_install_recorded_at"]
+
+            rewritten = write_setup_profile(paths)
+
+        self.assertTrue(rewritten["hermes_auto_install"])
+        self.assertEqual(rewritten["hermes_auto_install_recorded_at"], recorded_at)
 
 
 if __name__ == "__main__":
