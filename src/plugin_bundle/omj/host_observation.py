@@ -116,6 +116,20 @@ def observe_plugin_hook_call(hook_name: str, kwargs: dict[str, Any]) -> dict[str
     return _record_observation(metadata, event="hook_call", tool="", hook=hook_name)
 
 
+def observe_plugin_session_end_call(hook_name: str, kwargs: dict[str, Any]) -> dict[str, Any] | None:
+    """Record a session-end host observation.
+
+    Uses the distinct ``session_end`` event (not ``hook_call``) so it bypasses the
+    live hook/tool throttle in ``_runtime_observation_throttled`` and downgrades
+    ``runtime_readiness`` to ``historical_runtime_observed`` per
+    ``PLUGIN_HOST_HISTORICAL_OBSERVATION_EVENTS`` instead of silently reusing (and
+    being throttled by) whatever ``active_runtime_observed`` signal a prior
+    ``pre_llm_call``/``pre_tool_call`` in the same session already recorded.
+    """
+    metadata = _observation_metadata({}, kwargs)
+    return _record_observation(metadata, event="session_end", tool="", hook=hook_name)
+
+
 def public_observation(record: dict[str, Any] | None) -> dict[str, Any] | None:
     if not record:
         return None
@@ -340,6 +354,8 @@ def _default_message(*, event: str, tool: str, hook: str) -> str:
         return f"OMJ plugin tool {tool} observed with host/session metadata."
     if event == "hook_call":
         return f"OMJ plugin hook {hook} observed with host/session metadata."
+    if event == "session_end":
+        return f"OMJ plugin hook {hook} observed a session end; downgrading runtime readiness to historical."
     return "OMJ plugin host observation recorded with metadata-only context."
 
 

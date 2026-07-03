@@ -267,7 +267,8 @@ def run_doctor(paths: OmjPaths) -> list[Check]:
                         if latest_plugin_active
                         else (
                             "Record an active Hermes plugin event "
-                            f"({', '.join(PLUGIN_HOST_ACTIVE_OBSERVATION_EVENTS)}) before claiming native runtime readiness."
+                            f"({', '.join(PLUGIN_HOST_ACTIVE_OBSERVATION_EVENTS)}) before claiming native runtime readiness. "
+                            "Watch it flip live with `omj hud --watch` once Hermes actually uses OMJ."
                         )
                     ),
                     observed=bool(latest_plugin_observation and latest_plugin_observation.get("observed")),

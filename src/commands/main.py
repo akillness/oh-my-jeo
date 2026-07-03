@@ -197,8 +197,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  omj playbook recommend \"turn this issue into a PR\"\n"
             "  omj providers doctor\n"
             "  omj chat interact \"turn this issue into a PR-ready plan\"\n"
-            "  omj hud\n"
-            "  omj menubar status\n"
+            "  omj hud --watch\n"
+            "  omj menubar install\n"
             "  omj mcp manifest\n"
             "  omj mcp config-recipe --host codex\n"
             "  omj release evidence-bundle --version 1.0.1 --write\n"
@@ -226,6 +226,20 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("user", "project"),
         default=None,
         help="Choose default OMJ/Hermes paths when explicit homes are not supplied.",
+    )
+    parser.add_argument(
+        "--assume-yes",
+        action="store_true",
+        help=(
+            "On the bare `omj` welcome screen, auto-confirm installing the Hermes runtime OMJ "
+            "wraps when it is missing (network, mutating) and record that consent so future "
+            "runs install/use it without asking again."
+        ),
+    )
+    parser.add_argument(
+        "--no-hermes-prompt",
+        action="store_true",
+        help="On the bare `omj` welcome screen, never prompt to install the Hermes runtime; stay detect-and-advise only.",
     )
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
@@ -261,31 +275,105 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _bare_omj_hermes_bootstrap(
+    paths,
+    profile: dict | None,
+    *,
+    assume_yes: bool,
+    no_prompt: bool,
+    interactive: bool,
+) -> str:
+    """Resolve the Hermes runtime line for the bare `omj` welcome screen.
+
+    Detection is always local and read-only. When Hermes is missing and no
+    auto-install decision is recorded yet, this asks once (only when
+    ``interactive`` and neither ``assume_yes`` nor ``no_prompt`` short-circuit
+    the question) and persists the answer via
+    ``record_hermes_auto_install_consent`` so later runs never ask again: a
+    recorded "yes" auto-installs without prompting, a recorded "no" (or a
+    non-interactive run with nothing recorded) stays detect-and-advise only.
+    """
+
+    from ..hermes_bootstrap import detect_hermes, run_hermes_install
+    from ..setup_profiles import record_hermes_auto_install_consent
+
+    try:
+        detected = detect_hermes(timeout_seconds=5)
+    except Exception:  # noqa: BLE001 - welcome must never fail on detection
+        return "Hermes runtime: detection unavailable"
+    if detected.get("found"):
+        version = str(detected.get("version", "")).strip()
+        return f"Hermes runtime: detected ({version})" if version else "Hermes runtime: detected"
+
+    not_detected_line = "Hermes runtime: not detected (run `omj hermes install` for the plan)"
+    consent = profile.get("hermes_auto_install") if isinstance(profile, dict) else None
+
+    if consent is None:
+        if no_prompt:
+            return not_detected_line
+        if assume_yes:
+            consent = True
+        elif interactive:
+            try:
+                answer = input(
+                    "Hermes runtime not detected. Install it now via the official upstream "
+                    "installer and use it by default from now on? [y/N]: "
+                ).strip().lower()
+            except (EOFError, OSError):
+                return not_detected_line
+            consent = answer in {"y", "yes"}
+        else:
+            return not_detected_line
+        try:
+            record_hermes_auto_install_consent(paths, consent)
+        except Exception:  # noqa: BLE001 - welcome must never fail on a profile write error
+            pass
+
+    if not consent:
+        return not_detected_line
+
+    try:
+        result = run_hermes_install()
+    except Exception:  # noqa: BLE001 - welcome must never fail on an install attempt
+        return "Hermes runtime: install attempt failed; run `omj hermes install --apply` for details"
+    if not bool(result.get("ok", False)):
+        return "Hermes runtime: install attempt failed; run `omj hermes install --apply` for details"
+    after = result.get("detected")
+    after = after if isinstance(after, dict) else {}
+    version = str(after.get("version", "")).strip()
+    return f"Hermes runtime: installed and detected ({version})" if version else "Hermes runtime: installed and detected"
+
+
 def _welcome_hermes_status(args: argparse.Namespace) -> str:
     """Build the Hermes-first status block for the bare `omj` welcome screen.
 
-    Local detection only: reads the setup profile and probes `hermes --version`.
-    Never mutates state and never installs anything.
+    Runtime detection is always local and read-only. Installing the Hermes
+    runtime never happens silently: it is always gated by an explicit
+    interactive "yes", `--assume-yes`, or a previously recorded "yes" from
+    either this prompt or `omj setup --with-hermes`/`--autopilot`.
     """
 
-    from ..hermes_bootstrap import detect_hermes
     from ..setup_profiles import read_setup_profile
 
-    runtime_line = "Hermes runtime: not detected (run `omj hermes install` for the plan)"
-    profile_line = "Default coding owner: hermes (baseline; run `omj setup` to record it)"
+    paths = _paths_for_welcome(args)
+    profile: dict | None = None
     try:
-        detected = detect_hermes(timeout_seconds=5)
-        if detected.get("found"):
-            version = str(detected.get("version", "")).strip()
-            runtime_line = f"Hermes runtime: detected ({version})" if version else "Hermes runtime: detected"
-    except Exception:  # noqa: BLE001 - welcome must never fail on detection
-        runtime_line = "Hermes runtime: detection unavailable"
-    try:
-        profile = read_setup_profile(_paths_for_welcome(args))
-        if isinstance(profile, dict) and str(profile.get("default_executor", "")).strip():
-            profile_line = f"Default coding owner: {profile['default_executor']} (from `omj setup`)"
+        profile = read_setup_profile(paths)
     except Exception:  # noqa: BLE001 - welcome must never fail on a bad profile
-        pass
+        profile = None
+
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    runtime_line = _bare_omj_hermes_bootstrap(
+        paths,
+        profile,
+        assume_yes=bool(getattr(args, "assume_yes", False)),
+        no_prompt=bool(getattr(args, "no_hermes_prompt", False)),
+        interactive=interactive,
+    )
+
+    profile_line = "Default coding owner: hermes (baseline; run `omj setup` to record it)"
+    if isinstance(profile, dict) and str(profile.get("default_executor", "")).strip():
+        profile_line = f"Default coding owner: {profile['default_executor']} (from `omj setup`)"
     return f"Hermes-first status:\n  {runtime_line}\n  {profile_line}"
 
 
@@ -340,7 +428,9 @@ Useful operator commands:
   omj providers doctor   Diagnose host provider-auth config (metadata-only)
   omj chat interact "turn this issue into a PR-ready plan"
   omj hud                Show the compact OMJ status line
+  omj hud --watch        Keep refreshing the status line until interrupted
   omj menubar status     Show the menu bar app status view model
+  omj menubar install    Install/start the always-on macOS menu bar helper
   omj mcp manifest       Print the optional stdio MCP bridge manifest
   omj release evidence-bundle --version 1.0.1 --write
                           Write local deterministic release evidence

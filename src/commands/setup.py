@@ -48,6 +48,7 @@ from ..runtime.artifacts import read_state_result, update_state
 from ..setup_profiles import (
     PROJECT_MEMORY_MODES,
     build_setup_profile,
+    record_hermes_auto_install_consent,
     setup_profile_categories_for_executor,
     write_setup_profile,
 )
@@ -544,13 +545,16 @@ def _setup_scope(args: argparse.Namespace) -> str:
     return "project" if str(getattr(args, "scope", "") or "").strip().lower() == "project" else "user"
 
 
-def _hermes_runtime_setup_result(args: argparse.Namespace) -> dict[str, object]:
+def _hermes_runtime_setup_result(args: argparse.Namespace, paths=None) -> dict[str, object]:
     """Optionally bootstrap the Hermes runtime as part of `omj setup`.
 
     Default setup never touches the network: it only detects the runtime and
     reports presence. `--with-hermes` (or `--autopilot`) opts in to running the
     upstream installer, except under `--dry-run`, which prepares the install
-    command only.
+    command only. A real (non-dry-run) `--with-hermes`/`--autopilot` request is
+    an explicit operator opt-in, so it is also recorded as a Hermes
+    auto-install consent when `paths` is supplied: later bare `omj` runs then
+    install/use a missing Hermes runtime automatically instead of asking again.
     """
 
     method = str(getattr(args, "hermes_method", DEFAULT_INSTALL_METHOD) or DEFAULT_INSTALL_METHOD)
@@ -579,6 +583,11 @@ def _hermes_runtime_setup_result(args: argparse.Namespace) -> dict[str, object]:
     result["requested"] = True
     result["autopilot"] = autopilot
     result["status"] = "already_present" if result.get("already_present") and not result.get("executed") else ("installed" if result.get("ok") else "install_failed")
+    if paths is not None:
+        try:
+            record_hermes_auto_install_consent(paths, True)
+        except Exception:  # noqa: BLE001 - an explicit opt-in must still surface install results even if the profile write fails
+            pass
     return result
 
 
@@ -1130,7 +1139,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         "target_topology": steps["targets"]["topology"],
         "wrapper_backend_surface": "omj chat interact and runtime commands are adapter/operator contracts, not the normal chat UX",
     }
-    steps["hermes_runtime"] = _hermes_runtime_setup_result(args)
+    steps["hermes_runtime"] = _hermes_runtime_setup_result(args, paths)
     steps["autopilot"] = _autopilot_verification_result(args, paths, steps)
 
 
@@ -1755,6 +1764,7 @@ def _print_setup_summary(payload: dict[str, object], *, language: str = "en") ->
         print(f"  {tr(language, 'setup_next_reload')}")
         print(f"  {tr(language, 'setup_next_prompt')}")
         print(f"  {tr(language, 'setup_next_verify')}")
+        print(f"  {tr(language, 'setup_next_hud')}")
     print(f"  {tr(language, 'machine_readable')}")
 
 
@@ -2558,10 +2568,13 @@ def _setup_profile_result(args: argparse.Namespace, paths) -> dict[str, object]:
     default_executor = str(getattr(args, "default_executor", "") or "") or None
     operating_model = str(getattr(args, "operating_model", "") or "") or None
     memory_mode = str(getattr(args, "memory_mode", "") or "") or None
-    if args.dry_run:
-        profile = build_setup_profile(args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
-        return {**profile, "dry_run": True, "written": False, "path": str(paths.setup_profile_path)}
-    profile = write_setup_profile(paths, args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+    try:
+        if args.dry_run:
+            profile = build_setup_profile(args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+            return {**profile, "dry_run": True, "written": False, "path": str(paths.setup_profile_path)}
+        profile = write_setup_profile(paths, args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+    except ValueError as exc:
+        raise OmjError(str(exc)) from exc
     return {**profile, "dry_run": False, "written": True, "path": str(paths.setup_profile_path)}
 
 

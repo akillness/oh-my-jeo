@@ -9,6 +9,7 @@ from unittest import mock
 from omj.plugin_bundle.omj.host_observation import (
     _reset_runtime_observation_throttle,
     observe_plugin_hook_call,
+    observe_plugin_session_end_call,
     observe_plugin_tool_call,
 )
 from omj.plugin_bundle.omj.runtime_reader import read_omj_hud
@@ -148,6 +149,41 @@ class PluginRuntimeAutoObserveTests(unittest.TestCase):
             )
             self.assertIsNotNone(third)
             self.assertEqual(_observation_count(home), 2)
+
+    def test_session_end_downgrades_readiness_after_live_hook_observation(self) -> None:
+        self._scrub_env()
+        with TemporaryDirectory() as tmp:
+            home = Path(tmp) / ".omj"
+            live = observe_plugin_hook_call(
+                "pre_llm_call", {"session_id": "sess-end", "host": "hermes-agent", "omj_home": str(home)}
+            )
+            self.assertIsNotNone(live)
+            self.assertEqual(_state(home)["last_plugin_runtime_readiness"], "active_runtime_observed")
+
+            hud_live = read_omj_hud(omj_home=home, preset="full")
+            self.assertTrue(hud_live["plugin"]["runtime_active"])
+            self.assertIn("plugin-runtime:live", hud_live["display"]["line"])
+
+            # A stale hook_call/on_session_end collision must not silently drop this:
+            # on_session_end uses the distinct "session_end" event, so it bypasses the
+            # hook_call throttle already consumed by pre_llm_call above.
+            ended = observe_plugin_session_end_call(
+                "on_session_end", {"session_id": "sess-end", "host": "hermes-agent", "omj_home": str(home)}
+            )
+            self.assertIsNotNone(ended)
+            assert ended is not None
+            self.assertEqual(ended["event"], "session_end")
+            self.assertEqual(ended["runtime_readiness"], "historical_runtime_observed")
+
+            state = _state(home)
+            self.assertEqual(state["last_plugin_runtime_readiness"], "historical_runtime_observed")
+            self.assertIsNone(state["last_plugin_runtime_observed"])
+
+            hud_after = read_omj_hud(omj_home=home, preset="full")
+            self.assertFalse(hud_after["plugin"]["runtime_active"])
+            self.assertTrue(hud_after["plugin"]["runtime_observed"])
+            self.assertIn("plugin-runtime:observed", hud_after["display"]["line"])
+            self.assertNotIn("plugin-runtime:live", hud_after["display"]["line"])
 
     def _scrub_env_except(self, keep: set[str]) -> None:
         import os

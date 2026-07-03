@@ -14,6 +14,7 @@ def cmd_hud(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         print(payload["display"]["line"])
+        _print_hud_idle_hint(payload)
     if not getattr(args, "watch", False):
         return 0
     while True:
@@ -22,7 +23,25 @@ def cmd_hud(args: argparse.Namespace) -> int:
         if _wants_json(args):
             _print_json(payload)
         else:
-            print(payload["display"]["line"], flush=True)
+            print(f"{payload['display']['line']} | checked:{time.strftime('%H:%M:%S')}", flush=True)
+
+
+def _print_hud_idle_hint(payload: dict[str, Any]) -> None:
+    plugin = payload.get("plugin", {})
+    if plugin.get("runtime_active") or plugin.get("runtime_observed"):
+        return
+    if str(plugin.get("status", "") or "") == "missing":
+        hint = (
+            "note: no OMJ Hermes plugin bridge installed yet. Run `omj setup` to install it, then use "
+            "OMJ inside Hermes so this line can reflect live plugin activity."
+        )
+    else:
+        hint = (
+            "note: no live Hermes plugin activity observed yet (reflects local files only). Use "
+            "`omj hud --watch` to keep watching, or `omj menubar install` (macOS) for an always-on view; "
+            "see `omj doctor` for setup gaps."
+        )
+    print(hint)
 
 
 def _hud_payload(args: argparse.Namespace) -> dict[str, Any]:

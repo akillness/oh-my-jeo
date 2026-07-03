@@ -73,6 +73,10 @@ def _default_hermes_home() -> Path:
     return _expand_path(os.environ.get("HERMES_HOME", "~/.hermes"))
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -303,6 +307,7 @@ def read_omj_hud(
         "preset": safe_preset,
         "package": "oh-my-jeo",
         "version": _package_version(state, package_version),
+        "checked_at": _utc_now_iso(),
         "omj_home": str(home),
         "hermes_home": str(hermes),
         "plugin": _plugin_summary(hermes, state),
@@ -641,7 +646,8 @@ def _hud_segments(payload: dict[str, Any], *, preset: str) -> list[str]:
         return [*base, _activity_label(runtime)]
     focused = [*base, f"plugin:{_plugin_display_status(plugin)}"]
     runtime_label = _plugin_runtime_label(plugin)
-    if runtime_label and (runtime_label != "unobserved" or preset == "full"):
+    plugin_installed = str(plugin.get("status", "") or "") != "missing"
+    if runtime_label and (plugin_installed or preset == "full"):
         focused.append(f"plugin-runtime:{runtime_label}")
     topology_label = _topology_label(topology)
     if topology_label != "unknown":

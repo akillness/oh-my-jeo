@@ -49,6 +49,7 @@ def _print_quickstart_card(card: dict[str, object]) -> None:
         f"{target_topology.get('mode', 'unknown')} "
         f"({target_topology.get('known_target_count', 0)} known target(s))"
     )
+    print("  Live status: `omj hud --watch` (or `omj menubar install` on macOS).")
 
     print(_color("Do this in Hermes", "1;32", use_color))
     for line in _string_list(card.get("first_five_minutes", [])):

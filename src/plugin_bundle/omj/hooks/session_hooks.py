@@ -6,12 +6,12 @@ import os
 from pathlib import Path
 import uuid
 
-from ..host_observation import observe_plugin_hook_call
+from ..host_observation import observe_plugin_session_end_call
 
 
 def on_session_end(**kwargs) -> dict[str, str] | None:
     """Record a metadata-only plugin checkpoint when OMJ runtime state exists."""
-    observe_plugin_hook_call("on_session_end", kwargs)
+    observe_plugin_session_end_call("on_session_end", kwargs)
     home = _expand_path(str(kwargs.get("omj_home", "") or "") or os.environ.get("OMJ_HOME", "~/.omj"))
     runtime_dir = home / "runtime"
     if not runtime_dir.exists():
