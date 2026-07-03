@@ -1190,6 +1190,27 @@ def _languages(language: str) -> list[str]:
     return [language]
 
 
+def _section_signal_text(source_kind: str, sections: list[dict[str, Any]]) -> str:
+    """Join section title/body text for domain-keyword detection, excluding
+    unmodified structural template scaffolding (fixed role titles and their
+    "Needs review: provide ..." placeholders) so an empty/default section
+    like meeting's "Risk or missing evidence" cannot masquerade as real
+    security-domain content."""
+    templates = dict(_SECTION_TEMPLATES.get(source_kind, ()))
+    bits: list[str] = []
+    for section in sections:
+        role = str(section.get("role", ""))
+        template_title = templates.get(role, "")
+        title = str(section.get("title", ""))
+        body = str(section.get("image_text", ""))
+        if title and title != template_title:
+            bits.append(title)
+        placeholder = f"Needs review: provide {template_title.lower()}." if template_title else ""
+        if body and body != placeholder:
+            bits.append(body)
+    return " ".join(bits)
+
+
 def _domain_profile_for_card(
     source_kind: str,
     headline: str,
@@ -1202,7 +1223,7 @@ def _domain_profile_for_card(
             source_kind,
             headline,
             source_excerpt,
-            " ".join(f"{section.get('title', '')} {section.get('image_text', '')}" for section in sections),
+            _section_signal_text(source_kind, sections),
         )
         if str(part).strip()
     ).lower()

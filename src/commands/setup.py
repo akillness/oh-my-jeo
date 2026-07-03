@@ -2558,10 +2558,13 @@ def _setup_profile_result(args: argparse.Namespace, paths) -> dict[str, object]:
     default_executor = str(getattr(args, "default_executor", "") or "") or None
     operating_model = str(getattr(args, "operating_model", "") or "") or None
     memory_mode = str(getattr(args, "memory_mode", "") or "") or None
-    if args.dry_run:
-        profile = build_setup_profile(args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
-        return {**profile, "dry_run": True, "written": False, "path": str(paths.setup_profile_path)}
-    profile = write_setup_profile(paths, args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+    try:
+        if args.dry_run:
+            profile = build_setup_profile(args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+            return {**profile, "dry_run": True, "written": False, "path": str(paths.setup_profile_path)}
+        profile = write_setup_profile(paths, args.profile, default_executor=default_executor, operating_model=operating_model, memory_mode=memory_mode)
+    except ValueError as exc:
+        raise OmjError(str(exc)) from exc
     return {**profile, "dry_run": False, "written": True, "path": str(paths.setup_profile_path)}
 
 

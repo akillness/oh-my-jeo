@@ -271,6 +271,31 @@ def record_goal_blocker(
     return _write_goal(paths, goal)
 
 
+def record_goal_blocker_resolution(
+    paths: OmjPaths,
+    goal_id: str,
+    blocker_id: str,
+    summary: str,
+    *,
+    evidence_refs: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    if not summary.strip():
+        raise ValueError("blocker resolution summary is required")
+    goal = read_goal_ledger(paths, goal_id)
+    target = next((blocker for blocker in goal["blockers"] if blocker.get("blocker_id") == blocker_id), None)
+    if target is None:
+        raise ValueError(f"unknown blocker: {blocker_id}")
+    if target.get("status") != "active":
+        raise ValueError(f"cannot resolve blocker {blocker_id} while status is {target.get('status')}")
+    target["status"] = "resolved"
+    target["resolved_at"] = utc_now()
+    target["resolution_summary"] = _safe_summary(summary)
+    target["evidence_refs"] = sorted(set(target.get("evidence_refs", []) + _evidence_refs(evidence_refs)))
+    if goal["status"] == "blocked" and not any(blocker.get("status") == "active" for blocker in goal["blockers"]):
+        goal["status"] = "active"
+    return _write_goal(paths, goal)
+
+
 def record_goal_quality_gate(
     paths: OmjPaths,
     goal_id: str,
@@ -541,6 +566,8 @@ def _allowed_goal_actions(gate: dict[str, Any]) -> list[str]:
     actions = ["continue_goal", "show_status"]
     if gate["missing_required_criteria"]:
         actions.append("record_checkpoint")
+    if gate["active_blockers"]:
+        actions.append("resolve_blocker")
     actions.append("record_blocker")
     if gate["ready"]:
         actions.append("record_completion")
@@ -572,6 +599,7 @@ def _goal_action_plan(goal_id: str, actions: list[str], status_card: dict[str, A
         "show_status": f"omj goal status --goal {goal_id}",
         "record_checkpoint": f"omj goal checkpoint --goal {goal_id} --summary \"<summary>\" --criterion <AC-id> --evidence-ref <evidence>",
         "record_blocker": f"omj goal blocker --goal {goal_id} --summary \"<blocker>\" --evidence-ref <evidence>",
+        "resolve_blocker": f"omj goal resolve-blocker --goal {goal_id} --blocker <blocker-id> --summary \"<resolution>\" --evidence-ref <evidence>",
         "record_completion": f"omj goal complete --goal {goal_id} --evidence-ref <evidence>",
     }
     descriptions = {
@@ -579,6 +607,7 @@ def _goal_action_plan(goal_id: str, actions: list[str], status_card: dict[str, A
         "show_status": "Show the current goal card without changing state.",
         "record_checkpoint": "Record work evidence and satisfy one or more acceptance criteria.",
         "record_blocker": "Record a blocker when progress cannot safely continue.",
+        "resolve_blocker": "Mark an active blocker resolved so completion can proceed.",
         "record_completion": "Mark the goal complete only when the completion gate is ready.",
     }
     return [{"action": action, "command": commands[action], "summary": descriptions[action]} for action in actions]

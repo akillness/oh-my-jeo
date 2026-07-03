@@ -6606,6 +6606,37 @@ class CliTests(unittest.TestCase):
             self.assertEqual(shown["ci"]["status"], "passed")
             self.assertEqual(shown["merge"]["merge_commit"], "abc123")
 
+    def test_runtime_wrapper_command_merges_instead_of_resetting_prior_observations(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes")]
+
+            status, stdout, stderr = run_cli(base + ["coding", "lifecycle", "start", "--record", "risky", "refactor"])
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            run_id = json.loads(stdout)["run"]["run_id"]
+
+            status, stdout, stderr = run_cli(
+                base + ["runtime", "wrapper", "--run", run_id, "--prompt-dispatched", "--response-observed", "--completion-status", "started"]
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            first = json.loads(stdout)["wrapper"]
+            self.assertTrue(first["prompt_dispatched"])
+            self.assertTrue(first["hermes_response_observed"])
+            self.assertFalse(first["verification_observed"])
+
+            status, stdout, stderr = run_cli(
+                base + ["runtime", "wrapper", "--run", run_id, "--verification-observed", "--completion-status", "completed"]
+            )
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            second = json.loads(stdout)["wrapper"]
+            self.assertTrue(second["prompt_dispatched"])
+            self.assertTrue(second["hermes_response_observed"])
+            self.assertTrue(second["verification_observed"])
+            self.assertEqual(second["completion_status"], "completed")
+
     def test_runtime_review_not_required_rejects_required_handoff(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -6852,6 +6883,22 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(status, 2)
         self.assertIn("Codex-only for run-backed tracking", stderr)
+
+    def test_coding_lifecycle_cli_rejects_low_confidence_request_without_creating_a_run(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = ["--omj-home", str(root / ".omj"), "--hermes-home", str(root / ".hermes")]
+            status, _, stderr = run_cli(base + ["coding", "lifecycle", "start", "--record", "--executor", "codex", "fix", "maybe"])
+
+            self.assertEqual(status, 2)
+            self.assertIn("requires a dispatchable Codex executor handoff", stderr)
+
+            status, stdout, stderr = run_cli(base + ["runtime", "validate"])
+            self.assertEqual(stderr, "")
+            self.assertEqual(status, 0)
+            validation = json.loads(stdout)
+            self.assertTrue(validation["ok"])
+            self.assertEqual(validation["runs"], [])
 
     def test_coding_lifecycle_cli_happy_path_reports_completion_for_non_review_task(self) -> None:
         with TemporaryDirectory() as tmp:

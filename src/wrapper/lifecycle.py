@@ -60,6 +60,12 @@ def start_codex_delegation_lifecycle(
     delegation = payload.get("delegation")
     if not isinstance(delegation, dict):
         raise CodingLifecycleError("coding lifecycle payload is missing delegation")
+    if delegation.get("action") != "delegate" or not isinstance(payload.get("executor_handoff"), dict):
+        raise CodingLifecycleError(
+            f"coding lifecycle start requires a dispatchable Codex executor handoff; "
+            f"got action={delegation.get('action')!r} for workflow={delegation.get('recommended_workflow')!r}. "
+            "Clarify the task or use `coding delegate` for a prompt-only/runtime preview."
+        )
     run = create_prepared_coding_delegation_run(
         paths,
         {

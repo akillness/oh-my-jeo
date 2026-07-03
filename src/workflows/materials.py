@@ -199,10 +199,10 @@ def list_material_artifacts(paths: OmjPaths, *, kind: str | None = None, limit: 
 
 def show_material_artifact(paths: OmjPaths, material_id: str) -> dict[str, Any]:
     if not _valid_material_id(material_id):
-        raise FileNotFoundError(material_id)
+        raise FileNotFoundError(f"material artifact not found: {material_id}")
     record = read_json_object(_material_path(paths, material_id))
     if not record:
-        raise FileNotFoundError(material_id)
+        raise FileNotFoundError(f"material artifact not found: {material_id}")
     return record
 
 
