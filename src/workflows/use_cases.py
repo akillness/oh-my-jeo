@@ -449,10 +449,10 @@ def list_use_case_artifacts(paths: OmjPaths, *, limit: int | None = None) -> lis
 
 def show_use_case_artifact(paths: OmjPaths, artifact_id: str) -> dict[str, Any]:
     if not _valid_artifact_id(artifact_id):
-        raise FileNotFoundError(artifact_id)
+        raise FileNotFoundError(f"use-case artifact not found: {artifact_id}")
     record = read_json_object(_use_case_artifact_path(paths, artifact_id))
     if record is None:
-        raise FileNotFoundError(artifact_id)
+        raise FileNotFoundError(f"use-case artifact not found: {artifact_id}")
     return record
 
 

@@ -21,6 +21,7 @@ from omj.goal_ledger import (
     goal_ledger_path,
     read_goal_ledger,
     record_goal_blocker,
+    record_goal_blocker_resolution,
     record_goal_checkpoint,
     record_goal_quality_gate,
     validate_goal_ledger,
@@ -241,6 +242,48 @@ class GoalLedgerTests(unittest.TestCase):
             self.assertEqual(blocked["blockers"][0]["status"], "active")
             self.assertEqual(gated["quality_gates"][0]["status"], "passed")
             self.assertTrue(validate_goal_ledger(gated)["ok"])
+
+    def test_resolving_a_blocker_unblocks_completion(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            create_goal_ledger(paths, "Finish the durable goal", ["Known criterion"], goal_id="goal-unblock")
+            record_goal_checkpoint(
+                paths,
+                "goal-unblock",
+                "did the work",
+                criteria_refs=["AC001"],
+                status="done",
+                evidence_refs=["evidence.log"],
+            )
+            blocked = record_goal_blocker(paths, "goal-unblock", "waiting on infra team")
+            blocker_id = blocked["blockers"][0]["blocker_id"]
+
+            gate_before = build_goal_completion_gate(paths, "goal-unblock")
+            self.assertFalse(gate_before["ready"])
+            self.assertEqual(len(gate_before["active_blockers"]), 1)
+
+            with self.assertRaises(ValueError):
+                record_goal_blocker_resolution(paths, "goal-unblock", "no-such-blocker", "n/a")
+
+            resolved = record_goal_blocker_resolution(
+                paths,
+                "goal-unblock",
+                blocker_id,
+                "infra team confirmed unblocked",
+                evidence_refs=["infra-ticket-1"],
+            )
+
+            self.assertEqual(resolved["blockers"][0]["status"], "resolved")
+            self.assertEqual(resolved["blockers"][0]["resolution_summary"], "infra team confirmed unblocked")
+            self.assertIn("infra-ticket-1", resolved["blockers"][0]["evidence_refs"])
+            self.assertTrue(validate_goal_ledger(resolved)["ok"])
+
+            gate_after = build_goal_completion_gate(paths, "goal-unblock")
+            self.assertTrue(gate_after["ready"])
+            self.assertEqual(gate_after["active_blockers"], [])
+
+            with self.assertRaises(ValueError):
+                record_goal_blocker_resolution(paths, "goal-unblock", blocker_id, "already resolved")
 
     def test_validation_flags_raw_objective_and_bad_shape(self) -> None:
         validation = validate_goal_ledger(

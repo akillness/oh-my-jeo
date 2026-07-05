@@ -752,6 +752,33 @@ class RuntimeArtifactTests(unittest.TestCase):
             self.assertFalse(result["journal"]["ok"])
             self.assertIn("observation_event event is unsupported", "\n".join(result["journal"]["errors"]))
 
+    def test_validate_runtime_reports_malformed_gate_record_without_crashing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            run = create_prepared_coding_delegation_run(
+                paths,
+                {"skill": "ai-slop-cleaner", "harness": "coding-handling"},
+            )
+            message = "implement safe runtime feature in src/omj/runtime/artifacts.py without overclaiming"
+            payload = build_coding_delegation_payload(
+                message,
+                source="discord",
+                executor_target="codex",
+            )
+            write_coding_delegation(
+                paths.runtime_runs_dir / run["run_id"],
+                coding_delegation_record_payload(payload, message),
+            )
+            merge_path = paths.runtime_runs_dir / run["run_id"] / "merge.json"
+            merge_path.write_text("{not valid json", encoding="utf-8")
+
+            result = validate_runtime(paths, run["run_id"])
+
+            self.assertFalse(result["ok"])
+            run_result = result["runs"][0]
+            self.assertFalse(run_result["ok"])
+            self.assertTrue(any("Expecting property name" in error for error in run_result["errors"]))
+
     def test_append_journal_observation_bounds_journal_file_growth(self) -> None:
         # Regression test for the "ralph"-style long-running persistent loop
         # memory leak: the global journal file (`runtime/journal/events.jsonl`)

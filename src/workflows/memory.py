@@ -720,14 +720,20 @@ def apply_memory_update_batch(paths: OmjPaths, batch: dict[str, Any], *, dry_run
 
 
 def read_memory_snapshot_file(path: str | Path) -> dict[str, Any]:
-    data = read_json_object(Path(path).expanduser().resolve())
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.exists():
+        raise ValueError(f"memory snapshot fixture not found: {resolved}")
+    data = read_json_object(resolved)
     if not isinstance(data, dict):
         raise ValueError("memory snapshot fixture must be a JSON object")
     return data
 
 
 def read_handoff_context_pack_file(path: str | Path) -> dict[str, Any]:
-    data = read_json_object(Path(path).expanduser().resolve())
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.exists():
+        raise ValueError(f"context pack file not found: {resolved}")
+    data = read_json_object(resolved)
     if not isinstance(data, dict):
         raise ValueError("context pack must be a JSON object")
     errors = validate_handoff_context_pack(data, require_conflict_free=False, label="context pack")

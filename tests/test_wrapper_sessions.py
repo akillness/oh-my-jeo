@@ -539,6 +539,14 @@ class WrapperSessionTests(unittest.TestCase):
             with self.assertRaises(WrapperSessionError):
                 record_plan_decision(paths, session_id, "accept")
 
+    def test_starting_a_session_with_a_cancel_routed_message_is_valid(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            started = create_or_resume_wrapper_session(paths, "cancel me test", source="discord")
+            self.assertEqual(started["session"]["status"], "cancelled")
+            self.assertEqual(started["session"]["decision"], "plan_cancelled")
+            self.assertEqual(validate_wrapper_session_record(started["session"]), [])
+
     def test_handoff_preparation_is_idempotent_and_cannot_be_cancelled(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")

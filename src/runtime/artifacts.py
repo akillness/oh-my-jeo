@@ -1566,15 +1566,24 @@ def validate_run_dir(run_dir: Path) -> dict[str, Any]:
     return {"run_id": run_dir.name, "ok": not errors, "errors": errors}
 
 
+def _safe_read_json_object(path: Path, errors: list[str]) -> dict[str, Any]:
+    try:
+        value = read_json_object(path)
+    except (OSError, JSONDecodeError, ValueError) as exc:
+        errors.append(f"{path}: {exc}")
+        return {}
+    return _object_or_empty(value)
+
+
 def _validate_run_status_gate_consistency(run_dir: Path) -> list[str]:
     errors: list[str] = []
-    run = _object_or_empty(read_json_object(run_dir / "run.json"))
-    coding = _object_or_empty(read_json_object(run_dir / "coding_delegation.json"))
-    delegation = _object_or_empty(read_json_object(run_dir / "delegation.json"))
-    wrapper = _object_or_empty(read_json_object(run_dir / "wrapper.json"))
-    review_record = _object_or_empty(read_json_object(run_dir / "review.json"))
-    ci_record = _object_or_empty(read_json_object(run_dir / "ci.json"))
-    merge_record = _object_or_empty(read_json_object(run_dir / "merge.json"))
+    run = _safe_read_json_object(run_dir / "run.json", errors)
+    coding = _safe_read_json_object(run_dir / "coding_delegation.json", errors)
+    delegation = _safe_read_json_object(run_dir / "delegation.json", errors)
+    wrapper = _safe_read_json_object(run_dir / "wrapper.json", errors)
+    review_record = _safe_read_json_object(run_dir / "review.json", errors)
+    ci_record = _safe_read_json_object(run_dir / "ci.json", errors)
+    merge_record = _safe_read_json_object(run_dir / "merge.json", errors)
     if not run:
         return errors
 

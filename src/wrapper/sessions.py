@@ -14,6 +14,7 @@ from ..local_store import atomic_write_json, ensure_dir, ensure_file, read_json_
 from ..memory import memory_recall_pack_for_handoff
 from ..paths import OmjPaths
 from ..runtime.records import (
+    WRAPPER_SESSION_STATUS_DECISIONS,
     build_event_record,
     build_wrapper_session_record,
     validate_event_record,
@@ -837,6 +838,7 @@ def _session_from_interaction(
     work_owner_mode = str(interaction.get("work_owner_mode", "external_executor"))
     selected_executor = interaction.get("selected_executor_profile")
     dispatch_policy = str(interaction.get("dispatch_policy", "ask_before_dispatch"))
+    initial_status = _status_from_interaction(interaction)
     return build_wrapper_session_record(
         {
             "session_id": session_id,
@@ -847,8 +849,8 @@ def _session_from_interaction(
             "message_length": interaction["message_length"],
             "created_at": utc_now(),
             "updated_at": utc_now(),
-            "status": _status_from_interaction(interaction),
-            "decision": "none",
+            "status": initial_status,
+            "decision": WRAPPER_SESSION_STATUS_DECISIONS.get(initial_status, "none"),
             "route": route,
             "plan": {
                 "status": plan.get("status", ""),

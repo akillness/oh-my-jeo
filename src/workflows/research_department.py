@@ -445,11 +445,11 @@ def list_research_department_plans(paths: OmjPaths, *, limit: int | None = None)
 
 def show_research_department_plan(paths: OmjPaths, plan_id: str) -> dict[str, Any]:
     if not _valid_plan_id(plan_id):
-        raise FileNotFoundError(plan_id)
+        raise FileNotFoundError(f"research department plan not found: {plan_id}")
     record = read_json_object(_plan_path(paths, plan_id))
     if record:
         return record
-    raise FileNotFoundError(plan_id)
+    raise FileNotFoundError(f"research department plan not found: {plan_id}")
 
 
 def summarize_research_department_plan(record: dict[str, Any]) -> dict[str, Any]:

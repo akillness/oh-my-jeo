@@ -198,12 +198,12 @@ def list_operation_artifacts(paths: OmjPaths, *, surface: str | None = None, lim
 
 def show_operation_artifact(paths: OmjPaths, artifact_id: str) -> dict[str, Any]:
     if not _valid_artifact_id(artifact_id):
-        raise FileNotFoundError(artifact_id)
+        raise FileNotFoundError(f"operations artifact not found: {artifact_id}")
     for surface in SURFACES:
         record = read_json_object(_artifact_path(paths, surface, artifact_id))
         if record:
             return record
-    raise FileNotFoundError(artifact_id)
+    raise FileNotFoundError(f"operations artifact not found: {artifact_id}")
 
 
 def operation_artifact_exists(paths: OmjPaths, artifact_id: str) -> bool:

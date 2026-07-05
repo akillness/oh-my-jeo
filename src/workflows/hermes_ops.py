@@ -339,11 +339,11 @@ def list_hermes_ops_blueprints(paths: OmjPaths, *, limit: int | None = None) -> 
 
 def show_hermes_ops_blueprint(paths: OmjPaths, blueprint_id: str) -> dict[str, Any]:
     if not _valid_blueprint_id(blueprint_id):
-        raise FileNotFoundError(blueprint_id)
+        raise FileNotFoundError(f"hermes ops blueprint not found: {blueprint_id}")
     record = read_json_object(_blueprint_path(paths, blueprint_id))
     if record:
         return record
-    raise FileNotFoundError(blueprint_id)
+    raise FileNotFoundError(f"hermes ops blueprint not found: {blueprint_id}")
 
 
 def summarize_hermes_ops_blueprint(record: dict[str, Any]) -> dict[str, Any]:

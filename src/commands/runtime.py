@@ -163,16 +163,17 @@ def cmd_runtime_wrapper(args: argparse.Namespace) -> int:
     run_dir = paths.runtime_runs_dir / args.run_id
     if not (run_dir / "run.json").exists():
         raise OmjError(f"runtime run not found: {args.run_id}")
+    existing = read_json_object(run_dir / "wrapper.json") or {}
     try:
         wrapper = write_wrapper_contract(
             run_dir,
             {
-                "prompt_dispatched": args.prompt_dispatched,
-                "hermes_response_observed": args.response_observed,
-                "verification_observed": args.verification_observed,
-                "completion_status": args.completion_status,
-                "unobserved_gaps": args.gap or [],
-                "message": args.message or "",
+                "prompt_dispatched": bool(existing.get("prompt_dispatched")) or args.prompt_dispatched,
+                "hermes_response_observed": bool(existing.get("hermes_response_observed")) or args.response_observed,
+                "verification_observed": bool(existing.get("verification_observed")) or args.verification_observed,
+                "completion_status": args.completion_status if args.completion_status is not None else existing.get("completion_status", "unknown"),
+                "unobserved_gaps": args.gap if args.gap is not None else existing.get("unobserved_gaps", []),
+                "message": args.message or existing.get("message", ""),
             },
         )
     except ValueError as exc:
@@ -631,7 +632,7 @@ def _add_runtime_commands(sub) -> None:
     runtime_wrapper.add_argument("--prompt-dispatched", action="store_true")
     runtime_wrapper.add_argument("--response-observed", action="store_true")
     runtime_wrapper.add_argument("--verification-observed", action="store_true")
-    runtime_wrapper.add_argument("--completion-status", choices=("started", "completed", "blocked", "failed", "unknown"), default="unknown")
+    runtime_wrapper.add_argument("--completion-status", choices=("started", "completed", "blocked", "failed", "unknown"), default=None)
     runtime_wrapper.add_argument("--gap", action="append")
     runtime_wrapper.add_argument("--message", default="")
     runtime_wrapper.set_defaults(func=cmd_runtime_wrapper)

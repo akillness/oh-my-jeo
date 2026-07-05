@@ -12,6 +12,7 @@ from ..goal_ledger import (
     list_goal_ledgers,
     read_goal_ledger,
     record_goal_blocker,
+    record_goal_blocker_resolution,
     record_goal_checkpoint,
 )
 from ..installer import OmjError
@@ -66,6 +67,22 @@ def cmd_goal_blocker(args: argparse.Namespace) -> int:
             missing_authority=args.missing_authority or "",
             evidence_refs=args.evidence_ref or [],
             mark_goal_blocked=args.mark_goal_blocked,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json({"goal": goal, "completion_gate": build_goal_completion_gate(paths, args.goal_id)})
+    return 0
+
+
+def cmd_goal_resolve_blocker(args: argparse.Namespace) -> int:
+    paths = _paths(args)
+    try:
+        goal = record_goal_blocker_resolution(
+            paths,
+            args.goal_id,
+            args.blocker_id,
+            args.summary,
+            evidence_refs=args.evidence_ref or [],
         )
     except (FileNotFoundError, ValueError) as exc:
         raise OmjError(str(exc)) from exc
@@ -153,6 +170,13 @@ def _add_goal_commands(sub) -> None:
     goal_blocker.add_argument("--evidence-ref", action="append")
     goal_blocker.add_argument("--mark-goal-blocked", action="store_true")
     goal_blocker.set_defaults(func=cmd_goal_blocker)
+
+    goal_resolve_blocker = goal_sub.add_parser("resolve-blocker")
+    goal_resolve_blocker.add_argument("--goal", dest="goal_id", required=True)
+    goal_resolve_blocker.add_argument("--blocker", dest="blocker_id", required=True)
+    goal_resolve_blocker.add_argument("--summary", required=True)
+    goal_resolve_blocker.add_argument("--evidence-ref", action="append")
+    goal_resolve_blocker.set_defaults(func=cmd_goal_resolve_blocker)
 
     goal_complete = goal_sub.add_parser("complete")
     goal_complete.add_argument("--goal", dest="goal_id", required=True)

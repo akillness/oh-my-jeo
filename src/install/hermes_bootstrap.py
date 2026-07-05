@@ -52,6 +52,11 @@ DETECT_PROOF_BOUNDARY = (
     "Observed local detection of the `hermes` runtime only. Presence of the CLI "
     "is not OMJ skill setup, plugin load, review, CI, or merge evidence."
 )
+ALREADY_PRESENT_PROOF_BOUNDARY = (
+    "Hermes runtime was already present, so the installer was not executed. "
+    "This is observed local detection only, not an observed installer run, "
+    "OMJ skill setup, plugin load, review, CI, or merge evidence."
+)
 
 
 def _is_windows(platform: str) -> bool:
@@ -189,6 +194,7 @@ def run_hermes_install(
                 "ok": True,
                 "already_present": True,
                 "detected": before,
+                "proof_boundary": ALREADY_PRESENT_PROOF_BOUNDARY,
             }
         )
         return base
