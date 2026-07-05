@@ -77,6 +77,20 @@ These live in `src/catalogs/roles.py` (planner, reviewer, handoff-guide) and the
 `deep-interview` skill in `src/skills/catalog.py`, and regenerate into
 `roles/*.md`, `docs/ROLES.md`, `docs/WORKFLOWS.md`, and the bundled references.
 
+### 3b. Disciplines synced from jeo-code v0.7.35–v0.7.40
+
+jeo-code kept evolving after the first port; the following disciplines are now
+reflected in OMJ's catalog language and parity matrix.
+
+| jeo-code change | Discipline | Where OMJ reflects it |
+| --- | --- | --- |
+| v0.7.35 — `jeo team` runs every plan step through the same subagent execution core; `parallel_group` marks a **contiguous** run of steps for concurrent execution, each in its own git worktree, merged back in plan order | Parallel lanes are opt-in, explicitly marked, contiguous, worktree-isolated, merged back in order — and run the **same** execution/verification contract as solo work, never a weaker parallel-only loop | `team` quality bar + final checklist, `ultrawork` final checklist (`src/skills/catalog.py`) |
+| v0.7.36 — `jeo approve`'s human-only identity gate removed; the content gate (schema shape, consensus verdict, plan-hash-vs-review match) is enforced no matter who approves | Plan acceptance is a **content gate, not an identity gate**: user, wrapper, or the planning agent itself may accept, but only the reviewed, unchanged consensus plan; content changed after review voids acceptance | `ralplan` quality bar + final checklist, `planning` harness quality bar (`src/skills/catalog.py`) |
+| v0.7.37/v0.7.38 — remote subagent visibility and control over Telegram (`jeo notify`, `jeo daemon`), with chat authorization enforced at the daemon boundary | Remote push/steer/cancel is **runtime-owned**; OMJ ships the deterministic local ledger contract such surfaces read from and record observations into, and never claims remote control happened | `remote_subagent_visibility` parity row (`src/quality/parity.py`); core OMJ deliberately ships no network/bot daemon |
+
+v0.7.39/v0.7.40 (provider refusal-shape recognition, release CI binary build)
+are jeo-code-internal runtime fixes with no OMJ-side contract to mirror.
+
 ## 4. The strengthened OMJ pipeline
 
 

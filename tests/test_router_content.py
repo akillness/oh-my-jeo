@@ -28,6 +28,7 @@ from omj.runtime.records import validate_harness_quality
 from omj.skills.catalog import (
     SkillDefinition,
     catalog_intent_delegation_skill_names,
+    harness_definition,
     harness_quality_contract,
     primary_harness_for_skill,
     retained_delegation_skill_names,
@@ -811,6 +812,41 @@ class RouterContentTests(unittest.TestCase):
                 "ultraprocess",
             }.issubset(catalog_intent_retained)
         )
+
+    def test_team_and_ralplan_carry_jeo_code_v0740_disciplines(self) -> None:
+        # Disciplines synced from jeo-code v0.7.35-v0.7.40 (see
+        # docs/WORKFLOW_PIPELINE.md section 3b). Locked so a future catalog
+        # rewrite cannot silently drop the ported contract language.
+        definitions = {definition.name: definition for definition in builtin_definitions()}
+
+        # v0.7.35: parallel lanes are opt-in, contiguous, worktree-isolated,
+        # merged back in plan order, on the same execution core as solo work.
+        team = definitions["team"]
+        team_bar = " ".join(team.quality_bar)
+        self.assertIn("contiguous group", team_bar)
+        self.assertIn("isolated worktrees, merged back in plan order", team_bar)
+        self.assertIn("same execution and verification contract as solo work", team_bar)
+        self.assertTrue(any("merged back in plan order" in item for item in team.final_checklist))
+        ultrawork = definitions["ultrawork"]
+        self.assertTrue(any("merged back in plan order" in item for item in ultrawork.final_checklist))
+
+        # v0.7.36: plan acceptance is a content gate, not an identity gate.
+        ralplan = definitions["ralplan"]
+        ralplan_bar = " ".join(ralplan.quality_bar)
+        self.assertIn("content gate, not an identity gate", ralplan_bar)
+        self.assertIn("the planning agent itself", ralplan_bar)
+        self.assertIn("unchanged since review", ralplan_bar)
+        self.assertTrue(any("voids earlier acceptance" in item for item in ralplan.final_checklist))
+        planning = harness_definition("planning")
+        self.assertTrue(
+            any("never just the accepting identity" in item for item in planning.quality_bar),
+            "planning harness must keep acceptance content-gated",
+        )
+
+        pipeline_doc = Path("docs/WORKFLOW_PIPELINE.md").read_text(encoding="utf-8")
+        self.assertIn("Disciplines synced from jeo-code v0.7.35", pipeline_doc)
+        self.assertIn("content gate, not an identity gate", pipeline_doc)
+        self.assertIn("remote_subagent_visibility", pipeline_doc)
 
     def test_skill_definition_canonicalizes_legacy_role_names(self) -> None:
         cases = {

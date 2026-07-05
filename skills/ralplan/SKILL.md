@@ -21,7 +21,7 @@ This is a Hermes-native `ralplan` workflow skill.
 ## Do Not Use When
 
 - The request is still too ambiguous to name requirements, non-goals, or acceptance criteria; use `deep-interview` first.
-- The user asks for one full research-plan-implementation-review-PR cycle; use `ultraprocess` and keep ralplan as the planning stage.
+- The user asks for a full research-to-PR delivery cycle; use `ultraprocess` and keep ralplan as the planning stage.
 - The user wants a pure source lookup, citation check, or paper explanation with no implementation plan.
 
 ## Examples
@@ -43,6 +43,7 @@ Bad example:
 - Observed repo facts and source/web evidence gaps are named.
 - At least two options or one chosen option plus rejected alternatives are recorded.
 - Risks, acceptance criteria, and verification commands are testable or explicitly blocked.
+- Acceptance validated the reviewed consensus plan content; plan content changed after review voids earlier acceptance until review reruns.
 - The implementation handoff is prepared only after plan acceptance and remains prepared_not_observed.
 
 ## Recovery Notes
@@ -78,12 +79,12 @@ Quality tier: `reviewed-plan-gated`
 
 Quality bar:
 
-- Start from observed repo facts and source/web evidence when freshness or external behavior matters.
-- Include planner view, critic/risk review, alternative paths, rejected options, and a testability check before handoff.
+- Start from observed repo facts and source/web evidence when freshness matters.
+- Include planner view, critic/risk review, rejected options, and a testability check.
 - Produce testable acceptance criteria and exact verification commands or explain why they are not yet knowable.
 - Record unresolved tradeoffs and evidence gaps instead of flattening uncertainty.
+- Acceptance is a content gate, not an identity gate: user, wrapper, or the planning agent itself accepts only the reviewed consensus plan, unchanged since review.
 - End with a selected executor/runtime handoff shape only after the plan is accepted.
-- Do not implement directly from consensus planning.
 
 Handoff policy:
 
@@ -114,9 +115,8 @@ Safety rules:
 
 - Do not implement directly from the planning lane.
 - Do not invent codebase or web evidence; label missing evidence and source gaps.
-- Make acceptance criteria testable.
 - Record unresolved tradeoffs explicitly.
-- Keep rejected options and handoff readiness separate from accepted execution evidence.
+- Keep rejected options and handoff readiness separate from accepted evidence.
 
 ## Harness Discipline
 

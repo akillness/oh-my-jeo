@@ -41,6 +41,7 @@ Bad example:
 ## Completion Checklist
 
 - All work lanes are disjoint by file, invariant, or responsibility before preparing parallel handoffs.
+- Parallel lanes ran in isolated worktrees and were merged back in plan order, not as concurrent edits in one workspace.
 - Each lane has acceptance criteria, verification command, worker protocol expectation, and review owner.
 - Worker ACK, dispatch, result, review, CI, and merge evidence are observed or explicitly missing.
 - Integration verification ran after lane results before the final status claims completion.
@@ -84,7 +85,7 @@ Quality bar:
 
 Handoff policy:
 
-Keep the workflow name for compatibility, but convert coding lanes into explicit selected runtime handoffs with disjoint scope, verification, review evidence, worker protocol, and worktree guidance.
+Convert coding lanes into explicit selected runtime handoffs with disjoint scope, verification, review evidence, worker protocol, and worktree guidance.
 
 Executor readiness:
 

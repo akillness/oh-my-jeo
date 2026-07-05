@@ -40,6 +40,7 @@ Bad example:
 ## Completion Checklist
 
 - Each lane has an owner, disjoint scope, expected output, and verification target.
+- Parallel groups are explicit, contiguous, and worktree-isolated, and their results are merged back in plan order before integration claims.
 - Worker ACK, dispatch, result, integration, and verification evidence are separated when wrappers record them.
 - The integrated status names which lanes are observed, blocked, or still prepared_not_observed.
 
@@ -77,12 +78,13 @@ Quality tier: `coordination-gated`
 Quality bar:
 
 - Split only independent lanes with explicit ownership and verification boundaries.
-- Keep Hermes as coordinator and status narrator while coding lanes become runtime handoffs with explicit ownership.
+- Parallel lanes are one contiguous group in isolated worktrees, merged back in plan order, on the same execution and verification contract as solo work.
+- Keep Hermes as coordinator and narrator; coding lanes become runtime handoffs.
 - Integrate lane evidence before reporting combined progress.
 
 Handoff policy:
 
-Use Hermes for lane framing and status; implementation lanes should become selected runtime handoff tasks, including Hermes-owned coding when the user chooses that runtime.
+Use Hermes for lane framing and status; implementation lanes become selected runtime handoff tasks, including Hermes-owned coding.
 
 Executor readiness:
 

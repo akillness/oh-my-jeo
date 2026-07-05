@@ -1341,6 +1341,13 @@ class CliTests(unittest.TestCase):
             self.assertEqual(capabilities["mcp_tool_bridge"]["status"], "available")
             self.assertIn("not worker dispatch", capabilities["team_swarm_workers"]["claim_boundary"])
             self.assertIn("workspace-isolation evidence only", capabilities["worktree_isolation"]["claim_boundary"])
+            # jeo-code v0.7.37+ remote subagent push/steer/cancel stays
+            # runtime-owned; OMJ ships the ledger contract and documents the
+            # boundary instead of shipping a messenger daemon in core.
+            self.assertEqual(capabilities["remote_subagent_visibility"]["status"], "available")
+            self.assertEqual(matrix["summary"]["deferred"], 0)
+            self.assertIn("reading it is not runtime control", capabilities["remote_subagent_visibility"]["claim_boundary"])
+            self.assertIn("no network or bot daemon", capabilities["remote_subagent_visibility"]["missing_piece"])
             self.assertEqual(matrix["probe_alignment"]["managed_skills"], "available")
             self.assertEqual(matrix["probe_alignment"]["omj_plugin_bundle"], "available")
             self.assertEqual(matrix["probe_alignment"]["mcp_bridge_server"], "available")
@@ -1358,6 +1365,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("Parity matrix", stdout)
             self.assertIn("Team, swarm, and worker protocol: available", stdout)
             self.assertIn("Worktree and project-session isolation: available", stdout)
+            self.assertIn("Remote subagent visibility and control: available", stdout)
             self.assertIn("Capability roadmap", stdout)
             self.assertIn("Gaps: 0 product setup", stdout)
             self.assertIn("Record Hermes plugin runtime observation", stdout)

@@ -127,6 +127,21 @@ PARITY_CAPABILITIES: tuple[ParityCapability, ...] = (
         claim_boundary="A HUD line summarizes local state; it is not execution proof.",
     ),
     ParityCapability(
+        id="remote_subagent_visibility",
+        title="Remote subagent visibility and control",
+        common_pattern="Let an operator watch delegated subagent state from a chat surface and steer or cancel a lane remotely, with the runtime enforcing chat authorization (jeo-code `jeo notify`/`jeo daemon`).",
+        omj_surface="Wrapper sessions plus the runtime observation ledger expose subagent lane state (`worker_dispatch`/`worker_result`, blocked, not_observed) to any chat wrapper; steer/cancel stays a runtime-owned action OMJ only records.",
+        status="available",
+        evidence=("src/wrapper/sessions.py", "src/runtime/records.py", "src/coding/team_readiness.py"),
+        missing_piece="Live push, steer, and cancel remain with the selected runtime's own remote surface (for example jeo-code's Telegram daemon with chat authorization); core OMJ deliberately ships no network or bot daemon.",
+        v1_decision="Keep remote push/steer/cancel with the selected coding runtime; OMJ stays the deterministic local ledger those surfaces read from and record observations into.",
+        user_value="Operators know exactly which layer answers 'what are my subagents doing' (OMJ ledger) and which layer can actually steer them (the runtime's own remote-control surface).",
+        claim_boundary=(
+            "OMJ never claims remote notification, steer, or cancel happened; a runtime observation record is "
+            "the only remote-control evidence OMJ stores, and reading it is not runtime control."
+        ),
+    ),
+    ParityCapability(
         id="mcp_tool_bridge",
         title="MCP and tool bridge",
         common_pattern="Offer tool/MCP bridge configuration so the host agent can reach external capabilities through a controlled surface.",
