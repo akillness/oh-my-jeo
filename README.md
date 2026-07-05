@@ -15,7 +15,7 @@
   <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-953%20passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-966%20passing-success">
   <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
@@ -479,9 +479,13 @@ gate and prepared work never masquerades as observed evidence.
 
 These disciplines live in `src/skills/catalog.py` (the `deep-interview`
 ambiguity gate + immutable seed) and `src/catalogs/roles.py` (planner,
-handoff-guide, reviewer). The full comparison with jeo-code and the
-gap-closure table is in
-[Workflow Pipeline](docs/WORKFLOW_PIPELINE.md).
+handoff-guide, reviewer). The port tracks jeo-code as it evolves — through
+v0.7.40 it also mirrors `team`'s contiguous, worktree-isolated parallel
+groups running the same execution core as solo work (v0.7.35), `ralplan`
+acceptance as a **content gate, not an identity gate** (v0.7.36), and a
+parity boundary for runtime-owned remote subagent visibility/control
+(v0.7.37+). The full comparison with jeo-code and the gap-closure table is
+in [Workflow Pipeline](docs/WORKFLOW_PIPELINE.md).
 
 <br>
 
@@ -515,7 +519,9 @@ understand first. The rest live in [Workflow Reference](docs/WORKFLOWS.md) and
   Code, Hermes, or another runtime without claiming execution.
 - **Team** (`team`) — coordinate multiple workers in parallel or sequential
   lanes; each lane keeps its own owner, disjoint scope, and ACK/result
-  evidence instead of blurring progress into one narration.
+  evidence, and parallel lanes form explicit contiguous groups in isolated
+  worktrees, merged back in plan order under the same verification contract
+  as solo work.
 - **Ultrawork** (`ultrawork`) — split an *accepted* plan into disjoint
   parallel implementation lanes for higher throughput, with per-lane
   acceptance criteria, verification commands, and worktree isolation.

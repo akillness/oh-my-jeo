@@ -3,6 +3,26 @@
 
 ## Unreleased
 
+- Synced the jeo-code workflow-discipline port with jeo-code v0.7.35–v0.7.40.
+  `team` (and `ultrawork`) now name the concurrent-lane contract jeo-code's
+  `parallel_group` proved out: parallel lanes are opt-in, explicitly marked,
+  contiguous, isolated in per-lane worktrees, merged back in plan order, and
+  run the same execution/verification contract as solo work. `ralplan` and the
+  `planning` harness now state that plan acceptance is a content gate, not an
+  identity gate (jeo-code v0.7.36 removed `jeo approve`'s human-only gate while
+  keeping the consensus-verdict/hash content checks): user, wrapper, or the
+  planning agent itself may accept, but only the reviewed, unchanged consensus
+  plan — content changed after review voids acceptance. The parity matrix
+  (`omj probe --parity`) gains a `remote_subagent_visibility` row: the OMJ-side
+  ledger contract (wrapper sessions + runtime observations any chat wrapper can
+  read) is available, while jeo-code's `jeo notify`/`jeo daemon` remote
+  push/steer/cancel surface stays deliberately runtime-owned (no network/bot
+  behavior in core; OMJ records observations, it never claims remote control
+  happened). Generated skill packs (`skills/team`,
+  `skills/ultrawork`, `skills/ralplan`), `docs/WORKFLOWS.md`, and
+  `docs/WORKFLOW_PIPELINE.md` §3b regenerate/document the same contract.
+  jeo-code v0.7.39/v0.7.40 (refusal-shape recognition, release-binary CI fix)
+  are runtime-internal with no OMJ contract to mirror.
 - Bare `omj` now offers a one-time interactive install prompt when the Hermes
   runtime is missing and no auto-install decision has been recorded yet: a
   "yes" answer (or the top-level `--assume-yes` flag) runs the same opt-in

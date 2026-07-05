@@ -422,7 +422,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
 - Docs visibility: `primary_workflow_skill`
 - Compatibility alias: `false`
 - Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
-- Handoff policy: Use Hermes for lane framing and status; implementation lanes should become selected runtime handoff tasks, including Hermes-owned coding when the user chooses that runtime.
+- Handoff policy: Use Hermes for lane framing and status; implementation lanes become selected runtime handoff tasks, including Hermes-owned coding.
 - Why this exists: `team` exists to keep `execution` work explicit, evidence-backed, and inside the Hermes/executor boundary instead of relying on ad hoc chat narration.
 - Use when: Use when multiple independent lanes materially improve throughput or verification.
 - Do not use when:
@@ -439,10 +439,12 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
 - Quality bar:
   - Split only independent lanes with explicit ownership and verification boundaries.
-  - Keep Hermes as coordinator and status narrator while coding lanes become runtime handoffs with explicit ownership.
+  - Parallel lanes are one contiguous group in isolated worktrees, merged back in plan order, on the same execution and verification contract as solo work.
+  - Keep Hermes as coordinator and narrator; coding lanes become runtime handoffs.
   - Integrate lane evidence before reporting combined progress.
 - Completion checklist:
   - Each lane has an owner, disjoint scope, expected output, and verification target.
+  - Parallel groups are explicit, contiguous, and worktree-isolated, and their results are merged back in plan order before integration claims.
   - Worker ACK, dispatch, result, integration, and verification evidence are separated when wrappers record them.
   - The integrated status names which lanes are observed, blocked, or still prepared_not_observed.
 - Recovery notes:
@@ -477,7 +479,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
 - Docs visibility: `primary_workflow_skill`
 - Compatibility alias: `false`
 - Preferred usage: Use as an installed Hermes workflow skill when this explicit workflow is the clearest user-facing handle.
-- Handoff policy: Keep the workflow name for compatibility, but convert coding lanes into explicit selected runtime handoffs with disjoint scope, verification, review evidence, worker protocol, and worktree guidance.
+- Handoff policy: Convert coding lanes into explicit selected runtime handoffs with disjoint scope, verification, review evidence, worker protocol, and worktree guidance.
 - Why this exists: `ultrawork` exists to split an accepted implementation plan into independent lanes without letting parallelism blur ownership, verification, worker protocol, worktree isolation, or observed runtime evidence.
 - Use when: Use when an accepted implementation plan can be split into independent, reviewable work lanes.
 - Do not use when:
@@ -499,6 +501,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Keep dispatch, execution, review, CI, and merge status evidence separate.
 - Completion checklist:
   - All work lanes are disjoint by file, invariant, or responsibility before preparing parallel handoffs.
+  - Parallel lanes ran in isolated worktrees and were merged back in plan order, not as concurrent edits in one workspace.
   - Each lane has acceptance criteria, verification command, worker protocol expectation, and review owner.
   - Worker ACK, dispatch, result, review, CI, and merge evidence are observed or explicitly missing.
   - Integration verification ran after lane results before the final status claims completion.
@@ -1723,7 +1726,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
 - Use when: Use when requirements are clear enough for planning but architecture, evidence, alternatives, risks, or tests need a reviewed plan before execution.
 - Do not use when:
   - The request is still too ambiguous to name requirements, non-goals, or acceptance criteria; use `deep-interview` first.
-  - The user asks for one full research-plan-implementation-review-PR cycle; use `ultraprocess` and keep ralplan as the planning stage.
+  - The user asks for a full research-to-PR delivery cycle; use `ultraprocess` and keep ralplan as the planning stage.
   - The user wants a pure source lookup, citation check, or paper explanation with no implementation plan.
 - Strong routing signals: `ralplan`, `$ralplan`, `consensus plan`, `reviewed plan`, `issue to PR`, `acceptance criteria`, `verification command`, `reviewable PR`, `risky planning`, `dangerous`, `dangerous planning`, `unsafe`, `refactor safety`, `PR로 만들`, `PR로 만들 수 있게`, `위험한 리팩터링`, `리팩터링 위험`, `리스크 있는 리팩터링`, `검증 command`, `리뷰 가능한 단위`, `코드베이스 조사`, `웹리서치 계획`, `대안 비교`, `리스크 검토`
 - Good example:
@@ -1735,16 +1738,17 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Expected behavior: Stop at the reviewed plan or route the full delivery cycle to `ultraprocess` after plan acceptance.
   - Why: Ralplan is a planning gate, not implementation, review, CI, or PR evidence.
 - Quality bar:
-  - Start from observed repo facts and source/web evidence when freshness or external behavior matters.
-  - Include planner view, critic/risk review, alternative paths, rejected options, and a testability check before handoff.
+  - Start from observed repo facts and source/web evidence when freshness matters.
+  - Include planner view, critic/risk review, rejected options, and a testability check.
   - Produce testable acceptance criteria and exact verification commands or explain why they are not yet knowable.
   - Record unresolved tradeoffs and evidence gaps instead of flattening uncertainty.
+  - Acceptance is a content gate, not an identity gate: user, wrapper, or the planning agent itself accepts only the reviewed consensus plan, unchanged since review.
   - End with a selected executor/runtime handoff shape only after the plan is accepted.
-  - Do not implement directly from consensus planning.
 - Completion checklist:
   - Observed repo facts and source/web evidence gaps are named.
   - At least two options or one chosen option plus rejected alternatives are recorded.
   - Risks, acceptance criteria, and verification commands are testable or explicitly blocked.
+  - Acceptance validated the reviewed consensus plan content; plan content changed after review voids earlier acceptance until review reruns.
   - The implementation handoff is prepared only after plan acceptance and remains prepared_not_observed.
 - Recovery notes:
   - If requirements are still fuzzy, route back to deep-interview before planning.
@@ -1768,9 +1772,8 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
 - Safety rules:
   - Do not implement directly from the planning lane.
   - Do not invent codebase or web evidence; label missing evidence and source gaps.
-  - Make acceptance criteria testable.
   - Record unresolved tradeoffs explicitly.
-  - Keep rejected options and handoff readiness separate from accepted execution evidence.
+  - Keep rejected options and handoff readiness separate from accepted evidence.
 
 ### code-review
 
@@ -3037,7 +3040,7 @@ Turn clarified requirements into an execution-ready plan with tradeoffs and test
   - Make goals, non-goals, decision drivers, options, risks, and test strategy explicit.
   - Record at least one rejected option and why it lost before presenting the preferred path.
   - Tie every acceptance criterion to a validation command, artifact, or explicit manual evidence gap.
-  - Keep draft plans unapproved until a user or wrapper accepts them.
+  - Keep draft plans unapproved until a user, wrapper, or — for a reviewed consensus plan — the planning agent itself accepts them; acceptance always validates the reviewed content, never just the accepting identity.
   - Prepare coding handoff guidance only after acceptance.
 - Inputs:
   - requirements
