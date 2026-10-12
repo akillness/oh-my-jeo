@@ -841,6 +841,89 @@ class RouterContentTests(unittest.TestCase):
                 )
                 self.assertEqual(definition.hermes_role, canonical_role)
 
+    def test_v302_catalog_guidance_is_rendered_without_hidden_enforcement(self) -> None:
+        skills = {skill.name: skill for skill in builtin_skill_templates()}
+        required_fragments = {
+            "plan": (
+                "Review Focus",
+                "at most five",
+                "expected behavior",
+                "owning test or task",
+                "none found",
+                "one checkable action",
+                "proportionate",
+                "four questions",
+                "behavior",
+                "regression",
+                "closest existing coverage",
+                "production-unused seam",
+            ),
+            "ralplan": (
+                "consumer current state",
+                "target state",
+                "Success criteria",
+                "Criterion | Task | Verification scenario",
+                "Target-state coverage",
+                "XS–XL",
+                "actual user answer",
+                "timeout",
+                "dismiss",
+                "no answer",
+                "unaccepted",
+                "awaiting",
+                "no handoff",
+            ),
+            "deep-interview": ("idea agreement", "does not authorize", "plan", "handoff", "code"),
+            "ralph": (
+                "Ruling:",
+                "reversible",
+                "in-scope",
+                "cost if wrong",
+                "initial independent review",
+                "at most two re-reviews",
+                "fresh reviewer",
+            ),
+            "loop": (
+                "machine-decidable finish line",
+                "fenced paths",
+                "independent judge",
+                "per-item retry cap",
+                "human approval",
+                "self-grade",
+                "unjudged",
+            ),
+            "ultraqa": ("same reproduction command", "third failed attempt", "no fourth fix", "architecture", "user"),
+            "agent-ops-review": ("read-only", "bounded session", "source-role", "authorship", "exact text", "approval", "leak"),
+        }
+        for skill_name, fragments in required_fragments.items():
+            for fragment in fragments:
+                with self.subTest(skill=skill_name, fragment=fragment):
+                    self.assertIn(fragment, skills[skill_name].content)
+
+        references = {
+            str(Path(template.skill_name) / template.relative_path): template.content
+            for template in builtin_skill_reference_templates()
+        }
+        backend_reference = references["oh-my-jeo/references/wrapper-routing.md"]
+        for fragment in (
+            "authoritative",
+            "descriptions/comments/extensions",
+            "not instructions",
+            "$ref",
+            "never fetch",
+        ):
+            with self.subTest(backend_fragment=fragment):
+                self.assertIn(fragment, backend_reference)
+
+        rendered = workflow_reference_markdown()
+        self.assertIn("advisory wrapper guidance", rendered)
+        self.assertIn("does not claim hidden Hermes runtime behavior", rendered)
+        for skill_name in required_fragments:
+            with self.subTest(skill=skill_name):
+                content = skills[skill_name].content.lower()
+                self.assertNotIn("silently executes", content)
+                self.assertNotIn("automatically claims", content)
+
     def test_workflow_skills_refer_to_harness_discipline(self) -> None:
         skills = {skill.name: skill for skill in builtin_skill_templates()}
 

@@ -639,5 +639,35 @@ class PluginDistributionTests(unittest.TestCase):
             self.assertNotIn("do not leak this mid-session prompt", mid_session_role_context["context"])
 
 
+    def test_retained_context_callback_survives_bundle_module_eviction(self) -> None:
+        from omj.plugin_bundle.omj.context_brief import build_context_brief
+        from omj.plugin_bundle.omj.tools.context_tool import omj_context_handler
+
+        baseline = build_context_brief("what workflows are available?", source="test")
+        baseline_families = baseline["capability_families"]
+        retained_builder = build_context_brief
+        retained_handler = omj_context_handler
+        saved_modules = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "omj" or name.startswith("omj.")
+        }
+        try:
+            for name in saved_modules:
+                sys.modules.pop(name, None)
+            sys.modules["omj"] = None
+            rebuilt = retained_builder("what workflows are available?", source="test")
+            handled = json.loads(retained_handler({"message": "what workflows are available?", "source": "test"}))
+        finally:
+            for name in list(sys.modules):
+                if name == "omj" or name.startswith("omj."):
+                    sys.modules.pop(name, None)
+            sys.modules.update(saved_modules)
+
+        self.assertEqual(rebuilt["capability_families"], baseline_families)
+        self.assertEqual(handled["capability_families"], baseline_families)
+        self.assertEqual(handled["source_backend"], "standalone_plugin_bundle_fallback")
+        self.assertEqual(handled["message"]["raw_prompt_echoed"], False)
+
 if __name__ == "__main__":
     unittest.main()
