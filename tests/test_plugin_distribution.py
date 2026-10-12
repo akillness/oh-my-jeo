@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import importlib.resources as resources
 import importlib.util
 import json
@@ -638,6 +639,37 @@ class PluginDistributionTests(unittest.TestCase):
             self.assertIn("[OMJ Role: planner]", mid_session_role_context["context"])
             self.assertNotIn("do not leak this mid-session prompt", mid_session_role_context["context"])
 
+
+    def test_standalone_awareness_preserves_quoted_workflow_metadata(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            omj_home = root / ".omj"
+            hermes_home = root / ".hermes"
+            self.assertEqual(
+                run_cli(
+                    [
+                        "--omj-home",
+                        str(omj_home),
+                        "--hermes-home",
+                        str(hermes_home),
+                        "setup",
+                        "--with-plugin",
+                    ]
+                )[0],
+                0,
+            )
+
+            module = load_installed_plugin(hermes_home / "plugins" / "omj")
+            ctx = FakeHermesContext()
+            module.register(ctx)
+            standalone_awareness = importlib.import_module(f"{module.__name__}.awareness")
+            message = 'the team discussed "$ultrawork" yesterday during review'
+            route_hint = standalone_awareness.awareness_route_hint(message)
+
+            self.assertEqual(route_hint["intent_class"], "meta_discussion")
+            self.assertIn("ultrawork", route_hint["mentioned_workflows"])
+            self.assertIn("ultrawork", route_hint["not_executed"])
+            self.assertFalse(route_hint.get("explicit_execution", False))
 
     def test_retained_context_callback_survives_bundle_module_eviction(self) -> None:
         from omj.plugin_bundle.omj.context_brief import build_context_brief

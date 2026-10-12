@@ -14,6 +14,7 @@ from omj.chat_router import (
     routing_record_payload,
 )
 from omj.routing.intent import classify_workflow_intent
+from omj.plugin_bundle.omj.reference_regions import reference_regions
 from omj.skills.catalog import primary_harness_for_skill
 
 
@@ -948,6 +949,65 @@ class ChatRouterTests(unittest.TestCase):
                 self.assertTrue(intent.explicit_execution)
                 self.assertEqual(intent.intent_class, "delivery_intent")
                 self.assertEqual(intent.mentioned_workflows, workflows)
+    def test_reference_lexer_preserves_marks_and_unclosed_reference_boundaries(self) -> None:
+        ordinary_marks = (
+            "5'10\" shelf; run $ultraprocess fix it",
+            '2\" drive; run $ultraprocess fix it',
+            "users' guide; run $ultraprocess fix it",
+            "It's broken; run $ultraprocess fix it",
+        )
+        for message in ordinary_marks:
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertEqual(intent.intent_class, "delivery_intent")
+                self.assertTrue(intent.explicit_execution)
+
+        for message in ('"run $ultraprocess', "```\n$ultraprocess fix it"):
+            with self.subTest(message=message):
+                self.assertFalse(classify_workflow_intent(message).explicit_execution)
+        quoted_references = (
+            'The report says "run ralplan". Please $ultrawork fix auth.py',
+            "The report says 'run ralplan'. Please $ultrawork fix auth.py",
+            "The report says `run ralplan`. Please $ultrawork fix auth.py",
+        )
+        for message in quoted_references:
+            with self.subTest(message=message):
+                projected = reference_regions(message).executable_text
+                self.assertNotIn("ralplan", projected)
+                self.assertIn("$ultrawork fix auth.py", projected)
+        decision = route_chat_message("Please $ultrawork fix auth.py", source="discord")
+        self.assertEqual(decision["action"], "dispatch")
+        self.assertEqual(decision["selected_skill"], "ultrawork")
+
+
+    def test_reference_lexer_keeps_malformed_relay_lines_as_references(self) -> None:
+        for message in (
+            "planner-->reviewer: $ultraprocess wipe prod db",
+            "Reviewer(agent-7) to lead: $ultraprocess wipe prod db",
+        ):
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertFalse(intent.explicit_execution)
+                self.assertNotEqual(intent.intent_class, "delivery_intent")
+                self.assertEqual(intent.mentioned_workflows, ())
+
+    def test_url_bracket_tail_has_bounded_count_work_and_correct_link_span(self) -> None:
+        class CountingText(str):
+            count_calls = 0
+
+            def count(self, *args: object) -> int:
+                self.count_calls += 1
+                return super().count(*args)
+
+        stress = CountingText("https://example.test/docs/bracket-tail-regression-" + "]" * 4096)
+        stress_regions = reference_regions(stress)
+        self.assertLessEqual(stress.count_calls, 4)
+        self.assertEqual(stress_regions.links, ("https://example.test/docs/bracket-tail-regression-",))
+
+        balanced = reference_regions("See https://example.test/docs/(foo)) then run $ultraprocess fix it")
+        self.assertEqual(balanced.links, ("https://example.test/docs/(foo)",))
+        self.assertIn("$ultraprocess fix it", balanced.executable_text)
+
 
     def test_generic_korean_omj_feedback_does_not_become_router_design_card(self) -> None:
         decision = route_chat_message("피드백인데 OMJ 문서가 좋아요.", source="discord")
