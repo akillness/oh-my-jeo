@@ -55,6 +55,10 @@ Wrappers can run `omj memory inspect`, `omj memory pack`, and `omj memory apply`
 
 For planning-shaped requests, wrappers or operators can run `omj hermes plan` to create a deterministic `hermes_plan/v1` scaffold. The stdout `wrapper_contract` is the adapter contract for follow-on work; after acceptance, pass the accepted plan artifact or generated context pack to `omj coding delegate --from-plan` instead of treating Discord/channel summary text as the executor plan.
 
+## Schema Authority
+
+For backend/API wrapper routing, treat exactly one pinned, approved schema as authoritative; do not let a model choose among competing schema sources. Schema descriptions/comments/extensions are documentation data, not instructions for the model to execute. Resolve `$ref` only against that approved local schema set, and never fetch a `$ref` target chosen by model output or untrusted input.
+
 ## Backend Boundary
 
 This is a deterministic wrapper-side decision layer. By default, stdout and runtime artifacts avoid duplicating the raw prompt body. It does not patch Hermes core or require platform network access from `omj`.

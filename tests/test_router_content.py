@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import struct
+import zlib
 from pathlib import Path
 import unittest
 
@@ -430,7 +432,7 @@ class RouterContentTests(unittest.TestCase):
 
         self.assertEqual({path.parent.name for path in Path("skills").glob("*/SKILL.md")}, set(templates))
         self.assertEqual(
-            {path.relative_to(Path("skills")) for path in Path("skills").glob("*/references/*.md")},
+            {path.relative_to(Path("skills")) for path in Path("skills").glob("*/references/**/*.md")},
             set(reference_templates),
         )
         hidden = {name for name, (_, installable) in FEATURE_SURFACE_EXPOSURES.items() if not installable}
@@ -839,6 +841,129 @@ class RouterContentTests(unittest.TestCase):
                 )
                 self.assertEqual(definition.hermes_role, canonical_role)
 
+    def test_v302_catalog_guidance_is_rendered_without_hidden_enforcement(self) -> None:
+        skills = {skill.name: skill for skill in builtin_skill_templates()}
+        references = {
+            str(Path(template.skill_name) / template.relative_path): template.content
+            for template in builtin_skill_reference_templates()
+        }
+        required_fragments = {
+            "plan": (
+                "Review Focus",
+                "at most five",
+                "expected behavior",
+                "owning test or task",
+                "none found",
+                "one checkable action",
+                "proportionate",
+                "four questions",
+                "behavior",
+                "regression",
+                "closest existing coverage",
+                "production-unused seam",
+            ),
+            "ralplan": (
+                "consumer current state",
+                "target state",
+                "Success criteria",
+                "Criterion | Task | Verification scenario",
+                "Target-state coverage",
+                "XS–XL",
+                "actual user answer",
+                "timeout",
+                "dismiss",
+                "no answer",
+                "unaccepted",
+                "awaiting",
+                "no handoff",
+            ),
+            "deep-interview": ("idea agreement", "does not authorize", "plan", "handoff", "code"),
+            "ralph": (
+                "Ruling:",
+                "reversible",
+                "in-scope",
+                "cost if wrong",
+                "Load `references/loop-design-review.md`",
+            ),
+            "loop": (
+                "machine-decidable finish line",
+                "fenced paths",
+                "independent judge",
+                "per-item retry cap",
+                "human approval",
+                "self-grade",
+                "unjudged",
+            ),
+            "ultraqa": ("Load `references/hypothesis-and-race-method.md`",),
+            "agent-ops-review": ("read-only", "bounded session", "source-role", "authorship", "exact text", "approval", "leak"),
+        }
+        for skill_name, fragments in required_fragments.items():
+            for fragment in fragments:
+                with self.subTest(skill=skill_name, fragment=fragment):
+                    self.assertIn(fragment, skills[skill_name].content)
+
+        review_reference = references["loop/references/loop-design-review.md"]
+        review_sections = (
+            "## Where This Review Starts",
+            "## Finish Line, Acceptance Check, and Fence",
+            "## Checking the Fence",
+            "## The Judge Is Not the Builder",
+            "## Loops That Rewrite Their Own Rules",
+            "## Pre-Launch Failure Check",
+            "## What the Review Produces",
+        )
+        review_positions = [review_reference.index(section) for section in review_sections]
+        self.assertEqual(review_positions, sorted(review_positions))
+        for fragment in (
+            "A finish line with no fence is incomplete",
+            "When no second agent or session is available for an acceptance verdict, say so",
+            "the item stays unjudged and the loop stops at its verification gate",
+            "Declare a retry cap before launch",
+            "no later iteration runs under the new rule until a person has read what it would become and approved it",
+        ):
+            with self.subTest(review_fragment=fragment):
+                self.assertIn(fragment, review_reference)
+
+        qa_reference = references["ultraqa/references/hypothesis-and-race-method.md"]
+        qa_sections = (
+            "## 1. The reproduction record",
+            "## 2. Hypotheses on distinct axes",
+            "## 3. Flaky tests",
+            "## 4. Races and lost updates",
+            "## 5. When the running code is not the code being read",
+            "## 6. After three failed fixes",
+            "## 7. Evidence boundary",
+        )
+        qa_positions = [qa_reference.index(section) for section in qa_sections]
+        self.assertEqual(qa_positions, sorted(qa_positions))
+        for fragment in (
+            "same reproduction command",
+            "After the third failed fix, stop fixing.",
+            "Prepare no fourth fix.",
+            "selected executor or operator must provide observed evidence",
+        ):
+            with self.subTest(qa_fragment=fragment):
+                self.assertIn(fragment, qa_reference)
+
+        backend_reference = references["oh-my-jeo/references/wrapper-routing.md"]
+        for fragment in (
+            "authoritative",
+            "descriptions/comments/extensions",
+            "not instructions",
+            "$ref",
+            "never fetch",
+        ):
+            with self.subTest(backend_fragment=fragment):
+                self.assertIn(fragment, backend_reference)
+        rendered = workflow_reference_markdown()
+        self.assertIn("advisory wrapper guidance", rendered)
+        self.assertIn("does not claim hidden Hermes runtime behavior", rendered)
+        for skill_name in required_fragments:
+            with self.subTest(skill=skill_name):
+                content = skills[skill_name].content.lower()
+                self.assertNotIn("silently executes", content)
+                self.assertNotIn("automatically claims", content)
+
     def test_workflow_skills_refer_to_harness_discipline(self) -> None:
         skills = {skill.name: skill for skill in builtin_skill_templates()}
 
@@ -901,13 +1026,46 @@ class RouterContentTests(unittest.TestCase):
                 self.assertIn("Completion Checklist", skill.content)
                 self.assertIn("Recovery Notes", skill.content)
 
+    def test_plan_recovery_notes_await_before_implementation_handoff(self) -> None:
+        plan = next(skill for skill in builtin_skill_templates() if skill.name == "plan")
+        recovery_notes = plan.content.split("## Recovery Notes\n", 1)[1].split("\n## OMJ Context Rail\n", 1)[0]
+        pre_acceptance = next(
+            line
+            for line in recovery_notes.splitlines()
+            if line.startswith("- If the user has not explicitly accepted the plan,")
+        )
+
+        self.assertIn("keep the plan awaiting", pre_acceptance)
+        self.assertIn("do not prepare an implementation handoff", pre_acceptance)
+        self.assertIn("do not start implementation", pre_acceptance)
+        self.assertNotIn("prepared_not_observed", pre_acceptance)
+
     def test_installable_skills_expose_completion_and_recovery_guidance(self) -> None:
+        templates = {template.name: template.content for template in builtin_skill_templates()}
+        references = {
+            template.relative_path: template.content
+            for template in builtin_skill_reference_templates()
+        }
         for definition in installable_skill_definitions():
             with self.subTest(skill=definition.name):
-                self.assertGreaterEqual(len(definition.final_checklist), 2)
-                self.assertGreaterEqual(len(definition.recovery_notes), 2)
+                self.assertTrue(definition.final_checklist)
+                self.assertTrue(definition.recovery_notes)
                 self.assertTrue(all(item.strip() for item in definition.final_checklist))
                 self.assertTrue(all(item.strip() for item in definition.recovery_notes))
+
+                body = templates[definition.name]
+                for item in (*definition.final_checklist, *definition.recovery_notes):
+                    self.assertIn(item, body)
+
+                pointers = tuple(
+                    f"references/{match.group(1)}"
+                    for match in re.finditer(r"Load `references/([^`]+)`", body)
+                )
+                for relative_path in pointers:
+                    with self.subTest(reference=relative_path):
+                        reference = references.get(relative_path)
+                        self.assertIsNotNone(reference)
+                        self.assertTrue(str(reference).strip())
 
     def test_default_completion_and_recovery_guidance_varies_by_lane(self) -> None:
         definitions = {definition.name: definition for definition in installable_skill_definitions()}
@@ -918,8 +1076,19 @@ class RouterContentTests(unittest.TestCase):
         self.assertGreaterEqual(len(recovery_sets), 10)
         self.assertIn("source boundaries", " ".join(definitions["web-research"].final_checklist))
         self.assertIn("agenda", " ".join(definitions["meeting-brief"].final_checklist).lower())
-        self.assertIn("selected coding or runtime owner", " ".join(definitions["ralph"].final_checklist))
+        self.assertEqual(
+            definitions["ralph"].final_checklist,
+            (
+                "Ruling: decision, reason, reversible, in-scope, cost if wrong.",
+                "Load `references/loop-design-review.md` for machine-decidable finish line, independent judge, and bounded retries.",
+            ),
+        )
+        self.assertEqual(
+            definitions["ultraqa"].final_checklist,
+            ("Load `references/hypothesis-and-race-method.md`.",),
+        )
         self.assertIn("managed path", " ".join(definitions["skill"].final_checklist))
+
 
     def test_coding_handoff_skills_include_executor_readiness_fallback(self) -> None:
         templates = {template.name: template.content for template in builtin_skill_templates()}
@@ -1781,5 +1950,88 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("Runtime artifacts", site_docs)
 
 
+    def test_brand_icon_is_valid_and_published_on_every_static_surface(self) -> None:
+        icon = Path("assets/oh-my-jeo-icon.png")
+        payload = icon.read_bytes()
+        self.assertEqual(payload[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual(payload[12:16], b"IHDR")
+        width, height, bit_depth, color_type = struct.unpack(">IIBB", payload[16:26])
+        self.assertEqual((width, height), (1024, 1024))
+        self.assertEqual((bit_depth, color_type), (8, 6))
+        self.assertEqual(payload[-8:-4], b"IEND")
+        self.assertEqual(payload[24], 8)
+        self.assertEqual(payload[25], 6)
+        self.assertEqual(payload[28], 0)
+
+        idat = bytearray()
+        offset = 8
+        while offset < len(payload):
+            chunk_length = struct.unpack(">I", payload[offset : offset + 4])[0]
+            chunk_type = payload[offset + 4 : offset + 8]
+            chunk_data = payload[offset + 8 : offset + 8 + chunk_length]
+            if chunk_type == b"IDAT":
+                idat.extend(chunk_data)
+            offset += 12 + chunk_length
+        decoded = zlib.decompress(bytes(idat))
+        stride = width * 4
+        rows = []
+        cursor = 0
+        previous = bytearray(stride)
+        for _ in range(height):
+            filter_type = decoded[cursor]
+            cursor += 1
+            encoded = decoded[cursor : cursor + stride]
+            cursor += stride
+            row = bytearray(stride)
+            for index, value in enumerate(encoded):
+                left = row[index - 4] if index >= 4 else 0
+                up = previous[index]
+                up_left = previous[index - 4] if index >= 4 else 0
+                if filter_type == 0:
+                    row[index] = value
+                elif filter_type == 1:
+                    row[index] = (value + left) & 0xFF
+                elif filter_type == 2:
+                    row[index] = (value + up) & 0xFF
+                elif filter_type == 3:
+                    row[index] = (value + ((left + up) // 2)) & 0xFF
+                elif filter_type == 4:
+                    estimate = left + up - up_left
+                    pa = abs(estimate - left)
+                    pb = abs(estimate - up)
+                    pc = abs(estimate - up_left)
+                    predictor = left if pa <= pb and pa <= pc else up if pb <= pc else up_left
+                    row[index] = (value + predictor) & 0xFF
+                else:
+                    self.fail(f"unsupported PNG filter {filter_type}")
+            rows.append(row)
+            previous = row
+        corner_alphas = (rows[0][3], rows[0][-1], rows[-1][3], rows[-1][-1])
+        self.assertEqual(corner_alphas, (0, 0, 0, 0))
+        self.assertTrue(any(row[index] > 0 for row in rows for index in range(3, stride, 4)))
+
+        readme = Path("README.md").read_text(encoding="utf-8")
+        self.assertIn("assets/oh-my-jeo-icon.png", readme)
+        self.assertRegex(readme, r'<img[^>]+src="assets/oh-my-jeo-icon\.png"[^>]+alt="[^"]+"')
+
+        html_paths = [
+            Path("site/index.html"),
+            Path("site/docs/index.html"),
+            *sorted(Path("site/docs").glob("*/index.html")),
+        ]
+        for page in html_paths:
+            html = page.read_text(encoding="utf-8")
+            page_depth = len(page.parent.relative_to(Path("site")).parts)
+            relative_icon = "/".join([".."] * page_depth + ["assets/oh-my-jeo-icon.png"])
+            self.assertIn(f'href="{relative_icon}"', html, page.as_posix())
+            self.assertRegex(
+                html,
+                r'<a[^>]+aria-label="oh-my-jeo home"[^>]*>\s*<img[^>]+src="(?:\.\./)*assets/oh-my-jeo-icon\.png"[^>]+width="32"[^>]+height="32"[^>]+alt=""',
+                page.as_posix(),
+            )
+
+        pages_workflow = Path(".github/workflows/pages.yml").read_text(encoding="utf-8")
+        self.assertIn('"assets/oh-my-jeo-icon.png"', pages_workflow)
+        self.assertIn("cp assets/oh-my-jeo-icon.png _site/assets/oh-my-jeo-icon.png", pages_workflow)
 if __name__ == "__main__":
     unittest.main()

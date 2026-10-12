@@ -3,6 +3,29 @@
 
 ## Unreleased
 
+### Origin & Provenance
+
+- **Adopted oh-my-hermes v3.0.2 baseline.** This release forks from
+  oh-my-hermes commit
+  `117f67a2347b82ea527ca1d7f8c0e8d609ec8c4c` (2026-10-11). The inherited
+  oh-my-hermes 1.0.1 engine and skill catalog remain the stable base; selected
+  v3.0.2 routing interface, plugin architecture, intent classification, Latin
+  recall, EN/FR relative-time/French review cues, retained callback lifecycle,
+  and catalog planning/test/debug/forensics guidance adaptations are
+  adopted. The engine and catalog are not claimed to achieve full upstream v3.0.2
+  runtime parity — only documented selected adoptions are in place. See `NOTICE`
+  and the Origin & attribution block in `README.md` for full details.
+- **Generated oh-my-jeo brand icon.** A dedicated 1024×1024 PNG icon
+  (assets/oh-my-jeo-icon.png) and accompanying metadata (assets/oh-my-jeo-icon.json)
+  have been generated using GPT-6.1-sol (2026-10-12). The icon is a geometric
+  lowercase j-shaped routing path with a rotated teal square and compass ring
+  representing independent collaborating agents. The icon is used for README
+  branding, site navigation, favicon, and social preview; it is not an execution
+  or verification claim. The asset metadata records the generation prompt,
+  processing steps, and source size for provenance.
+
+### Hermes Bootstrap & Auto-Install
+
 - Bare `omj` now offers a one-time interactive install prompt when the Hermes
   runtime is missing and no auto-install decision has been recorded yet: a
   "yes" answer (or the top-level `--assume-yes` flag) runs the same opt-in

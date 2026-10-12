@@ -91,7 +91,7 @@ def _capability_family_cards() -> list[dict[str, object]]:
     try:
         from omj.capabilities.families import capability_family_cards
     except ImportError:
-        from .tools.capability_tool import standalone_capability_family_cards
+        standalone_capability_family_cards = _capability_tool.standalone_capability_family_cards
 
         return standalone_capability_family_cards()
     return capability_family_cards()
@@ -219,3 +219,5 @@ def _standalone_catalog_question(message: str) -> bool:
         )
     )
     return has_catalog_word and (has_context or has_availability)
+
+from .tools import capability_tool as _capability_tool

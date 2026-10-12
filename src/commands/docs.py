@@ -48,7 +48,7 @@ def _tap_skills_check_payload(skills_root: Path) -> dict[str, object]:
         Path(template.skill_name) / template.relative_path: template for template in builtin_skill_reference_templates()
     }
     paths = {path.parent.name: path for path in skills_root.glob("*/SKILL.md")}
-    reference_paths = {path.relative_to(skills_root): path for path in skills_root.glob("*/references/*.md")}
+    reference_paths = {path.relative_to(skills_root): path for path in skills_root.glob("*/references/**/*.md")}
     missing = sorted(name for name in templates if name not in paths)
     missing.extend(str(path) for path in sorted(reference_templates) if path not in reference_paths)
     extra = sorted(name for name in paths if name not in templates)

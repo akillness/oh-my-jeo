@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from .intent import classify_omj_quality_intent
 from .localization import normalized_phrase, routing_tokens
+from .reference_regions import executable_routing_text
 
 
 ROUTE_ACTIONS = ("dispatch", "clarify", "fallback")
@@ -2336,7 +2337,11 @@ def meets_confidence_threshold(confidence: str, threshold: str) -> bool:
 
 
 def explicit_skill_invocation(message: str, names: set[str]) -> str | None:
-    first = message.strip().split(maxsplit=1)[0].strip(":,").lower()
+    message = executable_routing_text(message)
+    parts = message.strip().split(maxsplit=1)
+    if not parts:
+        return None
+    first = parts[0].strip(":,").lower()
     used_prefix = False
     for prefix in sorted(EXPLICIT_INVOCATION_PREFIXES, key=len, reverse=True):
         if first.startswith(prefix):

@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 import re
 
 from .localization import normalized_phrase, routing_tokens
+from .reference_regions import executable_routing_text, reference_regions
 
 
 WORKFLOW_VOCABULARY = (
@@ -271,8 +272,9 @@ class OmjQualityIntent:
 
 def classify_workflow_intent(message: str) -> WorkflowIntent:
     """Classify whether workflow vocabulary is a reference or execution intent."""
-    normalized = normalized_phrase(message)
-    tokens = set(routing_tokens(message, stopwords=set()))
+    routing_message = executable_routing_text(message)
+    normalized = normalized_phrase(routing_message)
+    tokens = set(routing_tokens(routing_message, stopwords=set()))
     tokens.update(normalized.split())
     compact = normalized.replace(" ", "")
 
@@ -289,6 +291,16 @@ def classify_workflow_intent(message: str) -> WorkflowIntent:
 
     mentioned_workflows = _mentioned_workflows(matching_normalized, matching_tokens)
     mentioned_runtime_terms = _mentioned_runtime_terms(matching_normalized)
+    regions = reference_regions(message)
+    for chunk in regions.references:
+        reference = normalized_phrase(chunk)
+        reference_tokens = set(routing_tokens(reference, stopwords=set()))
+        mentioned_workflows = _compact_tuple(
+            (*mentioned_workflows, *_mentioned_workflows(reference, reference_tokens))
+        )
+        mentioned_runtime_terms = _compact_tuple(
+            (*mentioned_runtime_terms, *_mentioned_runtime_terms(reference))
+        )
     structural_cues = _structural_cues(
         message,
         matching_normalized,
@@ -317,7 +329,7 @@ def classify_workflow_intent(message: str) -> WorkflowIntent:
         workflow_or_specific_runtime=workflow_or_specific_runtime,
         routing_context=routing_context,
     )
-    explicit_workflow_marker = _explicit_workflow_invocation(normalized, tokens)
+    explicit_workflow_marker = _explicit_workflow_invocation(matching_normalized, matching_tokens)
     explicit_execution = bool(
         execution_cues
         or (
@@ -470,7 +482,7 @@ def classify_omj_quality_intent(message: str) -> OmjQualityIntent:
     words become evidence for improving routing, context, progress, or handoff
     quality when the request is about OMJ itself.
     """
-    normalized = normalized_phrase(message)
+    normalized = normalized_phrase(executable_routing_text(message))
     compact = normalized.replace(" ", "")
 
     system_target_cues = _matched_omj_system_target_cues(normalized)

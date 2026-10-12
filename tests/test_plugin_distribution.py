@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import importlib.resources as resources
 import importlib.util
 import json
@@ -152,7 +153,10 @@ class PluginDistributionTests(unittest.TestCase):
                     "omj_status",
                 ],
             )
-            self.assertEqual(plugin["registered_hooks"], ["on_session_end", "pre_llm_call", "pre_tool_call"])
+            self.assertEqual(
+                set(plugin["registered_hooks"]),
+                {"on_session_end", "pre_llm_call", "pre_tool_call", "subagent_start"},
+            )
 
             inspection = inspect_plugin_bundle(resolve_paths(omj_home, hermes_home))
             self.assertTrue(inspection["plugin_distribution_ready"])
@@ -638,6 +642,67 @@ class PluginDistributionTests(unittest.TestCase):
             self.assertIn("[OMJ Role: planner]", mid_session_role_context["context"])
             self.assertNotIn("do not leak this mid-session prompt", mid_session_role_context["context"])
 
+
+    def test_standalone_awareness_preserves_quoted_workflow_metadata(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            omj_home = root / ".omj"
+            hermes_home = root / ".hermes"
+            self.assertEqual(
+                run_cli(
+                    [
+                        "--omj-home",
+                        str(omj_home),
+                        "--hermes-home",
+                        str(hermes_home),
+                        "setup",
+                        "--with-plugin",
+                    ]
+                )[0],
+                0,
+            )
+
+            module = load_installed_plugin(hermes_home / "plugins" / "omj")
+            ctx = FakeHermesContext()
+            module.register(ctx)
+            standalone_awareness = importlib.import_module(f"{module.__name__}.awareness")
+            message = 'the team discussed "$ultrawork" yesterday during review'
+            route_hint = standalone_awareness.awareness_route_hint(message)
+
+            self.assertEqual(route_hint["intent_class"], "meta_discussion")
+            self.assertIn("ultrawork", route_hint["mentioned_workflows"])
+            self.assertIn("ultrawork", route_hint["not_executed"])
+            self.assertFalse(route_hint.get("explicit_execution", False))
+
+    def test_retained_context_callback_survives_bundle_module_eviction(self) -> None:
+        from omj.plugin_bundle.omj.context_brief import build_context_brief
+        from omj.plugin_bundle.omj.tools.context_tool import omj_context_handler
+
+        baseline = build_context_brief("what workflows are available?", source="test")
+        baseline_families = baseline["capability_families"]
+        retained_builder = build_context_brief
+        retained_handler = omj_context_handler
+        saved_modules = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "omj" or name.startswith("omj.")
+        }
+        try:
+            for name in saved_modules:
+                sys.modules.pop(name, None)
+            sys.modules["omj"] = None
+            rebuilt = retained_builder("what workflows are available?", source="test")
+            handled = json.loads(retained_handler({"message": "what workflows are available?", "source": "test"}))
+        finally:
+            for name in list(sys.modules):
+                if name == "omj" or name.startswith("omj."):
+                    sys.modules.pop(name, None)
+            sys.modules.update(saved_modules)
+
+        self.assertEqual(rebuilt["capability_families"], baseline_families)
+        self.assertEqual(handled["capability_families"], baseline_families)
+        self.assertEqual(handled["source_backend"], "standalone_plugin_bundle_fallback")
+        self.assertEqual(handled["message"]["raw_prompt_echoed"], False)
 
 if __name__ == "__main__":
     unittest.main()

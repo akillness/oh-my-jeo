@@ -16,6 +16,7 @@ from ..plugin_observations import (
     plugin_host_runtime_readiness,
 )
 from ..plugin_pack import inspect_plugin_bundle
+from ..plugin_bundle.omj.runtime_paths import binding_diagnostic
 from ..runtime.artifacts import read_state, read_state_error
 from ..skill_pack import CORE_SKILLS
 from ..targets import read_target_registry_result, summarize_target_registry
@@ -206,6 +207,22 @@ def run_doctor(paths: OmjPaths) -> list[Check]:
         )
     latest_plugin_active = latest_plugin_readiness == "active_runtime_observed"
     plugin_expected = bool(plugin["plugin_dir_installed"]) or bool(state and state.get("last_plugin_distribution"))
+    if plugin_expected:
+        binding_ok, binding_message = binding_diagnostic(
+            paths.omj_home,
+            paths.hermes_home,
+            config_text,
+        )
+        checks.append(
+            Check(
+                "plugin_binding",
+                binding_ok,
+                binding_message,
+                severity="ok" if binding_ok else "warning",
+                remediation="Run `omj setup` to record the selected OMJ home, or preserve the profile-owned binding and rerun doctor.",
+                next_action="Run `omj setup` with the Hermes profile home selected, then rerun `omj doctor`.",
+            )
+        )
     if not plugin_expected:
         checks.append(Check("plugin_bundle", True, f"managed OMJ plugin bridge is not installed yet at {paths.hermes_plugin_dir}"))
     else:

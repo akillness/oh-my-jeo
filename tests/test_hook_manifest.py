@@ -145,6 +145,16 @@ class HookManifestTests(unittest.TestCase):
         self.assertNotIn("selected=ultraprocess", context)
         self.assertNotIn(message, context)
 
+    def test_awareness_route_hint_preserves_quoted_workflow_meta_discussion(self) -> None:
+        message = 'the team discussed "$ultrawork" yesterday during review'
+
+        payload = awareness_route_hint(message)
+
+        self.assertEqual(payload["intent_class"], "meta_discussion")
+        self.assertEqual(payload["selected_workflow"], "workflow-learning")
+        self.assertIn("ultrawork", payload["mentioned_workflows"])
+        self.assertIn("ultrawork", payload["not_executed"])
+
     def test_awareness_route_hint_treats_pasted_omj_status_as_diagnostic(self) -> None:
         message = sionic_omj_usage_evaluation_prompt()
 

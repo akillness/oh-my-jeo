@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from ..coding.handoff_contract import (
+    HandoffContractError,
+    build_handoff_contract_receipt,
+    contract_digest,
+    contract_verification_observed,
+)
 from ..context_safety import build_coding_progress_reporting_policy
-from ..coding_delegation import build_coding_delegation_payload, coding_delegation_record_payload
+from ..coding_delegation import (
+    build_coding_delegation_payload,
+    coding_delegation_record_payload,
+)
 from ..executor_progress import (
     ExecutorProgressError,
     build_progress_binding,
@@ -18,10 +27,14 @@ from ..memory import memory_recall_pack_for_handoff
 from ..runtime.artifacts import (
     append_event,
     create_prepared_coding_delegation_run,
+    read_handoff_contract_receipt,
+    stored_handoff_contract,
+    stored_handoff_contract_digest,
     summarize_delegated_coding_status,
     validate_runtime,
     write_coding_delegation,
     write_delegation,
+    write_handoff_contract_receipt,
     write_wrapper_contract,
 )
 from ..runtime.records import OBSERVED_RESULTS
@@ -44,9 +57,12 @@ def start_codex_delegation_lifecycle(
     include_message: bool = False,
     context_pack: dict[str, object] | None = None,
     memory_recall_pack: dict[str, object] | None = None,
+    handoff_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     if memory_recall_pack is None:
-        memory_recall_pack = memory_recall_pack_for_handoff(paths, message, executor_target="codex")
+        memory_recall_pack = memory_recall_pack_for_handoff(
+            paths, message, executor_target="codex"
+        )
     payload = build_coding_delegation_payload(
         message,
         source=source,
@@ -56,6 +72,7 @@ def start_codex_delegation_lifecycle(
         executor_target="codex",
         context_pack=context_pack,
         memory_recall_pack=memory_recall_pack,
+        handoff_contract=handoff_contract,
     )
     delegation = payload.get("delegation")
     if not isinstance(delegation, dict):
@@ -75,7 +92,9 @@ def start_codex_delegation_lifecycle(
     run_dir = paths.runtime_runs_dir / str(run["run_id"])
     record = write_coding_delegation(
         run_dir,
-        coding_delegation_record_payload(payload, message, source_metadata=source_metadata),
+        coding_delegation_record_payload(
+            payload, message, source_metadata=source_metadata
+        ),
     )
     status = report_codex_delegation_lifecycle(paths, str(run["run_id"]))
     result: dict[str, object] = {
@@ -96,7 +115,9 @@ def record_codex_dispatch(paths: OmjPaths, run_id: str) -> dict[str, object]:
     status = summarize_delegated_coding_status(paths, run_id)
     next_action = str(status.get("next_action", ""))
     if next_action not in {"dispatch_to_executor", "wait_for_executor_evidence"}:
-        raise CodingLifecycleError(f"cannot dispatch Codex handoff while next_action is {next_action}")
+        raise CodingLifecycleError(
+            f"cannot dispatch Codex handoff while next_action is {next_action}"
+        )
     wrapper = write_wrapper_contract(
         run_dir,
         {
@@ -130,7 +151,9 @@ def record_codex_result(
     run_dir = _existing_run_dir(paths, run_id)
     status = summarize_delegated_coding_status(paths, run_id)
     if str(status.get("next_action")) != "wait_for_executor_evidence":
-        raise CodingLifecycleError(f"cannot record Codex result while next_action is {status.get('next_action')}")
+        raise CodingLifecycleError(
+            f"cannot record Codex result while next_action is {status.get('next_action')}"
+        )
     if result not in OBSERVED_RESULTS:
         raise CodingLifecycleError("Codex result must be completed, blocked, or failed")
     delegation = write_delegation(
@@ -163,16 +186,34 @@ def record_codex_verification(
     *,
     completion_status: str = "completed",
     gaps: list[str] | tuple[str, ...] | None = None,
+    postcondition_exits: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     run_dir = _existing_run_dir(paths, run_id)
     status = summarize_delegated_coding_status(paths, run_id)
     execution = status.get("execution", {})
     if not isinstance(execution, dict) or not execution.get("observed"):
-        raise CodingLifecycleError("cannot record verification before executor evidence is observed")
+        raise CodingLifecycleError(
+            "cannot record verification before executor evidence is observed"
+        )
     if execution.get("status") in {"blocked", "failed"}:
-        raise CodingLifecycleError("cannot record successful verification for blocked or failed executor result")
+        raise CodingLifecycleError(
+            "cannot record successful verification for blocked or failed executor result"
+        )
+    contract = stored_handoff_contract(run_dir)
+    if contract is None:
+        if postcondition_exits is not None:
+            raise CodingLifecycleError(
+                "--postcondition-exit requires the run to carry a declared handoff_contract declaration"
+            )
+        contract_observed = True
+    else:
+        contract_observed = _record_handoff_contract_evidence(
+            run_dir, contract, postcondition_exits
+        )
     unobserved_gaps = list(gaps or [])
-    verification_observed = completion_status == "completed" and not unobserved_gaps
+    verification_observed = (
+        completion_status == "completed" and not unobserved_gaps and contract_observed
+    )
     wrapper = write_wrapper_contract(
         run_dir,
         {
@@ -190,12 +231,43 @@ def record_codex_verification(
     }
 
 
-def report_codex_delegation_lifecycle(paths: OmjPaths, run_id: str) -> dict[str, object]:
+def _record_handoff_contract_evidence(
+    run_dir: Path,
+    contract: dict[str, Any],
+    postcondition_exits: Mapping[str, int] | None,
+) -> bool:
+    """Build/persist a receipt from new evidence (if the pinned contract still matches), then
+    report whether the run's handoff contract is observed and passed.
+
+    The contract digest was pinned in coding_delegation.json when it was first persisted,
+    before any later edit of that file was possible; a live contract that no longer matches
+    its own pin has changed since dispatch and cannot be verified, so no receipt is written
+    for it (a changed contract must never claim completion from stale or self-tampered evidence).
+    """
+    if postcondition_exits is not None:
+        try:
+            receipt = build_handoff_contract_receipt(contract, postcondition_exits)
+        except HandoffContractError as exc:
+            raise CodingLifecycleError(str(exc)) from exc
+        if stored_handoff_contract_digest(run_dir) == contract_digest(contract):
+            write_handoff_contract_receipt(run_dir, receipt)
+    return contract_verification_observed(
+        contract, read_handoff_contract_receipt(run_dir)
+    )
+
+
+def report_codex_delegation_lifecycle(
+    paths: OmjPaths, run_id: str
+) -> dict[str, object]:
     status = summarize_delegated_coding_status(paths, run_id)
     next_action = str(status.get("next_action", "unknown"))
     lifecycle_status = _lifecycle_status(next_action)
     completion_report_actions = {"report_completion_with_evidence"}
-    terminal_report_actions = {"report_completion_with_evidence", "report_merge_ready", "report_merged"}
+    terminal_report_actions = {
+        "report_completion_with_evidence",
+        "report_merge_ready",
+        "report_merged",
+    }
     report = dict(status)
     report.update(
         {
@@ -203,7 +275,9 @@ def report_codex_delegation_lifecycle(paths: OmjPaths, run_id: str) -> dict[str,
             "lifecycle_status": lifecycle_status,
             "can_report_completion": next_action in completion_report_actions,
             "can_report_terminal_status": next_action in terminal_report_actions,
-            "blocking_reason": "" if next_action in terminal_report_actions else _blocking_reason(next_action),
+            "blocking_reason": ""
+            if next_action in terminal_report_actions
+            else _blocking_reason(next_action),
             "artifact_paths": _artifact_paths(paths, run_id),
             "runtime_validation": validate_runtime(paths, run_id),
             "executor_progress": _run_progress_status(paths, run_id),

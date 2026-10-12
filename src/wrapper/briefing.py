@@ -4,6 +4,7 @@ from typing import Any
 
 
 CODING_BRIEFING_SCHEMA_VERSION = "coding_briefing/v1"
+_MAX_CONTEXT_PACK_COUNT = 1_000_000
 
 
 def build_coding_briefing(
@@ -233,16 +234,15 @@ def _work_summary(session: dict[str, Any], runtime_status: dict[str, Any]) -> di
 
 
 def _active_handoff(session: dict[str, Any], runtime_status: dict[str, Any]) -> dict[str, Any]:
-    handoff_contract = _object(runtime_status.get("handoff_contract"))
-    if handoff_contract:
-        return handoff_contract
     for key in ("prompt_handoff", "runtime_handoff"):
         handoff = _object(session.get(key))
         if handoff:
             return handoff
+    prepared_handoff = _object(runtime_status.get("prepared_handoff"))
+    if prepared_handoff:
+        return prepared_handoff
     prepared = _object(runtime_status.get("prepared"))
     if prepared:
-        # Runtime status is compact; the session keeps richer prompt/runtime handoff detail for non-run paths.
         return {
             "schema_version": prepared.get("handoff_schema_version", ""),
             "selected_executor_profile": prepared.get("executor_target", ""),
@@ -463,32 +463,67 @@ def _merged_state(record: dict[str, Any]) -> str:
     return "complete" if str(record.get("status", "")) == "merged" and bool(record.get("satisfied")) else "pending"
 
 
+def _compact_count(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        count = value
+    elif isinstance(value, str) and value.isdecimal():
+        try:
+            count = int(value)
+        except ValueError:
+            return None
+    else:
+        return None
+    return count if 0 <= count <= _MAX_CONTEXT_PACK_COUNT else None
+
+
+def _context_metadata_fields(context_pack: dict[str, Any]) -> dict[str, str] | None:
+    fields: dict[str, str] = {}
+    for key in ("schema_version", "executor_target", "session_id", "redaction_policy", "claim_boundary"):
+        value = context_pack.get(key, "")
+        if not isinstance(value, str):
+            return None
+        fields[key] = value
+    return fields
+
+
 def _context_pack_summary(context_pack: dict[str, Any]) -> dict[str, Any]:
     if not context_pack:
         return {}
-    if "included_context_count" in context_pack:
-        return {
-            "schema_version": str(context_pack.get("schema_version", "")),
-            "executor_target": str(context_pack.get("executor_target", "")),
-            "session_id": str(context_pack.get("session_id", "")),
-            "source_ref_count": int(context_pack.get("source_ref_count", 0) or 0),
-            "included_context_count": int(context_pack.get("included_context_count", 0) or 0),
-            "excluded_context_count": int(context_pack.get("excluded_context_count", 0) or 0),
-            "blocked_by_conflicts_count": int(context_pack.get("blocked_by_conflicts_count", 0) or 0),
-            "redaction_policy": str(context_pack.get("redaction_policy", "")),
-            "claim_boundary": str(context_pack.get("claim_boundary", "")),
-        }
-    return {
-        "schema_version": str(context_pack.get("schema_version", "")),
-        "executor_target": str(context_pack.get("executor_target", "")),
-        "session_id": str(context_pack.get("session_id", "")),
-        "source_ref_count": len(_list_value(context_pack.get("source_refs"))),
-        "included_context_count": len(_list_value(context_pack.get("included_context"))),
-        "excluded_context_count": len(_list_value(context_pack.get("excluded_context"))),
-        "blocked_by_conflicts_count": len(_list_value(context_pack.get("blocked_by_conflicts"))),
-        "redaction_policy": str(context_pack.get("redaction_policy", "")),
-        "claim_boundary": str(context_pack.get("claim_boundary", "")),
-    }
+    count_keys = (
+        "source_ref_count",
+        "included_context_count",
+        "excluded_context_count",
+        "blocked_by_conflicts_count",
+    )
+    if any(key in context_pack for key in count_keys):
+        metadata = _context_metadata_fields(context_pack)
+        if metadata is None or not all(key in context_pack for key in count_keys):
+            return {}
+        counts = {key: _compact_count(context_pack.get(key)) for key in count_keys}
+        if any(count is None for count in counts.values()):
+            return {}
+        return {**metadata, **counts}
+    metadata = _context_metadata_fields(context_pack)
+    if metadata is None:
+        return {}
+    list_keys = (
+        ("source_ref_count", "source_refs"),
+        ("included_context_count", "included_context"),
+        ("excluded_context_count", "excluded_context"),
+        ("blocked_by_conflicts_count", "blocked_by_conflicts"),
+    )
+    counts: dict[str, int] = {}
+    for count_key, list_key in list_keys:
+        value = context_pack.get(list_key, [])
+        if not isinstance(value, list):
+            return {}
+        count = _compact_count(len(value))
+        if count is None:
+            return {}
+        counts[count_key] = count
+    return {**metadata, **counts}
 
 
 def _memory_recall_pack_summary(memory_recall_pack: dict[str, Any]) -> dict[str, Any]:

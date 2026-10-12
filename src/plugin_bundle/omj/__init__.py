@@ -6,7 +6,7 @@ _TOOLSET = "omj"
 def register(ctx):
     """Register the OMJ thin native bridge with Hermes."""
     from .hooks.llm_hooks import pre_llm_call
-    from .hooks.session_hooks import on_session_end
+    from .hooks.session_hooks import on_session_end, subagent_start
     from .hooks.tool_hooks import pre_tool_call
     from .tools.capability_tool import OMJ_CAPABILITIES_SCHEMA, omj_capabilities_handler
     from .tools.chat_tool import OMJ_INTERACT_SCHEMA, omj_interact_handler
@@ -83,4 +83,5 @@ def register(ctx):
     )
     ctx.register_hook("on_session_end", on_session_end)
     ctx.register_hook("pre_llm_call", pre_llm_call)
+    ctx.register_hook("subagent_start", subagent_start)
     ctx.register_hook("pre_tool_call", pre_tool_call)

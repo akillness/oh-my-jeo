@@ -40,14 +40,15 @@ Bad example:
 
 ## Completion Checklist
 
-- The clarified brief names goals, non-goals, constraints, and one next planning or handoff path.
-- Remaining ambiguity is listed only when it changes the plan, risk, or stop condition.
-- No implementation handoff is prepared until the blocking decision is resolved.
+- One decision-changing question is asked per turn or the structured batch contract is explicit.
+- The clarified brief records current ambiguity, goals, non-goals, decision boundaries, and acceptance criteria.
+- Only an explicit user answer or question-tool response changes awaiting to accepted or refused; timeout, dismissal, and no answer do not.
+- Idea approval is not later plan, handoff, dispatch, code, review, CI, or merge authorization.
 
 ## Recovery Notes
 
-- If the user answers with new ambiguity, ask the next decision-changing question instead of planning too early.
-- If repo evidence can answer the question, inspect it before asking the user.
+- If the user does not answer, keep the interview awaiting and do not infer refusal or acceptance.
+- If the user approves the idea but no plan acceptance exists, route to planning without preparing implementation handoff.
 
 ## OMJ Context Rail
 
@@ -105,6 +106,7 @@ Safety rules:
 - Ask one question at a time.
 - Gather discoverable repo facts before asking the user.
 - Stop clarifying once ambiguity is low (about 0.2 or less) and lock the requirements seed against further drift.
+- This idea agreement does not authorize a later plan, handoff, dispatch, code edit, review, CI, or merge.
 
 ## Harness Discipline
 

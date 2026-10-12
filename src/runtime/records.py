@@ -12,6 +12,11 @@ from ..coding_contracts import (
     PROMPT_HANDOFF_SCHEMA_VERSION,
     RUNTIME_HANDOFF_SCHEMA_VERSION,
 )
+from ..coding.handoff_contract import (
+    HANDOFF_CONTRACT_KEY,
+    HANDOFF_CONTRACT_SCHEMA_VERSION,
+    contract_digest,
+)
 from ..executors import (
     DISPATCH_POLICIES,
     EXECUTOR_PROFILES,
@@ -38,6 +43,7 @@ OBSERVED_RESULTS = ("completed", "blocked", "failed")
 UNOBSERVED_RESULTS = ("not_available", "not_observed")
 EVENT_LEVELS = ("debug", "info", "warning", "error")
 WRAPPER_COMPLETION_STATUSES = ("started", "completed", "blocked", "failed", "unknown")
+HANDOFF_CONTRACT_DIGEST_KEY = "handoff_contract_digest"
 REVIEW_STATUSES = ("not_required", "pending", "passed", "failed", "blocked", "not_observed")
 CI_STATUSES = ("not_required", "pending", "passed", "failed", "blocked", "not_observed")
 CI_CHECK_STATUSES = ("passed", "failed", "blocked", "pending", "not_required")
@@ -145,6 +151,7 @@ CODING_DELEGATION_RECORD_KEYS = (
     "verification",
     "plan_artifact",
     "status",
+    "handoff_contract_digest",
 )
 CODING_PLAN_ARTIFACT_KEYS = (
     "path",
@@ -208,6 +215,7 @@ CODING_EXECUTOR_HANDOFF_KEYS = (
     "context_pack",
     "context_pack_blocked",
     "memory_recall_pack",
+    "handoff_contract",
 )
 CODING_PROMPT_HANDOFF_KEYS = (
     "schema_version",
@@ -232,6 +240,7 @@ CODING_PROMPT_HANDOFF_KEYS = (
     "context_pack",
     "context_pack_blocked",
     "memory_recall_pack",
+    "handoff_contract",
 )
 CODING_RUNTIME_HANDOFF_KEYS = (
     "schema_version",
@@ -263,6 +272,7 @@ CODING_RUNTIME_HANDOFF_KEYS = (
     "context_pack",
     "context_pack_blocked",
     "memory_recall_pack",
+    "handoff_contract",
 )
 CODING_PROMPT_HANDOFF_INVOCATION_KEYS = (
     "mode",
@@ -696,6 +706,11 @@ def build_coding_delegation_record(delegation: dict[str, Any]) -> dict[str, Any]
     plan_artifact = _compact_plan_artifact(delegation.get("plan_artifact"))
     if plan_artifact:
         record["plan_artifact"] = plan_artifact
+    for attached_handoff in (executor_handoff, runtime_handoff, prompt_handoff):
+        pinned_contract = attached_handoff.get(HANDOFF_CONTRACT_KEY) if attached_handoff else None
+        if isinstance(pinned_contract, dict) and pinned_contract:
+            record[HANDOFF_CONTRACT_DIGEST_KEY] = contract_digest(pinned_contract)
+            break
     if not record["message_sha256"] and message_text:
         record["message_sha256"] = hashlib.sha256(message_text.encode("utf-8")).hexdigest()
     errors = validate_coding_delegation_record(record)
@@ -890,6 +905,67 @@ def _optional_string(value: Any) -> str | None:
     return text if text else None
 
 
+def _compact_handoff_contract(value: Any) -> dict[str, Any]:
+    """Preserve a compiled, typed handoff_contract/v1 declaration through persistence."""
+    if not isinstance(value, dict) or not value:
+        return {}
+    if value.get("schema_version") != HANDOFF_CONTRACT_SCHEMA_VERSION:
+        return {}
+    postconditions = value.get("postconditions")
+    if not isinstance(postconditions, list) or not postconditions:
+        return {}
+    compact: dict[str, Any] = {
+        "schema_version": str(value.get("schema_version", "")),
+        "status": str(value.get("status", "")),
+        "inputs": _compact_handoff_contract_inputs(value.get("inputs")),
+        "postconditions": _compact_handoff_contract_postconditions(postconditions),
+        "forbidden_actions": _compact_string_list(value.get("forbidden_actions", [])),
+        "claim_boundary": str(value.get("claim_boundary", "")),
+    }
+    output_shape = value.get("output_shape")
+    if isinstance(output_shape, dict) and output_shape:
+        compact["output_shape"] = {
+            "format": str(output_shape.get("format", "")),
+            "required_fields": _compact_string_list(output_shape.get("required_fields", [])),
+        }
+    return compact
+
+
+def _compact_handoff_contract_inputs(value: object) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    inputs: list[dict[str, Any]] = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        inputs.append(
+            {
+                "name": str(entry.get("name", "")),
+                "input_type": str(entry.get("input_type", "")),
+                "requirement": str(entry.get("requirement", "")),
+                "default": entry.get("default"),
+            }
+        )
+    return inputs
+
+
+def _compact_handoff_contract_postconditions(value: list[Any]) -> list[dict[str, Any]]:
+    postconditions: list[dict[str, Any]] = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        postconditions.append(
+            {
+                "id": str(entry.get("id", "")),
+                "check_id": str(entry.get("check_id", "")),
+                "command": str(entry.get("command", "")),
+                "claim_scope": str(entry.get("claim_scope", "")),
+                "verdict_source": str(entry.get("verdict_source", "")),
+            }
+        )
+    return postconditions
+
+
 def _compact_executor_handoff(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or not value:
         return {}
@@ -927,6 +1003,9 @@ def _compact_executor_handoff(value: Any) -> dict[str, Any]:
     readiness = _compact_executor_readiness(value.get("executor_readiness"))
     if readiness:
         compact["executor_readiness"] = readiness
+    handoff_contract = _compact_handoff_contract(value.get(HANDOFF_CONTRACT_KEY))
+    if handoff_contract:
+        compact[HANDOFF_CONTRACT_KEY] = handoff_contract
     review = value.get("review")
     if isinstance(review, dict):
         compact["review"] = {
@@ -976,6 +1055,9 @@ def _compact_prompt_handoff(value: Any) -> dict[str, Any]:
     readiness = _compact_executor_readiness(value.get("executor_readiness"))
     if readiness:
         compact["executor_readiness"] = readiness
+    handoff_contract = _compact_handoff_contract(value.get(HANDOFF_CONTRACT_KEY))
+    if handoff_contract:
+        compact[HANDOFF_CONTRACT_KEY] = handoff_contract
     review = value.get("review")
     if isinstance(review, dict):
         compact["review"] = {
@@ -1031,6 +1113,9 @@ def _compact_runtime_handoff(value: Any) -> dict[str, Any]:
     readiness = _compact_executor_readiness(value.get("executor_readiness"))
     if readiness:
         compact["executor_readiness"] = readiness
+    handoff_contract = _compact_handoff_contract(value.get(HANDOFF_CONTRACT_KEY))
+    if handoff_contract:
+        compact[HANDOFF_CONTRACT_KEY] = handoff_contract
     review = value.get("review")
     if isinstance(review, dict):
         compact["review"] = {
@@ -1825,6 +1910,8 @@ def validate_coding_delegation_record(delegation: dict[str, Any]) -> list[str]:
         errors.extend(validate_harness_quality(delegation["harness_quality"], "coding_delegation harness_quality"))
     if "plan_artifact" in delegation:
         errors.extend(validate_coding_plan_artifact(delegation["plan_artifact"]))
+    if "handoff_contract_digest" in delegation:
+        _require(_is_sha256(str(delegation.get("handoff_contract_digest", ""))), errors, "coding_delegation handoff_contract_digest must be a sha256 hex digest")
     errors.extend(validate_coding_handoff_combination(delegation, "coding_delegation"))
     return errors
 
@@ -1990,6 +2077,58 @@ def validate_wrapper_session_record(session: dict[str, Any]) -> list[str]:
     return errors
 
 
+def validate_coding_handoff_contract(contract: Any, prefix: str) -> list[str]:
+    """Structurally validate a compiled handoff_contract/v1 carried by a persisted handoff.
+
+    Business rules (closed inputs, compiled postcondition ids, template usage) are already
+    enforced by coding.handoff_contract.build_handoff_contract at attach time; this only
+    confirms the persisted shape was not corrupted or hand-edited into something unusable.
+    """
+    errors: list[str] = []
+    _require(isinstance(contract, dict), errors, f"{prefix} handoff_contract must be an object")
+    if not isinstance(contract, dict):
+        return errors
+    _require(
+        contract.get("schema_version") == HANDOFF_CONTRACT_SCHEMA_VERSION,
+        errors,
+        f"{prefix} handoff_contract schema_version is invalid",
+    )
+    _require(
+        contract.get("status") == "prepared_not_observed",
+        errors,
+        f"{prefix} handoff_contract status must be prepared_not_observed",
+    )
+    _require(isinstance(contract.get("inputs"), list), errors, f"{prefix} handoff_contract inputs must be a list")
+    _require(isinstance(contract.get("forbidden_actions"), list), errors, f"{prefix} handoff_contract forbidden_actions must be a list")
+    _require(
+        isinstance(contract.get("claim_boundary"), str) and bool(contract.get("claim_boundary")),
+        errors,
+        f"{prefix} handoff_contract claim_boundary must be a non-empty string",
+    )
+    postconditions = contract.get("postconditions")
+    _require(
+        isinstance(postconditions, list) and bool(postconditions),
+        errors,
+        f"{prefix} handoff_contract postconditions must be a non-empty list",
+    )
+    if isinstance(postconditions, list):
+        for index, entry in enumerate(postconditions):
+            _require(isinstance(entry, dict), errors, f"{prefix} handoff_contract postconditions[{index}] must be an object")
+            if not isinstance(entry, dict):
+                continue
+            _require(
+                isinstance(entry.get("id"), str) and bool(entry.get("id")),
+                errors,
+                f"{prefix} handoff_contract postconditions[{index}].id must be a non-empty string",
+            )
+            _require(
+                isinstance(entry.get("check_id"), str) and bool(entry.get("check_id")),
+                errors,
+                f"{prefix} handoff_contract postconditions[{index}].check_id must be a non-empty string",
+            )
+    return errors
+
+
 def validate_coding_executor_handoff(handoff: Any) -> list[str]:
     errors: list[str] = []
     _require(isinstance(handoff, dict), errors, "coding_delegation executor_handoff must be an object")
@@ -2092,6 +2231,8 @@ def validate_coding_executor_handoff(handoff: Any) -> list[str]:
                 expected_profile=str(handoff.get("selected_executor_profile", "")),
             )
         )
+    if "handoff_contract" in handoff:
+        errors.extend(validate_coding_handoff_contract(handoff["handoff_contract"], "coding_delegation executor_handoff"))
     errors.extend(validate_isolation_plan(handoff.get("isolation_plan"), "coding_delegation executor_handoff isolation_plan"))
     errors.extend(validate_handoff_context_pack_fields(handoff, "coding_delegation executor_handoff"))
     return errors
@@ -2389,6 +2530,8 @@ def validate_coding_runtime_handoff(handoff: Any) -> list[str]:
                 expected_profile=str(handoff.get("selected_executor_profile", "")),
             )
         )
+    if "handoff_contract" in handoff:
+        errors.extend(validate_coding_handoff_contract(handoff["handoff_contract"], "coding_delegation runtime_handoff"))
     errors.extend(validate_isolation_plan(handoff.get("isolation_plan"), "coding_delegation runtime_handoff isolation_plan"))
     errors.extend(validate_handoff_context_pack_fields(handoff, "coding_delegation runtime_handoff"))
     return errors
@@ -2554,6 +2697,8 @@ def validate_coding_prompt_handoff(handoff: Any) -> list[str]:
                 expected_profile=str(handoff.get("selected_executor_profile", "")),
             )
         )
+    if "handoff_contract" in handoff:
+        errors.extend(validate_coding_handoff_contract(handoff["handoff_contract"], "coding_delegation prompt_handoff"))
     errors.extend(validate_isolation_plan(handoff.get("isolation_plan"), "coding_delegation prompt_handoff isolation_plan"))
     errors.extend(validate_handoff_context_pack_fields(handoff, "coding_delegation prompt_handoff"))
     return errors

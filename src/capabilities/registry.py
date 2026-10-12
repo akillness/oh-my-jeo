@@ -15,9 +15,11 @@ from .schema import (
     PREPARED_NOT_OBSERVED,
     normalize_capability_section,
 )
-from .skills import skill_capabilities
+from .skills import prepared_skill_index, prepared_skill_inspect, skill_capabilities
 from .tools import tool_requirements_manifest
 from ..plugin_bundle.omj.awareness import awareness_lane_examples, awareness_primer_payload
+
+_PREPARED_SECTIONS = frozenset({"prepared", "prepared_skills", "prepared-guidance"})
 
 LANE_OWNER_ROLES = {
     "intent_to_plan": "planner",
@@ -167,7 +169,18 @@ def evidence_boundaries() -> dict[str, object]:
     }
 
 
+def _prepared_section(section: str | None) -> bool:
+    return str(section or "").strip().lower().replace("_", "-") in {"prepared", "prepared-skills", "prepared-guidance"}
+
+
 def filtered_capability_snapshot(section: str | None = None) -> dict[str, object]:
+    if _prepared_section(section):
+        return {
+            "schema_version": "prepared_guidance_index/v1",
+            "manifest_id": "omj_prepared_guidance",
+            "section": "prepared_skills",
+            "prepared_skills": prepared_skill_index(),
+        }
     snapshot = capability_snapshot()
     canonical_section = normalize_capability_section(section)
     if not canonical_section:
@@ -183,6 +196,13 @@ def filtered_capability_snapshot(section: str | None = None) -> dict[str, object
 
 
 def list_capabilities(section: str | None = None) -> dict[str, object]:
+    if _prepared_section(section):
+        index = prepared_skill_index()
+        return {
+            "schema_version": "omj_capability_list/v1",
+            "sections": [{"section": "prepared_skills", "ids": [entry["canonical_id"] for entry in index["entries"]]}],
+            "prepared_index": index,
+        }
     snapshot = capability_snapshot()
     canonical_section = normalize_capability_section(section)
     sections = [canonical_section] if canonical_section else list(CAPABILITY_SECTIONS)
@@ -204,6 +224,16 @@ def list_capabilities(section: str | None = None) -> dict[str, object]:
 def inspect_capability(identifier: str, section: str | None = None) -> dict[str, object]:
     if not identifier:
         raise ValueError("capabilities inspect requires an id")
+    if _prepared_section(section):
+        capability = prepared_skill_inspect(identifier)
+        return {
+            "schema_version": "omj_capability_inspect/v1",
+            "section": "prepared_skills",
+            "id": identifier,
+            "requested_id": identifier,
+            "resolved_id": str(capability.get("canonical_id") or identifier),
+            "capability": capability,
+        }
     snapshot = capability_snapshot()
     canonical_section = normalize_capability_section(section)
     sections = [canonical_section] if canonical_section else list(CAPABILITY_SECTIONS)
@@ -219,6 +249,20 @@ def inspect_capability(identifier: str, section: str | None = None) -> dict[str,
                 "requested_id": identifier,
                 "resolved_id": _capability_id(found, identifier),
                 "capability": found,
+            }
+    if canonical_section in {None, "skills"}:
+        try:
+            capability = prepared_skill_inspect(identifier)
+        except ValueError:
+            pass
+        else:
+            return {
+                "schema_version": "omj_capability_inspect/v1",
+                "section": "prepared_skills",
+                "id": identifier,
+                "requested_id": identifier,
+                "resolved_id": str(capability.get("canonical_id") or identifier),
+                "capability": capability,
             }
     raise ValueError(f"capability not found: {identifier}")
 

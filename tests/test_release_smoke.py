@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 import sys
 import subprocess
 import unittest
@@ -17,6 +18,7 @@ from omj.release import (
     run_hermes_release_smoke,
     skill_content_smoke,
 )
+from omj.skills import prepared
 from omj.release_install_smoke import install_script_smoke_plan, run_install_script_smoke
 from omj.release_smoke_core import CommandResult, subprocess_runner, subprocess_runner_exact_env
 
@@ -243,12 +245,18 @@ class ReleaseSmokeTests(unittest.TestCase):
         gates = {gate["id"]: gate for gate in payload["gates"]}
         self.assertEqual(
             set(gates),
-            {"skill_content", "use_cases", "parity_contracts", "release_checklist"},
+            {"skill_content", "prepared_guidance", "use_cases", "parity_contracts", "release_checklist"},
         )
         self.assertEqual(gates["skill_content"]["status"], "passed")
+        self.assertEqual(gates["prepared_guidance"]["status"], "passed")
+        self.assertEqual(
+            gates["prepared_guidance"]["summary"],
+            "98/98 members, 97/97 method references, 41/41 source contracts",
+        )
         self.assertEqual(gates["use_cases"]["status"], "passed")
         self.assertEqual(gates["parity_contracts"]["status"], "passed")
         self.assertEqual(gates["release_checklist"]["status"], "passed")
+
         self.assertIn(
             "'/tmp/omj command' release checklist --version 1.0.1 --json",
             gates["release_checklist"]["command"],
@@ -256,6 +264,33 @@ class ReleaseSmokeTests(unittest.TestCase):
         self.assertIn("deterministic local OMJ package", payload["boundary"])
         self.assertIn("Attach observed evidence", " ".join(payload["next_actions"]))
         self.assertIn("evidence-bundle", " ".join(payload["next_actions"]))
+
+    def test_product_readiness_prepared_guidance_mutations_block_release(self) -> None:
+        baseline = [deepcopy(record) for record in prepared.PREPARED_MEMBERS]
+        corrupt_member = [deepcopy(record) for record in baseline]
+        corrupt_member[0]["family_id"] = "corrupt-family"
+        missing_member = baseline[:-1]
+        corrupt_reference_hash = [deepcopy(record) for record in baseline]
+        reference = corrupt_reference_hash[0]["references"][0]
+        reference["source_sha256"] = "0" * 64
+        cases = (
+            ("corrupt member", corrupt_member, "family_id differs from frozen manifest"),
+            ("missing member", missing_member, "prepared guidance data and manifest member ids differ"),
+            ("corrupt reference hash", corrupt_reference_hash, "reference source_sha256 differs from frozen manifest"),
+        )
+
+        for case_name, mutated, expected_error in cases:
+            with self.subTest(case_name=case_name):
+                with patch.object(prepared, "PREPARED_MEMBERS", mutated), patch(
+                    "omj.maintenance.release.PREPARED_MEMBERS", mutated
+                ):
+                    payload = product_readiness_report(version="v1.0.1")
+
+                self.assertEqual(payload["status"], "needs_attention")
+                self.assertGreater(payload["blocking_failures"], 0)
+                gates = {gate["id"]: gate for gate in payload["gates"]}
+                self.assertEqual(gates["prepared_guidance"]["status"], "failed")
+                self.assertTrue(any(expected_error in error for error in gates["prepared_guidance"]["errors"]))
 
     def test_release_evidence_bundle_packages_and_writes_local_evidence(self) -> None:
         with TemporaryDirectory() as tmp:

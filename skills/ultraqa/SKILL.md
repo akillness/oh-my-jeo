@@ -39,9 +39,7 @@ Bad example:
 
 ## Completion Checklist
 
-- The scenario, expected behavior, observed result, and pass/fail basis are named.
-- Proposed fixes are separated from observed QA evidence.
-- Missing or failed verification routes back to plan, fix, or a narrower test.
+- Load `references/hypothesis-and-race-method.md`.
 
 ## Recovery Notes
 
@@ -78,6 +76,7 @@ Quality bar:
 - Generate hostile scenarios from changed behavior and known risk areas.
 - Report pass/fail evidence separately from proposed fixes.
 - Delegate code mutations discovered by QA to the selected coding executor.
+- Run same reproduction command after each fix; third failed attempt: escalate; no fourth fix.
 
 Handoff policy:
 

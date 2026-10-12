@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 import unicodedata
+from .reference_regions import executable_routing_text
 
 
 _TOKEN_RE = re.compile(r"[^\W_][^\W_'-]*(?:-[^\W_][^\W_'-]*)?", re.UNICODE)
@@ -336,14 +337,15 @@ def locale_aliases() -> tuple[LocaleAlias, ...]:
 
 def prepare_routing_text(value: str) -> RoutingText:
     original = value.strip()
-    folded = _fold_for_match(original)
+    executable = executable_routing_text(original)
+    folded = _fold_for_match(executable)
     additions: list[str] = []
     matches: list[str] = []
     for alias in _ALIASES:
         if any(_fold_for_match(phrase) in folded for phrase in alias.phrases):
             additions.append(alias.canonical)
             matches.append(f"{alias.locale}:{alias.label}")
-    scoring_text = " ".join((original, *additions)).strip()
+    scoring_text = " ".join((executable, *additions)).strip()
     return RoutingText(original=original, scoring_text=scoring_text, locale_matches=tuple(sorted(set(matches))))
 
 

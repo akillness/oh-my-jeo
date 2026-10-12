@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/pages.yml"
       - "assets/hermes-agent-hero.png"
+      - "assets/oh-my-jeo-icon.png"
       - "site/**"
       - "README.md"
       - "docs/**"
@@ -49,6 +50,7 @@ jobs:
           mkdir -p _site/assets
           cp -R site/. _site/
           cp assets/hermes-agent-hero.png _site/assets/hermes-agent-hero.png
+          cp assets/oh-my-jeo-icon.png _site/assets/oh-my-jeo-icon.png
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:

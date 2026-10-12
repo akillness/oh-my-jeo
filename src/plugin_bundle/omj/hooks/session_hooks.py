@@ -6,7 +6,44 @@ import os
 from pathlib import Path
 import uuid
 
-from ..host_observation import observe_plugin_session_end_call
+from ..host_observation import observe_plugin_hook_call, observe_plugin_session_end_call
+
+
+_MAX_HOST_REPORTED_CHILDREN = 256
+_HOST_REPORTED_CHILDREN: dict[tuple[str, str], dict[str, str]] = {}
+
+
+def subagent_start(**kwargs) -> None:
+    """Record explicit host child lifecycle evidence without inferring parentage."""
+    try:
+        observe_plugin_hook_call("subagent_start", kwargs)
+        child_session_id = str(kwargs.get("child_session_id", "") or "").strip()
+        if not child_session_id:
+            return None
+        home = _expand_path(str(kwargs.get("omj_home", "") or "") or os.environ.get("OMJ_HOME", "~/.omj"))
+        parent_session_id = str(kwargs.get("parent_session_id", "") or "").strip()
+        key = (str(home), child_session_id)
+        _HOST_REPORTED_CHILDREN[key] = {
+            "child_session_id": child_session_id,
+            "omj_home": str(home),
+        }
+        if parent_session_id and parent_session_id != child_session_id:
+            _HOST_REPORTED_CHILDREN[key]["parent_session_id"] = parent_session_id
+        if len(_HOST_REPORTED_CHILDREN) > _MAX_HOST_REPORTED_CHILDREN:
+            oldest = next(iter(_HOST_REPORTED_CHILDREN))
+            _HOST_REPORTED_CHILDREN.pop(oldest, None)
+    except Exception:
+        return None
+    return None
+
+
+def host_reported_child(*, omj_home: str | Path | None, session_id: str) -> bool:
+    """Return whether this home/session has an explicit host lifecycle record."""
+    child_session_id = str(session_id or "").strip()
+    if not child_session_id:
+        return False
+    home = _expand_path(str(omj_home or "") or os.environ.get("OMJ_HOME", "~/.omj"))
+    return (str(home), child_session_id) in _HOST_REPORTED_CHILDREN
 
 
 def on_session_end(**kwargs) -> dict[str, str] | None:

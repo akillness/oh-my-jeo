@@ -43,13 +43,21 @@ Bad example:
 - Observed repo facts and source/web evidence gaps are named.
 - At least two options or one chosen option plus rejected alternatives are recorded.
 - Risks, acceptance criteria, and verification commands are testable or explicitly blocked.
-- The implementation handoff is prepared only after plan acceptance and remains prepared_not_observed.
+- Record consumer current state and target state; map Success criteria Criterion | Task | Verification scenario and sizing bands. Target-state coverage includes each behavior unless the user excluded it; record gaps.
+- name each consumer of the result, their current workflow on this surface, and the state in which that workflow keeps working with no new friction or loss.
+- For every difference between current and target, each with why it matters; use an evidence-gap record below instead when unobserved.
+- Never shrink scope on your own; plan an MVP or a first phase only when the user requested one.
+- Size each task as one band, never as hours or days: `XS` (one small edit), `S` (one file and its test), `M` (several files in one module), `L` (several modules or one contract change), `XL` (crosses subsystems; split it into smaller tasks).
+- Review Focus has at most five unmapped failure cases with an owning test or task, or explicitly states none.
+- The plan stays unaccepted and awaiting with no handoff until an actual user answer accepts it. After acceptance, mark any prepared implementation handoff prepared_not_observed until selected-owner execution evidence is observed.
 
 ## Recovery Notes
 
 - If requirements are still fuzzy, route back to deep-interview before planning.
 - If current-source evidence is missing, route a web-research step before accepting the plan.
 - If the user asks for implementation, hand off through ultraprocess, ultragoal, or the selected executor path after the plan is accepted.
+- If the acceptance prompt times out (timeout), is dismissed, or receives no answer, keep status awaiting rather than accepted or refused; do not hand off or start implementation.
+- If target-state coverage, a sizing band, or a Criterion | Task | Verification scenario row is missing, keep the plan blocked and name the gap.
 
 ## OMJ Context Rail
 
@@ -117,6 +125,7 @@ Safety rules:
 - Make acceptance criteria testable.
 - Record unresolved tradeoffs explicitly.
 - Keep rejected options and handoff readiness separate from accepted execution evidence.
+- Only an actual user answer accepts the plan; track consumer/target state via Success-criteria rows with XS–XL sizing and a capped Review Focus.
 
 ## Harness Discipline
 

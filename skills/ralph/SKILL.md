@@ -39,9 +39,8 @@ Bad example:
 
 ## Completion Checklist
 
-- The selected coding or runtime owner is named before any implementation claim.
-- Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
-- The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+- Ruling: decision, reason, reversible, in-scope, cost if wrong.
+- Load `references/loop-design-review.md` for machine-decidable finish line, independent judge, and bounded retries.
 
 ## Recovery Notes
 

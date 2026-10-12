@@ -4,13 +4,33 @@ import hashlib
 import json
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
-from ..ingress import CHAT_SOURCES, compact_source_metadata, extract_message_text, extract_source_metadata
+from ..coding.handoff_contract import (
+    HANDOFF_CONTRACT_KEY,
+    build_handoff_contract,
+    contract_digest,
+)
+from ..ingress import (
+    CHAT_SOURCES,
+    compact_source_metadata,
+    extract_message_text,
+    extract_source_metadata,
+)
 from ..routing.chat import CONFIDENCE_LEVELS
 from ..executors import CODING_EXECUTOR_TARGETS, executor_selection_for_target
-from .lifecycle import report_codex_delegation_lifecycle, start_codex_delegation_lifecycle
-from ..local_store import atomic_write_json, ensure_dir, ensure_file, read_json_object, read_jsonl_objects, utc_now
+from .lifecycle import (
+    report_codex_delegation_lifecycle,
+    start_codex_delegation_lifecycle,
+)
+from ..local_store import (
+    atomic_write_json,
+    ensure_dir,
+    ensure_file,
+    read_json_object,
+    read_jsonl_objects,
+    utc_now,
+)
 from ..memory import memory_recall_pack_for_handoff
 from ..paths import OmjPaths
 from ..runtime.records import (
@@ -97,7 +117,9 @@ def create_or_resume_wrapper_session(
     if mode not in INTERACTION_MODES:
         raise WrapperSessionError(f"unsupported wrapper session mode: {mode}")
     if min_confidence not in CONFIDENCE_LEVELS:
-        raise WrapperSessionError(f"unsupported wrapper session confidence threshold: {min_confidence}")
+        raise WrapperSessionError(
+            f"unsupported wrapper session confidence threshold: {min_confidence}"
+        )
     interaction = build_chat_interaction_payload(
         event_or_message,
         source=source,
@@ -126,7 +148,9 @@ def create_or_resume_wrapper_session(
         session = existing
         resumed = True
     else:
-        session = _session_from_interaction(session_id, interaction, record_provenance=record_provenance)
+        session = _session_from_interaction(
+            session_id, interaction, record_provenance=record_provenance
+        )
         write_wrapper_session(paths, session)
         append_wrapper_session_event(
             session_dir,
@@ -146,18 +170,25 @@ def create_or_resume_wrapper_session(
     }
 
 
-def record_plan_decision(paths: OmjPaths, session_id: str, decision: str) -> dict[str, object]:
+def record_plan_decision(
+    paths: OmjPaths, session_id: str, decision: str
+) -> dict[str, object]:
     if decision not in {"accept", "revise", "cancel"}:
         raise WrapperSessionError("plan decision must be accept, revise, or cancel")
     session = _existing_session(paths, session_id)
     current_status = str(session["status"])
     allowed = PLAN_DECISION_TRANSITIONS.get(current_status, set())
     if decision not in allowed:
-        raise WrapperSessionError(f"cannot {decision.replace('_', ' ')} a wrapper session while status is {current_status}")
+        raise WrapperSessionError(
+            f"cannot {decision.replace('_', ' ')} a wrapper session while status is {current_status}"
+        )
     accept_status = _accepted_status_for_session(session)
     updates = {
         "accept": {"status": accept_status, "decision": "plan_accepted"},
-        "revise": {"status": "revision_requested", "decision": "plan_revision_requested"},
+        "revise": {
+            "status": "revision_requested",
+            "decision": "plan_revision_requested",
+        },
         "cancel": {"status": "cancelled", "decision": "plan_cancelled"},
     }[decision]
     session = {**session, **updates, "updated_at": utc_now()}
@@ -185,13 +216,23 @@ def select_wrapper_session_executor(
     dispatch_policy: str | None = None,
 ) -> dict[str, object]:
     if executor_target not in CODING_EXECUTOR_TARGETS:
-        raise WrapperSessionError(f"unsupported wrapper session executor: {executor_target}")
+        raise WrapperSessionError(
+            f"unsupported wrapper session executor: {executor_target}"
+        )
     session = _existing_session(paths, session_id)
-    if session["status"] not in {"plan_accepted", "executor_choice_required", "executor_selected"}:
-        raise WrapperSessionError(f"cannot select executor while status is {session['status']}")
+    if session["status"] not in {
+        "plan_accepted",
+        "executor_choice_required",
+        "executor_selected",
+    }:
+        raise WrapperSessionError(
+            f"cannot select executor while status is {session['status']}"
+        )
     selection = executor_selection_for_target(executor_target, action="delegate")
     if selection.choice_required:
-        raise WrapperSessionError("select-executor requires a concrete executor profile, not choose")
+        raise WrapperSessionError(
+            "select-executor requires a concrete executor profile, not choose"
+        )
     policy = dispatch_policy or selection.dispatch_policy
     session = {
         **session,
@@ -232,16 +273,23 @@ def prepare_wrapper_session_handoff(
     source_metadata: dict[str, str] | None = None,
     executor_target: str | None = None,
     context_pack: dict[str, object] | None = None,
+    handoff_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     session = _existing_session(paths, session_id)
     if session["status"] == "cancelled":
-        raise WrapperSessionError("cannot prepare a handoff for a cancelled wrapper session")
+        raise WrapperSessionError(
+            "cannot prepare a handoff for a cancelled wrapper session"
+        )
     if session.get("current_run_id"):
         if session["status"] != "handoff_prepared":
-            raise WrapperSessionError("wrapper session current_run_id is only valid after handoff preparation")
+            raise WrapperSessionError(
+                "wrapper session current_run_id is only valid after handoff preparation"
+            )
         run_id = str(session["current_run_id"])
         if _run_owned_by_other_session(paths, run_id, str(session["session_id"])):
-            raise WrapperSessionError("wrapper session current_run_id is already linked to another wrapper session")
+            raise WrapperSessionError(
+                "wrapper session current_run_id is already linked to another wrapper session"
+            )
         _ensure_handoff_prepared_event(paths, session, run_id, recovered=True)
         return {
             "schema_version": WRAPPER_SESSION_RESULT_SCHEMA_VERSION,
@@ -261,15 +309,21 @@ def prepare_wrapper_session_handoff(
             "schema_version": WRAPPER_SESSION_RESULT_SCHEMA_VERSION,
             "session": session,
             "status": build_wrapper_session_status(paths, session_id),
-            "handoff": _runtime_session_handoff_envelope(session.get("runtime_handoff", {})),
+            "handoff": _runtime_session_handoff_envelope(
+                session.get("runtime_handoff", {})
+            ),
         }
     if session["status"] == "executor_choice_required" and not executor_target:
-        raise WrapperSessionError("wrapper session requires executor selection before preparing a handoff")
+        raise WrapperSessionError(
+            "wrapper session requires executor selection before preparing a handoff"
+        )
     if executor_target:
         select_wrapper_session_executor(paths, session_id, executor_target)
         session = _existing_session(paths, session_id)
     if session["status"] not in {"plan_accepted", "executor_selected"}:
-        raise WrapperSessionError("wrapper session plan must be accepted before preparing a handoff")
+        raise WrapperSessionError(
+            "wrapper session plan must be accepted before preparing a handoff"
+        )
     selected_executor = str(session.get("selected_executor_profile") or "codex")
     if session.get("work_owner_mode") == "runtime_handoff" and selected_executor:
         return _prepare_runtime_session_handoff(
@@ -281,6 +335,7 @@ def prepare_wrapper_session_handoff(
             source_metadata=source_metadata,
             executor_target=selected_executor,
             context_pack=context_pack,
+            handoff_contract=handoff_contract,
         )
     if selected_executor and selected_executor != "codex":
         return _prepare_prompt_only_session_handoff(
@@ -292,16 +347,42 @@ def prepare_wrapper_session_handoff(
             source_metadata=source_metadata,
             executor_target=selected_executor,
             context_pack=context_pack,
+            handoff_contract=handoff_contract,
         )
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message)
-    metadata.update({str(key): str(value) for key, value in (source_metadata or {}).items() if str(value)})
-    metadata.update({str(key): str(value) for key, value in session.get("source_metadata", {}).items() if str(value)})
+    metadata.update(
+        {
+            str(key): str(value)
+            for key, value in (source_metadata or {}).items()
+            if str(value)
+        }
+    )
+    metadata.update(
+        {
+            str(key): str(value)
+            for key, value in session.get("source_metadata", {}).items()
+            if str(value)
+        }
+    )
     metadata = _compact_coding_source_metadata(metadata)
     message_sha256 = hashlib.sha256(message.encode("utf-8")).hexdigest()
-    recovered_run_id = _find_recoverable_prepared_handoff_run(paths, session, message_sha256, metadata)
+    expected_contract_digest = (
+        contract_digest(build_handoff_contract(handoff_contract))
+        if handoff_contract is not None
+        else None
+    )
+    recovered_run_id = _find_recoverable_prepared_handoff_run(
+        paths,
+        session,
+        message_sha256,
+        metadata,
+        expected_contract_digest,
+    )
     if recovered_run_id:
-        return _link_prepared_handoff_run(paths, session, recovered_run_id, recovered=True)
+        return _link_prepared_handoff_run(
+            paths, session, recovered_run_id, recovered=True
+        )
     append_wrapper_session_event(
         _session_dir(paths, session_id),
         {
@@ -310,15 +391,16 @@ def prepare_wrapper_session_handoff(
             "data": {"message_sha256": message_sha256, "message_length": len(message)},
         },
     )
-    lifecycle = start_codex_delegation_lifecycle(
-        paths,
-        message,
-        source=str(session["source"]),
-        source_metadata=metadata,
-        limit=limit,
-        include_message=include_message,
-        context_pack=context_pack,
-    )
+    lifecycle_kwargs: dict[str, Any] = {
+        "source": str(session["source"]),
+        "source_metadata": metadata,
+        "limit": limit,
+        "include_message": include_message,
+        "context_pack": context_pack,
+    }
+    if handoff_contract is not None:
+        lifecycle_kwargs["handoff_contract"] = handoff_contract
+    lifecycle = start_codex_delegation_lifecycle(paths, message, **lifecycle_kwargs)
     run_id = str(lifecycle["run"]["run_id"])
     linked = _link_prepared_handoff_run(paths, session, run_id, recovered=False)
     lifecycle["status"] = report_codex_delegation_lifecycle(paths, run_id)
@@ -336,11 +418,24 @@ def _prepare_prompt_only_session_handoff(
     source_metadata: dict[str, str] | None,
     executor_target: str,
     context_pack: dict[str, object] | None,
+    handoff_contract: Mapping[str, Any] | None,
 ) -> dict[str, object]:
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message)
-    metadata.update({str(key): str(value) for key, value in (source_metadata or {}).items() if str(value)})
-    metadata.update({str(key): str(value) for key, value in session.get("source_metadata", {}).items() if str(value)})
+    metadata.update(
+        {
+            str(key): str(value)
+            for key, value in (source_metadata or {}).items()
+            if str(value)
+        }
+    )
+    metadata.update(
+        {
+            str(key): str(value)
+            for key, value in session.get("source_metadata", {}).items()
+            if str(value)
+        }
+    )
     metadata = _compact_coding_source_metadata(metadata)
     payload = build_coding_delegation_payload(
         message,
@@ -350,6 +445,7 @@ def _prepare_prompt_only_session_handoff(
         source_metadata=metadata,
         executor_target=executor_target,
         context_pack=context_pack,
+        handoff_contract=handoff_contract,
         memory_recall_pack=memory_recall_pack_for_handoff(
             paths,
             message,
@@ -413,11 +509,24 @@ def _prepare_runtime_session_handoff(
     source_metadata: dict[str, str] | None,
     executor_target: str,
     context_pack: dict[str, object] | None,
+    handoff_contract: Mapping[str, Any] | None,
 ) -> dict[str, object]:
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message)
-    metadata.update({str(key): str(value) for key, value in (source_metadata or {}).items() if str(value)})
-    metadata.update({str(key): str(value) for key, value in session.get("source_metadata", {}).items() if str(value)})
+    metadata.update(
+        {
+            str(key): str(value)
+            for key, value in (source_metadata or {}).items()
+            if str(value)
+        }
+    )
+    metadata.update(
+        {
+            str(key): str(value)
+            for key, value in session.get("source_metadata", {}).items()
+            if str(value)
+        }
+    )
     metadata = _compact_coding_source_metadata(metadata)
     payload = build_coding_delegation_payload(
         message,
@@ -427,6 +536,7 @@ def _prepare_runtime_session_handoff(
         source_metadata=metadata,
         executor_target=executor_target,
         context_pack=context_pack,
+        handoff_contract=handoff_contract,
         memory_recall_pack=memory_recall_pack_for_handoff(
             paths,
             message,
@@ -495,9 +605,14 @@ def build_wrapper_session_status(paths: OmjPaths, session_id: str) -> dict[str, 
         interaction = build_chat_status_interaction(
             runtime_status,
             source=str(session["source"]),
-            source_metadata={str(key): str(value) for key, value in session.get("source_metadata", {}).items()},
+            source_metadata={
+                str(key): str(value)
+                for key, value in session.get("source_metadata", {}).items()
+            },
         )
-        executor_status = build_executor_session_status(paths, session, linked_status=runtime_status)
+        executor_status = build_executor_session_status(
+            paths, session, linked_status=runtime_status
+        )
         chat_response = enhance_chat_response_with_executor_session(
             interaction["chat_response"],
             executor_status,
@@ -526,14 +641,20 @@ def build_wrapper_session_status(paths: OmjPaths, session_id: str) -> dict[str, 
             "claim_boundary": "Execution claims come from the linked runtime run ledger, not the wrapper session.",
         }
     if session["status"] == "runtime_handoff_prepared":
-        observations, observation_errors = read_runtime_observations_result(_session_dir(paths, session_id))
+        observations, observation_errors = read_runtime_observations_result(
+            _session_dir(paths, session_id)
+        )
         runtime_observation = summarize_runtime_observation_status(
             runtime_observations_for_target(observations, "wrapper_session", session_id)
         )
     else:
         observation_errors = []
-        runtime_observation = runtime_observation_not_applicable("session is not a prepared runtime handoff")
-    executor_status = build_executor_session_status(paths, session, runtime_status=runtime_observation)
+        runtime_observation = runtime_observation_not_applicable(
+            "session is not a prepared runtime handoff"
+        )
+    executor_status = build_executor_session_status(
+        paths, session, runtime_status=runtime_observation
+    )
     chat_response = enhance_chat_response_with_executor_session(
         _session_chat_response(session),
         executor_status,
@@ -554,8 +675,12 @@ def build_wrapper_session_status(paths: OmjPaths, session_id: str) -> dict[str, 
         "work_owner_mode": session.get("work_owner_mode", "external_executor"),
         "selected_executor_profile": session.get("selected_executor_profile"),
         "dispatch_policy": session.get("dispatch_policy", "ask_before_dispatch"),
-        "prompt_handoff": session.get("prompt_handoff", {}) if session["status"] == "prompt_handoff_prepared" else {},
-        "runtime_handoff": session.get("runtime_handoff", {}) if session["status"] == "runtime_handoff_prepared" else {},
+        "prompt_handoff": session.get("prompt_handoff", {})
+        if session["status"] == "prompt_handoff_prepared"
+        else {},
+        "runtime_handoff": session.get("runtime_handoff", {})
+        if session["status"] == "runtime_handoff_prepared"
+        else {},
         "runtime_observation": runtime_observation,
         "runtime_observation_errors": observation_errors,
         "executor_session_status": executor_status,
@@ -571,7 +696,9 @@ def list_wrapper_sessions(paths: OmjPaths) -> list[dict[str, Any]]:
     if not paths.runtime_wrapper_sessions_dir.exists():
         return []
     sessions: list[dict[str, Any]] = []
-    for session_json in sorted(paths.runtime_wrapper_sessions_dir.glob("*/session.json")):
+    for session_json in sorted(
+        paths.runtime_wrapper_sessions_dir.glob("*/session.json")
+    ):
         session = read_json_object(session_json)
         if session:
             sessions.append(session)
@@ -607,11 +734,17 @@ def read_wrapper_session(paths: OmjPaths, session_id: str) -> dict[str, Any] | N
 
 def write_wrapper_session(paths: OmjPaths, session: dict[str, Any]) -> dict[str, Any]:
     record = build_wrapper_session_record(session)
-    atomic_write_json(_session_dir(paths, str(record["session_id"])) / "session.json", record, private=True)
+    atomic_write_json(
+        _session_dir(paths, str(record["session_id"])) / "session.json",
+        record,
+        private=True,
+    )
     return record
 
 
-def append_wrapper_session_event(session_dir: Path, event: dict[str, Any]) -> dict[str, Any]:
+def append_wrapper_session_event(
+    session_dir: Path, event: dict[str, Any]
+) -> dict[str, Any]:
     item = build_event_record(event)
     errors = validate_event_record(item)
     if errors:
@@ -628,24 +761,36 @@ def read_wrapper_session_events(session_dir: Path) -> list[dict[str, Any]]:
     return read_wrapper_session_events_result(session_dir)[0]
 
 
-def read_wrapper_session_events_result(session_dir: Path) -> tuple[list[dict[str, Any]], list[str]]:
+def read_wrapper_session_events_result(
+    session_dir: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
     return read_jsonl_objects(session_dir / "events.jsonl")
 
 
-def validate_wrapper_sessions(paths: OmjPaths, session_id: str | None = None) -> dict[str, Any]:
+def validate_wrapper_sessions(
+    paths: OmjPaths, session_id: str | None = None
+) -> dict[str, Any]:
     if session_id:
         session_dirs = [_session_dir(paths, session_id)]
     else:
         session_dirs = (
-            sorted(path for path in paths.runtime_wrapper_sessions_dir.glob("*") if path.is_dir())
+            sorted(
+                path
+                for path in paths.runtime_wrapper_sessions_dir.glob("*")
+                if path.is_dir()
+            )
             if paths.runtime_wrapper_sessions_dir.exists()
             else []
         )
-    results = [_validate_wrapper_session_dir(session_dir) for session_dir in session_dirs]
+    results = [
+        _validate_wrapper_session_dir(session_dir) for session_dir in session_dirs
+    ]
     return {"ok": all(result["ok"] for result in results), "sessions": results}
 
 
-def _link_prepared_handoff_run(paths: OmjPaths, session: dict[str, Any], run_id: str, *, recovered: bool) -> dict[str, object]:
+def _link_prepared_handoff_run(
+    paths: OmjPaths, session: dict[str, Any], run_id: str, *, recovered: bool
+) -> dict[str, object]:
     session = {
         **session,
         "status": "handoff_prepared",
@@ -672,6 +817,7 @@ def _find_recoverable_prepared_handoff_run(
     session: dict[str, Any],
     message_sha256: str,
     expected_metadata: dict[str, str],
+    expected_contract_digest: str | None,
 ) -> str:
     session_dir = _session_dir(paths, str(session["session_id"]))
     if not _has_prepare_started_event(session_dir, message_sha256):
@@ -684,7 +830,13 @@ def _find_recoverable_prepared_handoff_run(
         if _run_owned_by_other_session(paths, run_id, str(session["session_id"])):
             continue
         coding = read_json_object(run_json.parent / "coding_delegation.json")
-        if not _is_matching_coding_handoff(coding, session, message_sha256, expected_metadata):
+        if not _is_matching_coding_handoff(
+            coding,
+            session,
+            message_sha256,
+            expected_metadata,
+            expected_contract_digest,
+        ):
             continue
         return run_id
     return ""
@@ -713,24 +865,41 @@ def _is_matching_coding_handoff(
     session: dict[str, Any],
     message_sha256: str,
     expected_metadata: dict[str, str],
+    expected_contract_digest: str | None,
 ) -> bool:
     if not isinstance(coding, dict):
         return False
     handoff = coding.get("executor_handoff")
     if not isinstance(handoff, dict) or handoff.get("executor_target") != "codex":
         return False
-    if coding.get("message_sha256") != message_sha256 or coding.get("status") != "prepared_not_observed":
+    if (
+        coding.get("message_sha256") != message_sha256
+        or coding.get("status") != "prepared_not_observed"
+    ):
         return False
     if coding.get("source") != session.get("source"):
         return False
     coding_metadata = coding.get("source_metadata", {})
     if not isinstance(coding_metadata, dict):
         return False
+    actual_contract = handoff.get(HANDOFF_CONTRACT_KEY)
+    actual_pinned_digest = coding.get("handoff_contract_digest")
+    if expected_contract_digest is None:
+        if HANDOFF_CONTRACT_KEY in handoff or actual_pinned_digest is not None:
+            return False
+    elif (
+        not isinstance(actual_contract, Mapping)
+        or actual_pinned_digest != expected_contract_digest
+        or contract_digest(actual_contract) != expected_contract_digest
+    ):
+        return False
     compact_coding_metadata = _compact_coding_source_metadata(coding_metadata)
     return compact_coding_metadata == expected_metadata
 
 
-def _ensure_handoff_prepared_event(paths: OmjPaths, session: dict[str, Any], run_id: str, *, recovered: bool) -> None:
+def _ensure_handoff_prepared_event(
+    paths: OmjPaths, session: dict[str, Any], run_id: str, *, recovered: bool
+) -> None:
     session_dir = _session_dir(paths, str(session["session_id"]))
     if _has_handoff_prepared_event(session_dir, run_id):
         return
@@ -739,14 +908,20 @@ def _ensure_handoff_prepared_event(paths: OmjPaths, session: dict[str, Any], run
         {
             "event": "handoff_prepared",
             "message": "wrapper session linked prepared coding handoff",
-            "data": {"run_id": run_id, "status": "handoff_prepared", "recovered": recovered},
+            "data": {
+                "run_id": run_id,
+                "status": "handoff_prepared",
+                "recovered": recovered,
+            },
         },
     )
 
 
 def _has_handoff_prepared_event(session_dir: Path, run_id: str) -> bool:
     return any(
-        event.get("event") == "handoff_prepared" and isinstance(event.get("data"), dict) and event["data"].get("run_id") == run_id
+        event.get("event") == "handoff_prepared"
+        and isinstance(event.get("data"), dict)
+        and event["data"].get("run_id") == run_id
         for event in read_wrapper_session_events(session_dir)
     )
 
@@ -754,7 +929,9 @@ def _has_handoff_prepared_event(session_dir: Path, run_id: str) -> bool:
 def _run_owned_by_other_session(paths: OmjPaths, run_id: str, session_id: str) -> bool:
     if not paths.runtime_wrapper_sessions_dir.exists():
         return False
-    for session_json in sorted(paths.runtime_wrapper_sessions_dir.glob("*/session.json")):
+    for session_json in sorted(
+        paths.runtime_wrapper_sessions_dir.glob("*/session.json")
+    ):
         if session_json.parent.name == session_id:
             continue
         other = read_json_object(session_json)
@@ -789,7 +966,10 @@ def _validate_wrapper_session_dir(session_dir: Path) -> dict[str, Any]:
     if not session:
         errors.append(f"{session_path}: missing session.json")
     else:
-        errors.extend(f"{session_path}: {error}" for error in validate_wrapper_session_record(session))
+        errors.extend(
+            f"{session_path}: {error}"
+            for error in validate_wrapper_session_record(session)
+        )
         if session.get("session_id") != session_id:
             errors.append(f"{session_path}: session_id must match directory name")
     events_path = session_dir / "events.jsonl"
@@ -797,7 +977,10 @@ def _validate_wrapper_session_dir(session_dir: Path) -> dict[str, Any]:
         events, event_errors = read_jsonl_objects(events_path)
         errors.extend(event_errors)
         for index, event in enumerate(events, start=1):
-            errors.extend(f"{events_path}:{index}: {error}" for error in validate_event_record(event))
+            errors.extend(
+                f"{events_path}:{index}: {error}"
+                for error in validate_event_record(event)
+            )
     else:
         errors.append(f"{events_path}: missing events.jsonl")
     observations_path = session_dir / "runtime_observations.jsonl"
@@ -810,14 +993,22 @@ def _validate_wrapper_session_dir(session_dir: Path) -> dict[str, Any]:
                 for error in validate_runtime_observation_record(observation)
             )
         if session:
-            errors.extend(validate_runtime_observations_for_wrapper_session(observations_path, session, observations))
+            errors.extend(
+                validate_runtime_observations_for_wrapper_session(
+                    observations_path, session, observations
+                )
+            )
     executor_session_path = session_dir / "executor_session.json"
     if executor_session_path.exists():
-        executor_session, executor_session_error = read_executor_session_result(session_dir)
+        executor_session, executor_session_error = read_executor_session_result(
+            session_dir
+        )
         if executor_session_error:
             errors.append(executor_session_error)
         if executor_session and executor_session.get("session_id") != session_id:
-            errors.append(f"{executor_session_path}: session_id must match directory name")
+            errors.append(
+                f"{executor_session_path}: session_id must match directory name"
+            )
     return {"session_id": session_id, "ok": not errors, "errors": errors}
 
 
@@ -832,8 +1023,14 @@ def _session_from_interaction(
     plan_payload = interaction.get("plan")
     plan = plan_payload.get("plan", {}) if isinstance(plan_payload, dict) else {}
     plan = plan if isinstance(plan, dict) else {}
-    contract = plan_payload.get("wrapper_contract", {}) if isinstance(plan_payload, dict) else {}
-    coding_delegate = contract.get("coding_delegate", {}) if isinstance(contract, dict) else {}
+    contract = (
+        plan_payload.get("wrapper_contract", {})
+        if isinstance(plan_payload, dict)
+        else {}
+    )
+    coding_delegate = (
+        contract.get("coding_delegate", {}) if isinstance(contract, dict) else {}
+    )
     work_owner_mode = str(interaction.get("work_owner_mode", "external_executor"))
     selected_executor = interaction.get("selected_executor_profile")
     dispatch_policy = str(interaction.get("dispatch_policy", "ask_before_dispatch"))
@@ -854,10 +1051,14 @@ def _session_from_interaction(
                 "status": plan.get("status", ""),
                 "recommended_workflow": plan.get("recommended_workflow", ""),
                 "recommended_harness": plan.get("recommended_harness", ""),
-                "coding_delegate_available": str(bool(coding_delegate.get("available", False))).lower(),
+                "coding_delegate_available": str(
+                    bool(coding_delegate.get("available", False))
+                ).lower(),
             },
             "work_owner_mode": work_owner_mode,
-            "selected_executor_profile": selected_executor if isinstance(selected_executor, str) else None,
+            "selected_executor_profile": selected_executor
+            if isinstance(selected_executor, str)
+            else None,
             "dispatch_policy": dispatch_policy,
             "prompt_handoff": {},
             "runtime_handoff": {},
@@ -869,7 +1070,10 @@ def _session_from_interaction(
 
 def _accepted_status_for_session(session: dict[str, Any]) -> str:
     plan = session.get("plan", {})
-    coding_delegate_available = isinstance(plan, dict) and str(plan.get("coding_delegate_available", "")) == "true"
+    coding_delegate_available = (
+        isinstance(plan, dict)
+        and str(plan.get("coding_delegate_available", "")) == "true"
+    )
     selected = session.get("selected_executor_profile")
     if coding_delegate_available and not selected:
         return "executor_choice_required"
@@ -928,7 +1132,9 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
     status = str(session.get("status", "plan_presented"))
     thread_key = str(session.get("thread_key", ""))
     raw_source_metadata = session.get("source_metadata", {})
-    source_metadata = raw_source_metadata if isinstance(raw_source_metadata, dict) else {}
+    source_metadata = (
+        raw_source_metadata if isinstance(raw_source_metadata, dict) else {}
+    )
 
     def response(**kwargs: object) -> dict[str, object]:
         return _chat_response(**kwargs, source_metadata=source_metadata)
@@ -956,7 +1162,10 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
             phase="plan_accepted",
             next_action="prepare_handoff",
             thread_key=thread_key,
-            actions=[_action("prepare_handoff", "Prepare handoff", "primary"), _action("cancel", "Cancel", "secondary")],
+            actions=[
+                _action("prepare_handoff", "Prepare handoff", "primary"),
+                _action("cancel", "Cancel", "secondary"),
+            ],
             claim_boundary="Plan acceptance is not execution evidence.",
         )
     if status == "executor_choice_required":
@@ -967,7 +1176,10 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
             phase="executor_choice_required",
             next_action="choose_executor",
             thread_key=thread_key,
-            actions=[_action("choose_executor", "Choose coding agent", "primary"), _action("cancel", "Cancel", "secondary")],
+            actions=[
+                _action("choose_executor", "Choose coding agent", "primary"),
+                _action("cancel", "Cancel", "secondary"),
+            ],
             claim_boundary="Choosing a coding agent is not dispatch or implementation evidence.",
         )
     if status == "executor_selected":
@@ -980,7 +1192,10 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
                 phase="executor_selected",
                 next_action="prepare_handoff",
                 thread_key=thread_key,
-                actions=[_action("prepare_handoff", "Prepare handoff", "primary"), _action("cancel", "Cancel", "secondary")],
+                actions=[
+                    _action("prepare_handoff", "Prepare handoff", "primary"),
+                    _action("cancel", "Cancel", "secondary"),
+                ],
                 claim_boundary="Runtime selection is not runtime start, dispatch, or implementation evidence.",
             )
         return response(
@@ -990,7 +1205,10 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
             phase="executor_selected",
             next_action="prepare_handoff",
             thread_key=thread_key,
-            actions=[_action("prepare_handoff", "Prepare handoff", "primary"), _action("cancel", "Cancel", "secondary")],
+            actions=[
+                _action("prepare_handoff", "Prepare handoff", "primary"),
+                _action("cancel", "Cancel", "secondary"),
+            ],
             claim_boundary="Executor selection is not dispatch evidence.",
         )
     if status == "prompt_handoff_prepared":
@@ -1011,9 +1229,20 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
         )
     if status == "runtime_handoff_prepared":
         selected = str(session.get("selected_executor_profile") or "runtime")
-        primary_action = "start_hermes_coding" if selected == "hermes" else "start_runtime"
-        primary_label = "Start Hermes coding" if selected == "hermes" else "Start runtime"
-        extra_actions = [_action_from_spec(spec) for spec in hermes_coding_team_extra_action_specs()] if selected == "hermes" else []
+        primary_action = (
+            "start_hermes_coding" if selected == "hermes" else "start_runtime"
+        )
+        primary_label = (
+            "Start Hermes coding" if selected == "hermes" else "Start runtime"
+        )
+        extra_actions = (
+            [
+                _action_from_spec(spec)
+                for spec in hermes_coding_team_extra_action_specs()
+            ]
+            if selected == "hermes"
+            else []
+        )
         body = (
             hermes_coding_team_body()
             if selected == "hermes"
@@ -1030,7 +1259,9 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
                 _action("show_runtime_handoff", "Show runtime", "primary"),
                 *extra_actions,
                 _action(primary_action, primary_label, "primary", enabled=False),
-                _action("prepare_worktree", "Prepare worktree", "secondary", enabled=False),
+                _action(
+                    "prepare_worktree", "Prepare worktree", "secondary", enabled=False
+                ),
                 _action("start_team", "Start team", "secondary", enabled=False),
                 _action("start_swarm", "Start swarm", "secondary", enabled=False),
                 _action("show_status", "Show status", "secondary"),
@@ -1049,7 +1280,10 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
             phase="revision_requested",
             next_action="revise_plan",
             thread_key=thread_key,
-            actions=[_action("revise_plan", "Revise plan", "primary"), _action("cancel", "Cancel", "secondary")],
+            actions=[
+                _action("revise_plan", "Revise plan", "primary"),
+                _action("cancel", "Cancel", "secondary"),
+            ],
             claim_boundary="Revision request is not execution evidence.",
         )
     if status == "cancelled":
@@ -1071,7 +1305,10 @@ def _session_chat_response(session: dict[str, Any]) -> dict[str, object]:
             phase="clarifying",
             next_action="answer_clarification",
             thread_key=thread_key,
-            actions=[_action("answer:clarify", "Answer clarification", "primary"), _action("cancel", "Cancel", "secondary")],
+            actions=[
+                _action("answer:clarify", "Answer clarification", "primary"),
+                _action("cancel", "Cancel", "secondary"),
+            ],
             claim_boundary="No execution has started.",
         )
     return response(
@@ -1099,8 +1336,12 @@ def _chat_response(
     source_metadata: dict[str, object] | None = None,
 ) -> dict[str, object]:
     state = {"phase": phase, "next_action": next_action, "thread_key": thread_key}
-    usage_trace = usage_trace_payload(kind=kind, phase=phase, next_action=next_action, state=state)
-    headline_with_prefix = headline_with_usage_prefix(headline, str(usage_trace["visible_prefix"]))
+    usage_trace = usage_trace_payload(
+        kind=kind, phase=phase, next_action=next_action, state=state
+    )
+    headline_with_prefix = headline_with_usage_prefix(
+        headline, str(usage_trace["visible_prefix"])
+    )
     return {
         "schema_version": CHAT_RESPONSE_SCHEMA_VERSION,
         "kind": kind,
@@ -1115,7 +1356,9 @@ def _chat_response(
             first_line=headline_with_prefix,
             body=body,
             claim_boundary=claim_boundary,
-            render_profile=render_profile_for_source(_source_from_thread_key(thread_key), source_metadata),
+            render_profile=render_profile_for_source(
+                _source_from_thread_key(thread_key), source_metadata
+            ),
         ),
         "actions": actions,
         "claim_boundary": claim_boundary,
@@ -1128,8 +1371,16 @@ def _source_from_thread_key(thread_key: str) -> str:
     return thread_key.split(":", 1)[0] or "generic"
 
 
-def _action(action_id: str, label: str, style: str, *, enabled: bool = True) -> dict[str, object]:
-    return {"id": action_id, "label": label, "style": style, "enabled": enabled, "payload": {}}
+def _action(
+    action_id: str, label: str, style: str, *, enabled: bool = True
+) -> dict[str, object]:
+    return {
+        "id": action_id,
+        "label": label,
+        "style": style,
+        "enabled": enabled,
+        "payload": {},
+    }
 
 
 def _action_from_spec(spec: dict[str, object]) -> dict[str, object]:

@@ -2,11 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 
-from ..coding_delegation import CODING_EXECUTOR_TARGETS, build_coding_delegation_payload, coding_delegation_record_payload
+from ..codegraph import build_handoff_context, codegraph_artifact_path
+from ..coding.commit_planning import (
+    MAX_PLAN_FILES,
+    CommitPlanError,
+    build_commit_plan,
+    parse_status_porcelain_z,
+)
+from ..coding_delegation import (
+    CODING_EXECUTOR_TARGETS,
+    build_coding_delegation_payload,
+    coding_delegation_record_payload,
+)
 from ..executor_readiness import EXECUTOR_READINESS_PROFILES, probe_executor_readiness
 from ..hermes_planning import (
     build_plan_handoff_context_pack,
@@ -18,7 +31,11 @@ from ..installer import OmjError
 from ..memory import memory_recall_pack_for_handoff, read_handoff_context_pack_file
 from ..routing.intent import META_OR_FEEDBACK_INTENTS, classify_workflow_intent
 from ..routing.localization import normalized_phrase, routing_tokens
-from ..runtime.artifacts import append_journal_observation, create_prepared_coding_delegation_run, write_coding_delegation
+from ..runtime.artifacts import (
+    append_journal_observation,
+    create_prepared_coding_delegation_run,
+    write_coding_delegation,
+)
 from ..wrapper.lifecycle import (
     CodingLifecycleError,
     record_codex_dispatch,
@@ -27,7 +44,14 @@ from ..wrapper.lifecycle import (
     report_codex_delegation_lifecycle,
     start_codex_delegation_lifecycle,
 )
-from .common import _chat_input_and_metadata, _explicit_source_metadata, _paths, _print_json, _resolved_executor
+from .common import (
+    _chat_input_and_metadata,
+    _explicit_source_metadata,
+    _paths,
+    _postcondition_exit_statuses,
+    _print_json,
+    _resolved_executor,
+)
 
 
 def cmd_coding_delegate(args: argparse.Namespace) -> int:
@@ -39,18 +63,26 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
         executor_target = _resolved_executor_for_delegate(args)
         if args.from_plan:
             if args.event_json or args.stdin or args.message:
-                raise ValueError("coding delegate --from-plan cannot be combined with --stdin, --event-json, or message arguments")
+                raise ValueError(
+                    "coding delegate --from-plan cannot be combined with --stdin, --event-json, or message arguments"
+                )
             artifact = read_hermes_plan_artifact(args.from_plan)
             if artifact.get("schema_version") != "hermes_plan/v1":
-                raise ValueError("coding delegate --from-plan requires a hermes_plan/v1 artifact")
+                raise ValueError(
+                    "coding delegate --from-plan requires a hermes_plan/v1 artifact"
+                )
             plan_status = str(artifact.get("status", ""))
             if plan_status != "accepted" and not args.allow_draft_plan:
-                raise ValueError("coding delegate --from-plan requires an accepted plan; use hermes plan-accept or --allow-draft-plan")
+                raise ValueError(
+                    "coding delegate --from-plan requires an accepted plan; use hermes plan-accept or --allow-draft-plan"
+                )
             message = build_plan_handoff_message(artifact)
             source_metadata.update(_plan_source_metadata(artifact))
             plan_artifact = _coding_plan_artifact(artifact)
             if context_pack is None:
-                context_pack = build_plan_handoff_context_pack(artifact, executor_target=executor_target)
+                context_pack = build_plan_handoff_context_pack(
+                    artifact, executor_target=executor_target
+                )
         elif args.event_json:
             raw = (
                 sys.stdin.read()
@@ -65,7 +97,13 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
         else:
             message = " ".join(args.message).strip()
         source_metadata.update(_explicit_source_metadata(args))
-        memory_recall_pack = memory_recall_pack_for_handoff(paths, message, executor_target=executor_target)
+        memory_recall_pack = memory_recall_pack_for_handoff(
+            paths, message, executor_target=executor_target
+        )
+        handoff_contract = _handoff_contract(args)
+        codegraph_context, graph_note = _persisted_graph_context(
+            getattr(args, "graph_repo", None), message
+        )
         payload = build_coding_delegation_payload(
             message,
             source=args.source,
@@ -76,7 +114,11 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
             context_pack=context_pack,
             memory_recall_pack=memory_recall_pack,
             plan_artifact=plan_artifact,
+            handoff_contract=handoff_contract,
+            codegraph_context=codegraph_context,
         )
+        if graph_note is not None:
+            payload["codegraph_context_not_attached"] = graph_note
         if plan_artifact:
             _apply_plan_handoff_source(payload)
         runtime_skip_reason = ""
@@ -116,14 +158,18 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
                     "harness": str(delegation["recommended_harness"]),
                     "trigger": f"coding:{args.source}:{delegation['action']}",
                     "privacy": "metadata_only",
-                    "inputs_summary": _inputs_summary(args.source, message, plan_artifact=plan_artifact),
+                    "inputs_summary": _inputs_summary(
+                        args.source, message, plan_artifact=plan_artifact
+                    ),
                     "outputs_summary": f"prepared {delegation['action']} for {delegation['recommended_workflow']}",
                     "verification_summary": "prepared_not_observed; executor work is not observed by omj",
                 },
             )
             record = write_coding_delegation(
                 paths.runtime_runs_dir / run["run_id"],
-                coding_delegation_record_payload(payload, message, source_metadata=source_metadata),
+                coding_delegation_record_payload(
+                    payload, message, source_metadata=source_metadata
+                ),
             )
             if plan_artifact:
                 append_journal_observation(
@@ -150,6 +196,51 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_coding_commit_plan(args: argparse.Namespace) -> int:
+    max_status_bytes = MAX_PLAN_FILES * 4096
+    try:
+        if args.status_file == "-":
+            stream = getattr(sys.stdin, "buffer", sys.stdin)
+            raw = stream.read(max_status_bytes + 1)
+            if isinstance(raw, str):
+                raw = raw.encode("utf-8")
+        else:
+            with Path(args.status_file).expanduser().open("rb") as handle:
+                raw = handle.read(max_status_bytes + 1)
+        if len(raw) > max_status_bytes:
+            raise CommitPlanError(
+                f"status metadata exceeds bounded size of {max_status_bytes} bytes"
+            )
+        files = parse_status_porcelain_z(raw.decode("utf-8"))
+        plan = build_commit_plan(files)
+    except (CommitPlanError, OSError, UnicodeError) as exc:
+        raise OmjError(str(exc)) from exc
+
+    if args.json:
+        _print_json(plan)
+        return 0
+
+    print("OMJ commit plan")
+    print("Mode: metadata-only; observed evidence: no")
+    print(f"Changed files: {plan['changed_file_count']}")
+    print(f"Commits: {plan['commit_count']}")
+    print("")
+    for commit in plan["commits"]:
+        print(f"{commit['order']}. {commit['title']} [{commit['category']}]")
+        for path in commit["files"]:
+            print(f"   - {path}")
+        renames = commit.get("renames")
+        if isinstance(renames, dict):
+            print("   Renames:")
+            for new_path, old_path in sorted(renames.items()):
+                print(f"   - {new_path} <- {old_path}")
+        print(f"   Rationale: {commit['rationale']}")
+        print("")
+    print(f"Boundary: {plan['claim_boundary']}")
+    print("For machine-readable output, rerun with `--json`.")
+    return 0
+
+
 def _coding_delegate_runtime_skip_reason(payload: dict[str, object]) -> str:
     selection = payload.get("executor_selection")
     if isinstance(selection, dict) and selection.get("choice_required") is True:
@@ -160,7 +251,9 @@ def _coding_delegate_runtime_skip_reason(payload: dict[str, object]) -> str:
         return "runtime_handoff_is_wrapper_session_only"
     if payload.get("work_owner_mode") == "retained_hermes":
         return "retained_hermes_has_no_executor_handoff"
-    if payload.get("selected_executor_profile") != "codex" or not isinstance(payload.get("executor_handoff"), dict):
+    if payload.get("selected_executor_profile") != "codex" or not isinstance(
+        payload.get("executor_handoff"), dict
+    ):
         return "codex_executor_handoff_required_for_runtime_record"
     return ""
 
@@ -208,11 +301,18 @@ def _apply_plan_handoff_source(payload: dict[str, object]) -> None:
             handoff[brief_key]["task_source"] = "accepted_plan_artifact"
         scope = handoff.get("scope")
         if isinstance(scope, list):
-            scope.insert(0, "Use the accepted Hermes plan artifact as the executor request.")
-        handoff["dispatch_contract"] = str(handoff.get("dispatch_contract", "")) + "; plan_artifact_context_required"
+            scope.insert(
+                0, "Use the accepted Hermes plan artifact as the executor request."
+            )
+        handoff["dispatch_contract"] = (
+            str(handoff.get("dispatch_contract", ""))
+            + "; plan_artifact_context_required"
+        )
 
 
-def _inputs_summary(source: str, message: str, *, plan_artifact: dict[str, object] | None) -> str:
+def _inputs_summary(
+    source: str, message: str, *, plan_artifact: dict[str, object] | None
+) -> str:
     if plan_artifact:
         return (
             f"{source} coding delegation from accepted plan artifact; "
@@ -230,7 +330,10 @@ def _coding_delegate_record_readiness_skip_reason(
     intent = classify_workflow_intent(message)
     if intent.missing_requirements_cues:
         return "requirements_or_dispatch_intent_missing"
-    if intent.intent_class in META_OR_FEEDBACK_INTENTS and not intent.explicit_execution:
+    if (
+        intent.intent_class in META_OR_FEEDBACK_INTENTS
+        and not intent.explicit_execution
+    ):
         return "requirements_or_dispatch_intent_missing"
     if require_dispatchable_requirements and (
         not _coding_delegate_dispatch_intent_present(intent, force_record=force_record)
@@ -240,7 +343,9 @@ def _coding_delegate_record_readiness_skip_reason(
     return ""
 
 
-def _coding_delegate_dispatch_intent_present(intent: object, *, force_record: bool = False) -> bool:
+def _coding_delegate_dispatch_intent_present(
+    intent: object, *, force_record: bool = False
+) -> bool:
     return bool(force_record or getattr(intent, "explicit_execution", False))
 
 
@@ -273,10 +378,16 @@ _VAGUE_RECORD_TOKENS = frozenset(
 def _coding_delegate_requirements_present(message: str) -> bool:
     normalized = normalized_phrase(message)
     tokens = set(routing_tokens(message, stopwords=set()))
-    concrete_tokens = {token for token in tokens if len(token) > 1 and token not in _VAGUE_RECORD_TOKENS}
+    concrete_tokens = {
+        token
+        for token in tokens
+        if len(token) > 1 and token not in _VAGUE_RECORD_TOKENS
+    }
     if len(concrete_tokens) >= 2:
         return True
-    if re.search(r"(?:src|tests|docs|\.github)/|[A-Za-z_][A-Za-z0-9_./-]*\.[A-Za-z0-9]+", message):
+    if re.search(
+        r"(?:src|tests|docs|\.github)/|[A-Za-z_][A-Za-z0-9_./-]*\.[A-Za-z0-9]+", message
+    ):
         return True
     concrete_phrases = (
         "api",
@@ -339,11 +450,77 @@ def _context_pack(args: argparse.Namespace) -> dict[str, object] | None:
     return read_handoff_context_pack_file(path)
 
 
+_MAX_HANDOFF_CONTRACT_BYTES = 256 * 1024
+
+
+def _handoff_contract(args: argparse.Namespace) -> dict[str, object] | None:
+    value = getattr(args, "handoff_contract", None)
+    if not value:
+        return None
+    raw = str(value)
+    if raw.lstrip().startswith("{"):
+        if len(raw.encode("utf-8")) > _MAX_HANDOFF_CONTRACT_BYTES:
+            raise ValueError(
+                f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+            )
+        contract = json.loads(raw)
+    else:
+        source = Path(raw).expanduser()
+        fd = os.open(source, os.O_RDONLY | os.O_NONBLOCK)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("handoff contract must be a regular file")
+            if info.st_size > _MAX_HANDOFF_CONTRACT_BYTES:
+                raise ValueError(
+                    f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+                )
+            raw_bytes = os.read(fd, _MAX_HANDOFF_CONTRACT_BYTES + 1)
+        finally:
+            os.close(fd)
+        if len(raw_bytes) > _MAX_HANDOFF_CONTRACT_BYTES:
+            raise ValueError(
+                f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+            )
+        raw = raw_bytes.decode("utf-8")
+        contract = json.loads(raw)
+    if not isinstance(contract, dict):
+        raise ValueError("handoff contract must be a JSON object")
+    return contract
+
+
+def _persisted_graph_context(
+    repo: str | None, task: str
+) -> tuple[dict[str, object] | None, dict[str, object] | None]:
+    if not repo:
+        return None, None
+    artifact_path = codegraph_artifact_path(repo)
+    if not artifact_path.exists():
+        return None, None
+    try:
+        graph = json.loads(artifact_path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(graph, dict)
+            or graph.get("schema_version") != "omj_codegraph/v1"
+        ):
+            raise ValueError("persisted codegraph artifact must use omj_codegraph/v1")
+        return build_handoff_context(graph, task=task), None
+    except (OSError, json.JSONDecodeError, ValueError, KeyError, TypeError) as exc:
+        return None, {
+            "schema_version": "omj_codegraph_context/v1",
+            "status": "not_attached",
+            "reason": f"malformed_persisted_graph: {exc}",
+            "artifact_path": str(artifact_path),
+        }
+
+
 def cmd_coding_lifecycle_start(args: argparse.Namespace) -> int:
     if not args.record:
         raise OmjError("coding lifecycle start requires --record")
     if args.executor != "codex":
-        raise OmjError("coding lifecycle is Codex-only for run-backed tracking; use coding delegate for prompt-only or runtime handoffs")
+        raise OmjError(
+            "coding lifecycle is Codex-only for run-backed tracking; use coding delegate for prompt-only or runtime handoffs"
+        )
     try:
         event_or_message, source_metadata = _chat_input_and_metadata(args)
         message = extract_message_text(event_or_message)
@@ -373,7 +550,9 @@ def cmd_coding_lifecycle_dispatch(args: argparse.Namespace) -> int:
 
 
 def cmd_coding_lifecycle_result(args: argparse.Namespace) -> int:
-    participants = [item.strip() for item in (args.participants or "").split(",") if item.strip()]
+    participants = [
+        item.strip() for item in (args.participants or "").split(",") if item.strip()
+    ]
     try:
         _print_json(
             record_codex_result(
@@ -399,6 +578,7 @@ def cmd_coding_lifecycle_verify(args: argparse.Namespace) -> int:
                 args.run_id,
                 completion_status=args.completion_status,
                 gaps=args.gap or [],
+                postcondition_exits=_postcondition_exit_statuses(args),
             )
         )
     except FileNotFoundError as exc:
@@ -432,25 +612,51 @@ def cmd_coding_executor_readiness(args: argparse.Namespace) -> int:
 
 
 def _add_coding_commands(sub) -> None:
-    coding = sub.add_parser("coding", help="Prepare executor-neutral or tracked coding handoff artifacts.")
+    coding = sub.add_parser(
+        "coding", help="Prepare executor-neutral or tracked coding handoff artifacts."
+    )
     coding_sub = coding.add_subparsers(dest="coding_command", required=True)
 
+    commit_plan = coding_sub.add_parser(
+        "commit-plan", help="Prepare a deterministic metadata-only commit plan."
+    )
+    commit_plan.add_argument(
+        "--status-file",
+        required=True,
+        help="Read git status --porcelain=v1 -z metadata from PATH, or '-' for stdin.",
+    )
+    commit_plan.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON."
+    )
+    commit_plan.set_defaults(func=cmd_coding_commit_plan)
+
     delegate = coding_sub.add_parser("delegate")
-    delegate.add_argument("message", nargs="*", help="Coding task description to prepare for executor delegation.")
+    delegate.add_argument(
+        "message",
+        nargs="*",
+        help="Coding task description to prepare for executor delegation.",
+    )
     delegate.add_argument(
         "--source",
         choices=CHAT_SOURCES,
         default="generic",
         help="Source surface that received the coding request.",
     )
-    delegate.add_argument("--limit", type=int, default=3, help="Maximum catalog recommendations to include.")
+    delegate.add_argument(
+        "--limit",
+        type=int,
+        default=3,
+        help="Maximum catalog recommendations to include.",
+    )
     delegate.add_argument(
         "--executor",
         choices=CODING_EXECUTOR_TARGETS,
         default=None,
         help="Optional coding executor target for wrapper handoff payloads.",
     )
-    delegate.add_argument("--stdin", action="store_true", help="Read the raw coding task from stdin.")
+    delegate.add_argument(
+        "--stdin", action="store_true", help="Read the raw coding task from stdin."
+    )
     delegate.add_argument(
         "--event-json",
         default=None,
@@ -461,7 +667,11 @@ def _add_coding_commands(sub) -> None:
         action="store_true",
         help="Include raw message and expanded delegation prompt in stdout for non-logging wrappers.",
     )
-    delegate.add_argument("--record", action="store_true", help="Record a metadata-only coding delegation artifact under .omj/runtime.")
+    delegate.add_argument(
+        "--record",
+        action="store_true",
+        help="Record a metadata-only coding delegation artifact under .omj/runtime.",
+    )
     delegate.add_argument(
         "--force-record",
         action="store_true",
@@ -482,26 +692,66 @@ def _add_coding_commands(sub) -> None:
         action="store_true",
         help="Allow --from-plan to use a draft plan. Intended only for explicit operator overrides.",
     )
-    delegate.add_argument("--source-event-id", default="", help="Optional source message/event id to store as metadata.")
-    delegate.add_argument("--channel-ref", default="", help="Optional channel reference to store as metadata.")
-    delegate.add_argument("--user-ref", default="", help="Optional user reference to store as metadata.")
+    delegate.add_argument(
+        "--source-event-id",
+        default="",
+        help="Optional source message/event id to store as metadata.",
+    )
+    delegate.add_argument(
+        "--channel-ref",
+        default="",
+        help="Optional channel reference to store as metadata.",
+    )
+    delegate.add_argument(
+        "--user-ref", default="", help="Optional user reference to store as metadata."
+    )
+    delegate.add_argument(
+        "--handoff-contract",
+        default=None,
+        help="Optional handoff_contract/v1 JSON object or local JSON path to attach to the prepared handoff.",
+    )
+    delegate.add_argument(
+        "--graph-repo",
+        default=None,
+        help="Optional repository whose persisted .omj/codegraph/codegraph.json is attached as bounded context; never builds a graph.",
+    )
     delegate.set_defaults(func=cmd_coding_delegate)
 
     lifecycle = coding_sub.add_parser("lifecycle")
     lifecycle_sub = lifecycle.add_subparsers(dest="lifecycle_command", required=True)
 
     lifecycle_start = lifecycle_sub.add_parser("start")
-    lifecycle_start.add_argument("message", nargs="*", help="Coding task description to prepare for Codex lifecycle tracking.")
+    lifecycle_start.add_argument(
+        "message",
+        nargs="*",
+        help="Coding task description to prepare for Codex lifecycle tracking.",
+    )
     lifecycle_start.add_argument(
         "--source",
         choices=CHAT_SOURCES,
         default="generic",
         help="Source surface that received the coding request.",
     )
-    lifecycle_start.add_argument("--limit", type=int, default=3, help="Maximum catalog recommendations to include.")
-    lifecycle_start.add_argument("--executor", choices=CODING_EXECUTOR_TARGETS, default="codex", help="Coding executor target.")
-    lifecycle_start.add_argument("--record", action="store_true", help="Record a metadata-only prepared lifecycle run.")
-    lifecycle_start.add_argument("--stdin", action="store_true", help="Read the raw coding task from stdin.")
+    lifecycle_start.add_argument(
+        "--limit",
+        type=int,
+        default=3,
+        help="Maximum catalog recommendations to include.",
+    )
+    lifecycle_start.add_argument(
+        "--executor",
+        choices=CODING_EXECUTOR_TARGETS,
+        default="codex",
+        help="Coding executor target.",
+    )
+    lifecycle_start.add_argument(
+        "--record",
+        action="store_true",
+        help="Record a metadata-only prepared lifecycle run.",
+    )
+    lifecycle_start.add_argument(
+        "--stdin", action="store_true", help="Read the raw coding task from stdin."
+    )
     lifecycle_start.add_argument(
         "--event-json",
         default=None,
@@ -517,9 +767,19 @@ def _add_coding_commands(sub) -> None:
         default=None,
         help="Optional handoff_context_pack/v1 JSON to attach to the prepared Codex lifecycle handoff when conflict-free.",
     )
-    lifecycle_start.add_argument("--source-event-id", default="", help="Optional source message/event id to store as metadata.")
-    lifecycle_start.add_argument("--channel-ref", default="", help="Optional channel reference to store as metadata.")
-    lifecycle_start.add_argument("--user-ref", default="", help="Optional user reference to store as metadata.")
+    lifecycle_start.add_argument(
+        "--source-event-id",
+        default="",
+        help="Optional source message/event id to store as metadata.",
+    )
+    lifecycle_start.add_argument(
+        "--channel-ref",
+        default="",
+        help="Optional channel reference to store as metadata.",
+    )
+    lifecycle_start.add_argument(
+        "--user-ref", default="", help="Optional user reference to store as metadata."
+    )
     lifecycle_start.set_defaults(func=cmd_coding_lifecycle_start)
 
     lifecycle_dispatch = lifecycle_sub.add_parser("dispatch")
@@ -528,15 +788,28 @@ def _add_coding_commands(sub) -> None:
 
     lifecycle_result = lifecycle_sub.add_parser("result")
     lifecycle_result.add_argument("--run", dest="run_id", required=True)
-    lifecycle_result.add_argument("--result", choices=("completed", "blocked", "failed"), required=True)
+    lifecycle_result.add_argument(
+        "--result", choices=("completed", "blocked", "failed"), required=True
+    )
     lifecycle_result.add_argument("--participants", default="codex")
     lifecycle_result.add_argument("--evidence-ref", action="append")
     lifecycle_result.set_defaults(func=cmd_coding_lifecycle_result)
 
     lifecycle_verify = lifecycle_sub.add_parser("verify")
     lifecycle_verify.add_argument("--run", dest="run_id", required=True)
-    lifecycle_verify.add_argument("--completion-status", choices=("completed", "blocked", "failed", "unknown"), default="completed")
+    lifecycle_verify.add_argument(
+        "--completion-status",
+        choices=("completed", "blocked", "failed", "unknown"),
+        default="completed",
+    )
     lifecycle_verify.add_argument("--gap", action="append")
+    lifecycle_verify.add_argument(
+        "--postcondition-exit",
+        action="append",
+        default=None,
+        metavar="ID=STATUS",
+        help="Observed integer exit status for a declared handoff postcondition; repeatable.",
+    )
     lifecycle_verify.set_defaults(func=cmd_coding_lifecycle_verify)
 
     lifecycle_report = lifecycle_sub.add_parser("report")
@@ -547,7 +820,17 @@ def _add_coding_commands(sub) -> None:
         "executor-readiness",
         help="Probe or preview first-use coding agent readiness for wrapper fallback decisions.",
     )
-    readiness.add_argument("--executor", choices=EXECUTOR_READINESS_PROFILES, required=True)
-    readiness.add_argument("--force", action="store_true", help="Run the probe even if a first-use result is already cached.")
-    readiness.add_argument("--dry-run", action="store_true", help="Return the probe contract without running or caching it.")
+    readiness.add_argument(
+        "--executor", choices=EXECUTOR_READINESS_PROFILES, required=True
+    )
+    readiness.add_argument(
+        "--force",
+        action="store_true",
+        help="Run the probe even if a first-use result is already cached.",
+    )
+    readiness.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Return the probe contract without running or caching it.",
+    )
     readiness.set_defaults(func=cmd_coding_executor_readiness)

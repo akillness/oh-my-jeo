@@ -34,6 +34,7 @@ from ..parity import build_parity_matrix
 from ..release_smoke_core import CommandResult, Runner, bounded_text, expand_home, subprocess_runner
 from ..skill_pack import builtin_skill_templates
 from ..skills.catalog import builtin_definitions
+from ..skills.prepared import PREPARED_MEMBERS, prepared_guidance_errors, prepared_guidance_reference_templates
 from ..system.paths import OmjPaths
 from ..use_cases import (
     USE_CASES,
@@ -257,6 +258,16 @@ def release_readiness_checklist(
             False,
             "Skill manifest coverage reports every shipped SKILL.md with valid frontmatter and zero hardcoded credentials while the secret-scanner control still fires.",
             "Skill manifest coverage proves deterministic local skill-pack frontmatter and credential-hygiene contracts only; it does not prove Hermes installed, loaded, or executed any skill, connector, executor, review, CI, merge, or delivery work.",
+        ),
+        ReleaseChecklistItem(
+            "prepared_guidance_coverage",
+            "Check prepared guidance manifest coverage and reference hashes",
+            f"{omj_display} release skill-content-smoke --json",
+            "contract-quality",
+            True,
+            False,
+            "Prepared guidance covers all 98 members plus 97 method references and 41 source-contract-only members with manifest-pinned hashes and safe installed root references.",
+            "Prepared coverage proves source-pinned guidance and installable references only; it does not prove provider, executor, dispatch, verification, review, CI, or merge evidence.",
         ),
         ReleaseChecklistItem(
             "product_readiness",
@@ -498,6 +509,7 @@ def product_readiness_report(
         "installed_command_smoke",
         "installer_smoke",
         "live_tap_smoke",
+        "prepared_guidance_coverage",
     }
     missing_checklist_ids = sorted(required_checklist_ids - checklist_ids)
 
@@ -523,6 +535,21 @@ def product_readiness_report(
             _skill_content_product_errors(skill_content),
             [],
             str(skill_content.get("proof_boundary", "")),
+        ),
+        _product_readiness_gate(
+            "prepared_guidance",
+            "Prepared guidance manifest coverage",
+            "passed" if not skill_content.get("prepared_guidance_coverage_failures") else "failed",
+            True,
+            (
+                f"{skill_content.get('prepared_guidance_member_count', 0)}/98 members, "
+                f"{skill_content.get('prepared_guidance_method_reference_count', 0)}/97 method references, "
+                f"{skill_content.get('prepared_guidance_source_contract_count', 0)}/41 source contracts"
+            ),
+            "omj release skill-content-smoke --json",
+            _string_list(skill_content.get("prepared_guidance_coverage_failures")),
+            [],
+            str(skill_content.get("prepared_guidance_boundary", "")),
         ),
         _product_readiness_gate(
             "use_cases",
@@ -838,6 +865,44 @@ def installed_command_smoke_plan(
 
 def skill_content_smoke() -> dict[str, object]:
     templates = {template.name: template.content for template in builtin_skill_templates()}
+    prepared_errors = prepared_guidance_errors()
+    prepared_member_count = len(PREPARED_MEMBERS)
+    prepared_method_sources = {
+        str(reference.get("source_path"))
+        for member in PREPARED_MEMBERS
+        for reference in member.get("references", ())
+        if isinstance(reference, dict) and reference.get("source_path")
+    }
+    prepared_source_contract_sources = {
+        str(member.get("source_path"))
+        for member in PREPARED_MEMBERS
+        if not member.get("references") and member.get("source_path")
+    }
+    prepared_unique_sources = prepared_method_sources | prepared_source_contract_sources
+    prepared_reference_templates = []
+    if not prepared_errors:
+        prepared_reference_templates = prepared_guidance_reference_templates()
+    prepared_template_paths = {
+        (template.skill_name, template.relative_path): template.content
+        for template in prepared_reference_templates
+    }
+    prepared_coverage_failures = list(prepared_errors)
+    if prepared_member_count != 98:
+        prepared_coverage_failures.append(f"prepared member coverage {prepared_member_count}/98")
+    if len(prepared_method_sources) != 97:
+        prepared_coverage_failures.append(f"prepared method reference coverage {len(prepared_method_sources)}/97")
+    if len(prepared_source_contract_sources) != 41:
+        prepared_coverage_failures.append(f"prepared source-contract coverage {len(prepared_source_contract_sources)}/41")
+    if len(prepared_unique_sources) != 138:
+        prepared_coverage_failures.append(f"prepared unique source paths {len(prepared_unique_sources)}/138")
+    if not prepared_errors:
+        for member in PREPARED_MEMBERS:
+            expected_path = f"references/prepared/{member['family_id']}/{member['canonical_id']}.md"
+            content = prepared_template_paths.get(("oh-my-jeo", expected_path), "")
+            if not content or str(member["canonical_id"]) not in content or str(member["family_id"]) not in content:
+                prepared_coverage_failures.append(f"missing prepared contract reference: {expected_path}")
+        if len(prepared_reference_templates) != 195:
+            prepared_coverage_failures.append(f"prepared reference template coverage {len(prepared_reference_templates)}/195")
     workflow_skill_names = set(templates) - {DEFAULT_HERMES_SKILL}
     role_contexts = {role.id: role_file_markdown(role) for role in role_definitions()}
     bundled_role_contexts = _bundled_role_contexts()
@@ -1039,6 +1104,7 @@ def skill_content_smoke() -> dict[str, object]:
         and not use_case_artifact_failures
         and not use_case_replay_failures
         and not use_case_readiness_failures
+        and not prepared_coverage_failures
     )
     return {
         "schema_version": SKILL_CONTENT_SMOKE_SCHEMA,
@@ -1046,6 +1112,14 @@ def skill_content_smoke() -> dict[str, object]:
         "ok": ok,
         "observed": True,
         "skill_count": len(templates),
+        "prepared_guidance_member_count": prepared_member_count,
+        "prepared_guidance_method_reference_count": len(prepared_method_sources),
+        "prepared_guidance_source_contract_count": len(prepared_source_contract_sources),
+        "prepared_guidance_unique_source_path_count": len(prepared_unique_sources),
+        "prepared_guidance_reference_template_count": len(prepared_reference_templates),
+        "prepared_guidance_coverage_failures": prepared_coverage_failures,
+        "prepared_guidance_manifest_errors": prepared_errors,
+        "prepared_guidance_boundary": "Prepared source contracts and method references are pinned metadata; they do not prove provider, executor, dispatch, verification, review, CI, merge-readiness, or merge evidence.",
         "catalog_skill_count": len(catalog_skill_names),
         "router_skill": DEFAULT_HERMES_SKILL,
         "workflow_skill_count": max(len(templates) - 1, 0),

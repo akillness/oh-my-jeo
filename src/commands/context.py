@@ -1,9 +1,107 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
+import os
+import stat
+import sys
+from pathlib import Path
 
 from ..context import build_context_brief
+from ..installer import OmjError
+from ..workflows.project_terms import (
+    MAX_PROJECT_TERMS_SOURCE_BYTES,
+    PROJECT_TERMS_BOUNDARY,
+    build_project_terms_capture_inputs,
+    parse_project_terms,
+)
 from .common import _print_json, _wants_json
+
+
+def _read_project_terms_source(path: str) -> bytes:
+    if path == "-":
+        stream = getattr(sys.stdin, "buffer", sys.stdin)
+        raw = stream.read(MAX_PROJECT_TERMS_SOURCE_BYTES + 1)
+        if isinstance(raw, str):
+            raw = raw.encode("utf-8")
+    else:
+        source = Path(path).expanduser()
+        flags = os.O_RDONLY | os.O_NONBLOCK
+        try:
+            fd = os.open(source, flags)
+        except FileNotFoundError:
+            raise
+        except OSError as exc:
+            raise ValueError("project_terms_source_not_regular_file") from exc
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("project_terms_source_not_regular_file")
+            if info.st_size > MAX_PROJECT_TERMS_SOURCE_BYTES:
+                raise ValueError("project_terms_source_too_large")
+            raw = os.read(fd, MAX_PROJECT_TERMS_SOURCE_BYTES + 1)
+        finally:
+            os.close(fd)
+    if len(raw) > MAX_PROJECT_TERMS_SOURCE_BYTES:
+        raise ValueError("project_terms_source_too_large")
+    return raw
+
+
+def _project_terms_payload(path: str) -> dict[str, object]:
+    source = _read_project_terms_source(path)
+    document = parse_project_terms(source)
+    captures = build_project_terms_capture_inputs(document)
+    return {
+        "document": dataclasses.asdict(document),
+        "captures": [dataclasses.asdict(capture) for capture in captures],
+        "source": {"path": path, "bytes": len(source), "raw_persisted": False},
+        "prepared_state": "prepared_not_observed",
+        "claim_boundary": PROJECT_TERMS_BOUNDARY,
+    }
+
+
+def cmd_context_terms_capture(args: argparse.Namespace) -> int:
+    try:
+        payload = _project_terms_payload(args.source)
+    except (OSError, ValueError, TypeError) as exc:
+        raise OmjError(str(exc)) from exc
+    payload["schema_version"] = "omj_project_terms_capture/v1"
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        document = payload["document"]
+        domains = document.get("domains", []) if isinstance(document, dict) else []
+        print("OMJ project terminology capture")
+        print(f"  Schema: {document.get('schema_version') if isinstance(document, dict) else ''}")
+        print(f"  Source digest: {document.get('source_sha256') if isinstance(document, dict) else ''}")
+        print(f"  Domains: {len(domains) if isinstance(domains, list) else 0}")
+        print("  Raw source persisted: no")
+        print(f"Boundary: {PROJECT_TERMS_BOUNDARY}")
+    return 0
+
+
+def cmd_context_terms_inspect(args: argparse.Namespace) -> int:
+    try:
+        payload = _project_terms_payload(args.source)
+    except (OSError, ValueError, TypeError) as exc:
+        raise OmjError(str(exc)) from exc
+    payload["schema_version"] = "omj_project_terms_inspect/v1"
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        document = payload["document"]
+        domains = document.get("domains", []) if isinstance(document, dict) else []
+        print("OMJ project terminology inspection")
+        print(f"  Source digest: {document.get('source_sha256') if isinstance(document, dict) else ''}")
+        for domain in domains if isinstance(domains, list) else []:
+            if not isinstance(domain, dict):
+                continue
+            print(f"  - {domain.get('domain_id')}: {len(domain.get('mappings', []))} mappings")
+        print("  Prepared state: prepared_not_observed")
+        print(f"Boundary: {PROJECT_TERMS_BOUNDARY}")
+    return 0
+
+
 
 
 def cmd_context_brief(args: argparse.Namespace) -> int:
@@ -80,3 +178,25 @@ def _add_context_commands(sub) -> None:
     )
     brief.add_argument("--json", action="store_true", help="Print machine-readable context payload.")
     brief.set_defaults(func=cmd_context_brief)
+    def _add_terms_parser(parser: argparse.ArgumentParser, handler) -> None:
+        parser.add_argument("--source", "--source-file", required=True, dest="source", help="PROJECT_TERMS.md path, or '-' for stdin.")
+        parser.add_argument("--json", action="store_true", help="Print the full machine-readable payload.")
+        parser.set_defaults(func=handler)
+
+    terms = context_sub.add_parser(
+        "terms",
+        aliases=("project-terms",),
+        help="Capture or inspect bounded project terminology metadata.",
+    )
+    terms_sub = terms.add_subparsers(dest="terms_command", required=True)
+    capture = terms_sub.add_parser("capture", help="Parse terminology metadata-only capture inputs.")
+    _add_terms_parser(capture, cmd_context_terms_capture)
+    inspect = terms_sub.add_parser("inspect", help="Inspect terminology metadata without retaining source text.")
+    _add_terms_parser(inspect, cmd_context_terms_inspect)
+
+    for alias, handler, help_text in (
+        ("terms-capture", cmd_context_terms_capture, "Capture bounded project terminology metadata."),
+        ("terms-inspect", cmd_context_terms_inspect, "Inspect bounded project terminology metadata."),
+    ):
+        flat = context_sub.add_parser(alias, help=help_text)
+        _add_terms_parser(flat, handler)

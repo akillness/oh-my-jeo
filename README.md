@@ -1,6 +1,10 @@
 # oh-my-jeo
 
 <p align="center">
+  <img src="assets/oh-my-jeo-icon.png" alt="oh-my-jeo logo" width="160" height="160">
+</p>
+
+<p align="center">
   <img src="assets/oh-my-jeo-architecture.svg" alt="oh-my-jeo architecture and workflow map" width="920">
 </p>
 
@@ -15,7 +19,6 @@
   <a href="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akillness/oh-my-jeo/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="https://github.com/akillness/oh-my-jeo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/akillness/oh-my-jeo?display_name=tag&sort=semver&color=2dd4bf"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-953%20passing-success">
   <img alt="Spec-first" src="https://img.shields.io/badge/workflow-spec--first%20%C2%B7%20jeo--code%20parity-38bdf8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
 </p>
@@ -216,15 +219,17 @@ merge the `mcpServers.omj` entry into that host's config.
 
 
 > **Origin & attribution.** oh-my-jeo is an MIT-licensed derivative of
-> [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) by `@rlaope`. The
-> engine and skill catalog are inherited verbatim. The `curl … | sh` installer,
-> its source archive, and the Hermes skill tap all now resolve through the
-> oh-my-jeo distribution (`akillness/oh-my-jeo`), so every install path installs
-> the `omj` command and the `oh-my-jeo` skill directly. Only the license
-> attribution still points upstream
-> ([website](https://rlaope.github.io/oh-my-hermes/)); see `NOTICE` for the full
-> attribution. oh-my-jeo layers its own brand, documentation, visualization, and
-> agent spec on top.
+> [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) v3.0.2 (commit
+> `117f67a2347b82ea527ca1d7f8c0e8d609ec8c4c`, [upstream site](https://rlaope.github.io/oh-my-hermes/)). The oh-my-hermes 1.0.1
+> engine and skill catalog form the inherited baseline; selected v3.0.2
+> adaptations (routing interface, plugin architecture, intent classification,
+> Latin recall, EN/FR relative-time/French cues, retained callback lifecycle,
+> catalog planning/test/debug/forensics guidance) are adopted
+> under the same MIT license. oh-my-jeo layers its own brand, documentation,
+> agent specification, generated assets (icon), and visualization on top, then
+> redistributes through the oh-my-jeo namespace (`akillness/oh-my-jeo`) so every
+> install path installs the `omj` command and OMJ-branded skills directly.
+> Attribution and MIT credit are retained in `LICENSE` and `NOTICE`.
 
 > **Canonical `omj` namespace.** `omj` (oh-my-jeo) is the single implementation
 > namespace, Python import package, CLI command, and Hermes plugin ABI. The
@@ -653,5 +658,8 @@ python3 -m omj.cli docs workflows --check
 ```
 
 
-oh-my-jeo inherits oh-my-hermes 1.0.1, a quality-gated stable baseline, and is
-distributed under the MIT License (see `LICENSE` and `NOTICE`).
+oh-my-jeo inherits oh-my-hermes 1.0.1 as a quality-gated baseline, adopts
+selected v3.0.2 adaptations (routing interface, plugin architecture, intent
+classification, Latin recall, EN/FR relative-time/French cues, retained callback
+lifecycle, catalog planning/test/debug/forensics guidance), and is distributed
+under the MIT License (see `LICENSE` and `NOTICE`).

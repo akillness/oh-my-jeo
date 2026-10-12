@@ -95,4 +95,6 @@ def _hook_payload_fields(name: str) -> list[str]:
         return ["tool_name", "tool_family_hint", "omj_generic_tool_checkpoint", "claim_boundary", "redacted"]
     if name == "on_session_end":
         return ["session_summary", "metadata_only"]
+    if name == "subagent_start":
+        return ["child_session_id", "parent_session_id"]
     return []

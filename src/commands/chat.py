@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
 import sys
 from pathlib import Path
+from typing import Any
 
 from ..codex_progress import (
     build_codex_prompt_handling_contract,
@@ -15,10 +18,29 @@ from ..coding_delegation import CODING_EXECUTOR_TARGETS
 from ..ingress import CHAT_SOURCES, extract_message_text
 from ..installer import OmjError
 from ..memory import read_handoff_context_pack_file
-from ..routing.chat import CONFIDENCE_LEVELS, public_route_payload, route_chat_message, routing_record_payload
-from ..runtime.artifacts import create_run, summarize_delegated_coding_status, write_routing_decision
-from ..targets import TARGET_METADATA_KEYS, build_target_change_notice, inspect_target_observation, record_target_observation
-from ..wrapper.contract import INTERACTION_MODES, RENDER_PROFILES, build_chat_interaction_payload, build_chat_status_interaction
+from ..routing.chat import (
+    CONFIDENCE_LEVELS,
+    public_route_payload,
+    route_chat_message,
+    routing_record_payload,
+)
+from ..runtime.artifacts import (
+    create_run,
+    summarize_delegated_coding_status,
+    write_routing_decision,
+)
+from ..targets import (
+    TARGET_METADATA_KEYS,
+    build_target_change_notice,
+    inspect_target_observation,
+    record_target_observation,
+)
+from ..wrapper.contract import (
+    INTERACTION_MODES,
+    RENDER_PROFILES,
+    build_chat_interaction_payload,
+    build_chat_status_interaction,
+)
 from ..wrapper.executor_sessions import (
     ExecutorSessionError,
     attach_executor_session,
@@ -26,7 +48,10 @@ from ..wrapper.executor_sessions import (
     record_executor_session_result,
     request_executor_session_verification,
 )
-from ..wrapper.native_commands import NATIVE_COMMAND_SOURCES, build_native_command_surface
+from ..wrapper.native_commands import (
+    NATIVE_COMMAND_SOURCES,
+    build_native_command_surface,
+)
 from ..wrapper.route_hints import build_chat_route_hint_payload
 from ..wrapper.sessions import (
     WrapperSessionError,
@@ -38,17 +63,32 @@ from ..wrapper.sessions import (
     select_wrapper_session_executor,
     show_wrapper_session,
 )
-from .common import _chat_input_and_metadata, _chat_message, _explicit_source_metadata, _paths, _print_json, _resolved_executor
+from .common import (
+    _chat_input_and_metadata,
+    _chat_message,
+    _explicit_source_metadata,
+    _paths,
+    _postcondition_exit_statuses,
+    _print_json,
+    _resolved_executor,
+)
 from .runtime import _validate_runtime_names
 
 
 def cmd_chat_route(args: argparse.Namespace) -> int:
     message = _chat_message(args)
     try:
-        decision = route_chat_message(message, source=args.source, limit=args.limit, min_confidence=args.min_confidence)
+        decision = route_chat_message(
+            message,
+            source=args.source,
+            limit=args.limit,
+            min_confidence=args.min_confidence,
+        )
     except ValueError as exc:
         raise OmjError(str(exc)) from exc
-    payload = {"route": public_route_payload(decision, include_message=args.include_message)}
+    payload = {
+        "route": public_route_payload(decision, include_message=args.include_message)
+    }
     if args.record:
         paths = _paths(args)
         selected_skill = str(decision["selected_skill"])
@@ -85,7 +125,11 @@ def cmd_chat_route(args: argparse.Namespace) -> int:
 def cmd_chat_route_hint(args: argparse.Namespace) -> int:
     try:
         event_or_message, source_metadata = _chat_input_and_metadata(args)
-        message = extract_message_text(event_or_message) if isinstance(event_or_message, dict) else str(event_or_message)
+        message = (
+            extract_message_text(event_or_message)
+            if isinstance(event_or_message, dict)
+            else str(event_or_message)
+        )
         payload = build_chat_route_hint_payload(
             message,
             source=args.source,
@@ -159,6 +203,50 @@ def cmd_chat_session_decision(args: argparse.Namespace) -> int:
     return 0
 
 
+_MAX_HANDOFF_CONTRACT_BYTES = 256 * 1024
+
+
+def _handoff_contract_from_args(args: argparse.Namespace) -> dict[str, object] | None:
+    path = getattr(args, "handoff_contract", None)
+    if not path:
+        return None
+    source = Path(path).expanduser()
+    try:
+        fd = os.open(source, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as exc:
+        raise OmjError(f"handoff contract could not be read: {exc}") from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise OmjError("handoff contract must be a regular file")
+        if info.st_size > _MAX_HANDOFF_CONTRACT_BYTES:
+            raise OmjError(
+                f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+            )
+        raw = os.read(fd, _MAX_HANDOFF_CONTRACT_BYTES + 1)
+    except OmjError:
+        raise
+    except OSError as exc:
+        raise OmjError(f"handoff contract could not be read: {exc}") from exc
+    finally:
+        os.close(fd)
+    if len(raw) > _MAX_HANDOFF_CONTRACT_BYTES:
+        raise OmjError(
+            f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+        )
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise OmjError("handoff contract must be valid UTF-8 JSON") from exc
+    try:
+        value: Any = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise OmjError(f"handoff contract could not be read: {exc}") from exc
+    if not isinstance(value, dict):
+        raise OmjError("handoff contract must be a JSON object")
+    return value
+
+
 def cmd_chat_session_prepare_handoff(args: argparse.Namespace) -> int:
     try:
         event_or_message, source_metadata = _chat_input_and_metadata(args)
@@ -171,6 +259,7 @@ def cmd_chat_session_prepare_handoff(args: argparse.Namespace) -> int:
             source_metadata=source_metadata,
             executor_target=args.executor,
             context_pack=_context_pack(args),
+            handoff_contract=_handoff_contract_from_args(args),
         )
     except FileNotFoundError as exc:
         raise OmjError(f"wrapper session not found: {args.session_id}") from exc
@@ -180,7 +269,9 @@ def cmd_chat_session_prepare_handoff(args: argparse.Namespace) -> int:
     return 0
 
 
-def _target_notice(args: argparse.Namespace, source_metadata: dict[str, str]) -> dict[str, object] | None:
+def _target_notice(
+    args: argparse.Namespace, source_metadata: dict[str, str]
+) -> dict[str, object] | None:
     if not _has_target_metadata(source_metadata):
         return None
     paths = _paths(args)
@@ -193,7 +284,9 @@ def _target_notice(args: argparse.Namespace, source_metadata: dict[str, str]) ->
             ensure_config=bool(source_metadata.get("hermes_home")),
         )
     else:
-        observation = inspect_target_observation(paths, source=f"chat:{args.source}", source_metadata=source_metadata)
+        observation = inspect_target_observation(
+            paths, source=f"chat:{args.source}", source_metadata=source_metadata
+        )
     return build_target_change_notice(observation, auto_applied=auto_apply)
 
 
@@ -209,11 +302,31 @@ def _has_target_metadata(source_metadata: dict[str, str]) -> bool:
 
 
 def _add_target_metadata_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--agent-ref", default="", help="Optional Hermes agent id/name observed by the wrapper.")
-    parser.add_argument("--target-ref", default="", help="Optional Hermes workspace/target id observed by the wrapper.")
-    parser.add_argument("--runtime-ref", default="", help="Optional Hermes runtime id observed by the wrapper.")
-    parser.add_argument("--agent-count", default="", help="Optional active Hermes agent count observed by the wrapper.")
-    parser.add_argument("--target-count", default="", help="Optional active Hermes target count observed by the wrapper.")
+    parser.add_argument(
+        "--agent-ref",
+        default="",
+        help="Optional Hermes agent id/name observed by the wrapper.",
+    )
+    parser.add_argument(
+        "--target-ref",
+        default="",
+        help="Optional Hermes workspace/target id observed by the wrapper.",
+    )
+    parser.add_argument(
+        "--runtime-ref",
+        default="",
+        help="Optional Hermes runtime id observed by the wrapper.",
+    )
+    parser.add_argument(
+        "--agent-count",
+        default="",
+        help="Optional active Hermes agent count observed by the wrapper.",
+    )
+    parser.add_argument(
+        "--target-count",
+        default="",
+        help="Optional active Hermes target count observed by the wrapper.",
+    )
     parser.add_argument(
         "--auto-apply-target-change",
         action="store_true",
@@ -231,15 +344,35 @@ def _add_render_profile_option(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_codex_observation_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--codex-session-ref", default="", help="Observed Codex session id suitable for resume contracts.")
-    parser.add_argument("--codex-thread-ref", default="", help="Observed Codex thread/conversation reference when distinct from the session id.")
-    parser.add_argument("--codex-log-jsonl", default=None, help="Observed Codex JSONL/process output to summarize; raw events are not echoed.")
-    parser.add_argument("--codex-log-ref", default="", help="Evidence reference for the observed Codex log source.")
+    parser.add_argument(
+        "--codex-session-ref",
+        default="",
+        help="Observed Codex session id suitable for resume contracts.",
+    )
+    parser.add_argument(
+        "--codex-thread-ref",
+        default="",
+        help="Observed Codex thread/conversation reference when distinct from the session id.",
+    )
+    parser.add_argument(
+        "--codex-log-jsonl",
+        default=None,
+        help="Observed Codex JSONL/process output to summarize; raw events are not echoed.",
+    )
+    parser.add_argument(
+        "--codex-log-ref",
+        default="",
+        help="Evidence reference for the observed Codex log source.",
+    )
 
 
 def cmd_chat_session_select_executor(args: argparse.Namespace) -> int:
     try:
-        _print_json(select_wrapper_session_executor(_paths(args), args.session_id, args.executor))
+        _print_json(
+            select_wrapper_session_executor(
+                _paths(args), args.session_id, args.executor
+            )
+        )
     except FileNotFoundError as exc:
         raise OmjError(f"wrapper session not found: {args.session_id}") from exc
     except WrapperSessionError as exc:
@@ -252,6 +385,8 @@ def cmd_chat_session_status(args: argparse.Namespace) -> int:
         _print_json(build_wrapper_session_status(_paths(args), args.session_id))
     except FileNotFoundError as exc:
         raise OmjError(f"wrapper session not found: {args.session_id}") from exc
+    except (OSError, ExecutorSessionError, WrapperSessionError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
     return 0
 
 
@@ -311,6 +446,7 @@ def cmd_chat_session_record_executor(args: argparse.Namespace) -> int:
                 evidence_refs=args.evidence_ref or [],
                 summary=args.summary or "",
                 codex_progress_summary=codex_progress,
+                postcondition_exit_statuses=_postcondition_exit_statuses(args),
             )
         )
     except FileNotFoundError as exc:
@@ -361,10 +497,14 @@ def cmd_chat_native_command(args: argparse.Namespace) -> int:
 def cmd_chat_codex_progress(args: argparse.Namespace) -> int:
     try:
         if args.jsonl:
-            progress = summarize_codex_jsonl_file(args.jsonl, evidence_refs=args.evidence_ref or [])
+            progress = summarize_codex_jsonl_file(
+                args.jsonl, evidence_refs=args.evidence_ref or []
+            )
         else:
             text = sys.stdin.read() if args.stdin else ""
-            progress = summarize_codex_jsonl_text(text, evidence_refs=args.evidence_ref or [], source="stdin")
+            progress = summarize_codex_jsonl_text(
+                text, evidence_refs=args.evidence_ref or [], source="stdin"
+            )
     except OSError as exc:
         raise OmjError(str(exc)) from exc
     _print_json(
@@ -420,12 +560,26 @@ def cmd_chat_codex_followup(args: argparse.Namespace) -> int:
         wrapper_session: dict[str, object] = {}
         if args.session_id:
             status = build_wrapper_session_status(_paths(args), args.session_id)
-            executor_status = status.get("executor_session_status", {}) if isinstance(status.get("executor_session_status"), dict) else {}
-            codex_session = executor_status.get("codex_session", {}) if isinstance(executor_status.get("codex_session"), dict) else {}
-            codex_progress = executor_status.get("codex_progress", {}) if isinstance(executor_status.get("codex_progress"), dict) else {}
+            executor_status = (
+                status.get("executor_session_status", {})
+                if isinstance(status.get("executor_session_status"), dict)
+                else {}
+            )
+            codex_session = (
+                executor_status.get("codex_session", {})
+                if isinstance(executor_status.get("codex_session"), dict)
+                else {}
+            )
+            codex_progress = (
+                executor_status.get("codex_progress", {})
+                if isinstance(executor_status.get("codex_progress"), dict)
+                else {}
+            )
             session_ref = session_ref or str(codex_session.get("session_ref", ""))
             thread_ref = thread_ref or str(codex_session.get("thread_ref", ""))
-            external_ref = external_ref or str(codex_session.get("external_session_ref", ""))
+            external_ref = external_ref or str(
+                codex_session.get("external_session_ref", "")
+            )
             if progress is None and codex_progress:
                 progress = codex_progress
             wrapper_session = {
@@ -496,77 +650,141 @@ def _codex_review_from_args(
         summary=summary,
         finding_count=finding_count,
         progress_summary=progress_summary,
-        codex_session_ref=codex_session_ref or str(getattr(args, "codex_session_ref", "") or ""),
-        codex_thread_ref=codex_thread_ref or str(getattr(args, "codex_thread_ref", "") or ""),
-        external_session_ref=external_session_ref or str(getattr(args, "external_session_ref", "") or ""),
+        codex_session_ref=codex_session_ref
+        or str(getattr(args, "codex_session_ref", "") or ""),
+        codex_thread_ref=codex_thread_ref
+        or str(getattr(args, "codex_thread_ref", "") or ""),
+        external_session_ref=external_session_ref
+        or str(getattr(args, "external_session_ref", "") or ""),
         evidence_refs=list(getattr(args, "evidence_ref", None) or []),
     )
 
 
 def _add_codex_review_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--codex-review-status", default="", help="Observed Codex review status, such as passed or changes_requested.")
-    parser.add_argument("--codex-review-summary", default="", help="Human-readable Codex review summary; raw logs are not echoed.")
-    parser.add_argument("--codex-review-finding-count", type=int, default=None, help="Optional observed count of summarized Codex review findings.")
-    parser.add_argument("--codex-reviewer", default="codex", help="Observed reviewer label for the Codex review summary.")
+    parser.add_argument(
+        "--codex-review-status",
+        default="",
+        help="Observed Codex review status, such as passed or changes_requested.",
+    )
+    parser.add_argument(
+        "--codex-review-summary",
+        default="",
+        help="Human-readable Codex review summary; raw logs are not echoed.",
+    )
+    parser.add_argument(
+        "--codex-review-finding-count",
+        type=int,
+        default=None,
+        help="Optional observed count of summarized Codex review findings.",
+    )
+    parser.add_argument(
+        "--codex-reviewer",
+        default="codex",
+        help="Observed reviewer label for the Codex review summary.",
+    )
 
 
 def _add_chat_commands(sub) -> None:
-    chat = sub.add_parser("chat", help="Turn wrapper chat events into OMJ routing, handoff, and status envelopes.")
+    chat = sub.add_parser(
+        "chat",
+        help="Turn wrapper chat events into OMJ routing, handoff, and status envelopes.",
+    )
     chat_sub = chat.add_subparsers(dest="chat_command", required=True)
 
     route = chat_sub.add_parser("route")
-    route.add_argument("message", nargs="*", help="Chat message to route before dispatching to Hermes.")
+    route.add_argument(
+        "message", nargs="*", help="Chat message to route before dispatching to Hermes."
+    )
     route.add_argument(
         "--source",
         choices=CHAT_SOURCES,
         default="generic",
         help="Source surface that received the chat message.",
     )
-    route.add_argument("--limit", type=int, default=3, help="Maximum catalog recommendations to include.")
+    route.add_argument(
+        "--limit",
+        type=int,
+        default=3,
+        help="Maximum catalog recommendations to include.",
+    )
     route.add_argument(
         "--min-confidence",
         choices=CONFIDENCE_LEVELS,
         default="high",
         help="Minimum confidence for automatic workflow dispatch.",
     )
-    route.add_argument("--stdin", action="store_true", help="Read the raw chat message from stdin.")
+    route.add_argument(
+        "--stdin", action="store_true", help="Read the raw chat message from stdin."
+    )
     route.add_argument(
         "--event-json",
         default=None,
         help="Read a Slack/Discord/Hermes-like JSON event from this path, or '-' for stdin.",
     )
-    route.add_argument("--record", action="store_true", help="Record a metadata-only routing artifact under .omj/runtime.")
+    route.add_argument(
+        "--record",
+        action="store_true",
+        help="Record a metadata-only routing artifact under .omj/runtime.",
+    )
     route.add_argument(
         "--include-message",
         action="store_true",
         help="Include a complete routing_prompt with the raw message in stdout.",
     )
-    route.add_argument("--source-event-id", default="", help="Optional source message/event id to store as metadata.")
-    route.add_argument("--channel-ref", default="", help="Optional channel reference to store as metadata.")
-    route.add_argument("--user-ref", default="", help="Optional user reference to store as metadata.")
+    route.add_argument(
+        "--source-event-id",
+        default="",
+        help="Optional source message/event id to store as metadata.",
+    )
+    route.add_argument(
+        "--channel-ref",
+        default="",
+        help="Optional channel reference to store as metadata.",
+    )
+    route.add_argument(
+        "--user-ref", default="", help="Optional user reference to store as metadata."
+    )
     route.set_defaults(func=cmd_chat_route)
 
     route_hint = chat_sub.add_parser(
         "route-hint",
         help="Print a lightweight OMJ workflow hint card without recording routing or execution evidence.",
     )
-    route_hint.add_argument("message", nargs="*", help="Chat message to preview before a workflow is selected.")
+    route_hint.add_argument(
+        "message",
+        nargs="*",
+        help="Chat message to preview before a workflow is selected.",
+    )
     route_hint.add_argument(
         "--source",
         choices=CHAT_SOURCES,
         default="generic",
         help="Source surface that received the chat message.",
     )
-    route_hint.add_argument("--stdin", action="store_true", help="Read the raw chat message from stdin.")
+    route_hint.add_argument(
+        "--stdin", action="store_true", help="Read the raw chat message from stdin."
+    )
     route_hint.add_argument(
         "--event-json",
         default=None,
         help="Read a Slack/Discord/Hermes-like JSON event from this path, or '-' for stdin.",
     )
-    route_hint.add_argument("--source-event-id", default="", help="Optional source message/event id to expose as metadata.")
-    route_hint.add_argument("--channel-ref", default="", help="Optional channel reference to expose as metadata.")
-    route_hint.add_argument("--user-ref", default="", help="Optional user reference to expose as metadata.")
-    route_hint.add_argument("--max-hints", type=int, default=2, help="Maximum route hints to include.")
+    route_hint.add_argument(
+        "--source-event-id",
+        default="",
+        help="Optional source message/event id to expose as metadata.",
+    )
+    route_hint.add_argument(
+        "--channel-ref",
+        default="",
+        help="Optional channel reference to expose as metadata.",
+    )
+    route_hint.add_argument(
+        "--user-ref", default="", help="Optional user reference to expose as metadata."
+    )
+    route_hint.add_argument(
+        "--max-hints", type=int, default=2, help="Maximum route hints to include."
+    )
     route_hint.add_argument(
         "--prompt-context",
         action="store_true",
@@ -575,15 +793,29 @@ def _add_chat_commands(sub) -> None:
     route_hint.set_defaults(func=cmd_chat_route_hint)
 
     interact = chat_sub.add_parser("interact")
-    interact.add_argument("message", nargs="*", help="Chat message to turn into a wrapper-native interaction envelope.")
+    interact.add_argument(
+        "message",
+        nargs="*",
+        help="Chat message to turn into a wrapper-native interaction envelope.",
+    )
     interact.add_argument(
         "--source",
         choices=CHAT_SOURCES,
         default="generic",
         help="Source surface that received the chat message.",
     )
-    interact.add_argument("--mode", choices=INTERACTION_MODES, default="auto", help="Interaction mode to compose.")
-    interact.add_argument("--limit", type=int, default=3, help="Maximum catalog recommendations to include.")
+    interact.add_argument(
+        "--mode",
+        choices=INTERACTION_MODES,
+        default="auto",
+        help="Interaction mode to compose.",
+    )
+    interact.add_argument(
+        "--limit",
+        type=int,
+        default=3,
+        help="Maximum catalog recommendations to include.",
+    )
     interact.add_argument(
         "--min-confidence",
         choices=CONFIDENCE_LEVELS,
@@ -596,7 +828,9 @@ def _add_chat_commands(sub) -> None:
         default=None,
         help="Executor target for delegate-mode handoff payloads. Defaults to setup profile or explicit choice required.",
     )
-    interact.add_argument("--stdin", action="store_true", help="Read the raw chat message from stdin.")
+    interact.add_argument(
+        "--stdin", action="store_true", help="Read the raw chat message from stdin."
+    )
     interact.add_argument(
         "--event-json",
         default=None,
@@ -607,15 +841,33 @@ def _add_chat_commands(sub) -> None:
         action="store_true",
         help="Include the raw message in stdout for wrappers that dispatch immediately.",
     )
-    interact.add_argument("--run", dest="run_id", default=None, help="Render a status interaction for an existing runtime run.")
-    interact.add_argument("--source-event-id", default="", help="Optional source message/event id to store as metadata.")
-    interact.add_argument("--channel-ref", default="", help="Optional channel reference to store as metadata.")
-    interact.add_argument("--user-ref", default="", help="Optional user reference to store as metadata.")
+    interact.add_argument(
+        "--run",
+        dest="run_id",
+        default=None,
+        help="Render a status interaction for an existing runtime run.",
+    )
+    interact.add_argument(
+        "--source-event-id",
+        default="",
+        help="Optional source message/event id to store as metadata.",
+    )
+    interact.add_argument(
+        "--channel-ref",
+        default="",
+        help="Optional channel reference to store as metadata.",
+    )
+    interact.add_argument(
+        "--user-ref", default="", help="Optional user reference to store as metadata."
+    )
     _add_render_profile_option(interact)
     _add_target_metadata_options(interact)
     interact.set_defaults(func=cmd_chat_interact)
 
-    native_command = chat_sub.add_parser("native-command", help="Print the platform-native OMJ command registration contract.")
+    native_command = chat_sub.add_parser(
+        "native-command",
+        help="Print the platform-native OMJ command registration contract.",
+    )
     native_command.add_argument(
         "--source",
         choices=NATIVE_COMMAND_SOURCES,
@@ -628,21 +880,55 @@ def _add_chat_commands(sub) -> None:
         "codex-progress",
         help="Summarize raw Codex JSONL or process output into compact chat-safe progress text.",
     )
-    codex_progress.add_argument("--jsonl", default=None, help="Path to observed Codex JSONL or process output.")
-    codex_progress.add_argument("--stdin", action="store_true", help="Read observed Codex JSONL or process output from stdin.")
-    codex_progress.add_argument("--evidence-ref", action="append", help="Evidence reference for the observed log/source.")
+    codex_progress.add_argument(
+        "--jsonl", default=None, help="Path to observed Codex JSONL or process output."
+    )
+    codex_progress.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read observed Codex JSONL or process output from stdin.",
+    )
+    codex_progress.add_argument(
+        "--evidence-ref",
+        action="append",
+        help="Evidence reference for the observed log/source.",
+    )
     codex_progress.set_defaults(func=cmd_chat_codex_progress)
 
     codex_review = chat_sub.add_parser(
         "codex-review",
         help="Summarize observed Codex review context without raw logs or hidden reasoning.",
     )
-    codex_review.add_argument("--external-session-ref", default="", help="Observed Codex thread/session reference from the wrapper.")
-    codex_review.add_argument("--codex-session-ref", default="", help="Observed Codex session id suitable for resume contracts.")
-    codex_review.add_argument("--codex-thread-ref", default="", help="Observed Codex thread/conversation reference when distinct from the session id.")
-    codex_review.add_argument("--codex-log-jsonl", default=None, help="Observed Codex JSONL/process output to summarize; raw events are not echoed.")
-    codex_review.add_argument("--codex-log-ref", default="", help="Evidence reference for the observed Codex log source.")
-    codex_review.add_argument("--evidence-ref", action="append", help="Evidence reference for the observed review/session/log/source.")
+    codex_review.add_argument(
+        "--external-session-ref",
+        default="",
+        help="Observed Codex thread/session reference from the wrapper.",
+    )
+    codex_review.add_argument(
+        "--codex-session-ref",
+        default="",
+        help="Observed Codex session id suitable for resume contracts.",
+    )
+    codex_review.add_argument(
+        "--codex-thread-ref",
+        default="",
+        help="Observed Codex thread/conversation reference when distinct from the session id.",
+    )
+    codex_review.add_argument(
+        "--codex-log-jsonl",
+        default=None,
+        help="Observed Codex JSONL/process output to summarize; raw events are not echoed.",
+    )
+    codex_review.add_argument(
+        "--codex-log-ref",
+        default="",
+        help="Evidence reference for the observed Codex log source.",
+    )
+    codex_review.add_argument(
+        "--evidence-ref",
+        action="append",
+        help="Evidence reference for the observed review/session/log/source.",
+    )
     _add_codex_review_options(codex_review)
     codex_review.set_defaults(func=cmd_chat_codex_review)
 
@@ -650,17 +936,59 @@ def _add_chat_commands(sub) -> None:
         "codex-followup",
         help="Summarize active Codex progress and recommend safe handling for a new prompt.",
     )
-    codex_followup.add_argument("message", nargs="*", help="New user prompt to handle without echoing raw text in the result.")
-    codex_followup.add_argument("--stdin", action="store_true", help="Read the new user prompt from stdin.")
-    codex_followup.add_argument("--event-json", default=None, help="Read a Slack/Discord/Hermes-like JSON event for the new prompt.")
-    codex_followup.add_argument("--session-id", default="", help="Existing wrapper session id that may already have observed Codex metadata.")
-    codex_followup.add_argument("--same-goal", action="store_true", help="Wrapper-observed assertion that the new prompt belongs to the same goal.")
-    codex_followup.add_argument("--external-session-ref", default="", help="Observed Codex thread/session reference from the wrapper.")
-    codex_followup.add_argument("--codex-session-ref", default="", help="Observed Codex session id suitable for resume contracts.")
-    codex_followup.add_argument("--codex-thread-ref", default="", help="Observed Codex thread/conversation reference when distinct from the session id.")
-    codex_followup.add_argument("--codex-log-jsonl", default=None, help="Observed Codex JSONL/process output to summarize; raw events are not echoed.")
-    codex_followup.add_argument("--codex-log-ref", default="", help="Evidence reference for the observed Codex log source.")
-    codex_followup.add_argument("--evidence-ref", action="append", help="Evidence reference for the observed session/log/source.")
+    codex_followup.add_argument(
+        "message",
+        nargs="*",
+        help="New user prompt to handle without echoing raw text in the result.",
+    )
+    codex_followup.add_argument(
+        "--stdin", action="store_true", help="Read the new user prompt from stdin."
+    )
+    codex_followup.add_argument(
+        "--event-json",
+        default=None,
+        help="Read a Slack/Discord/Hermes-like JSON event for the new prompt.",
+    )
+    codex_followup.add_argument(
+        "--session-id",
+        default="",
+        help="Existing wrapper session id that may already have observed Codex metadata.",
+    )
+    codex_followup.add_argument(
+        "--same-goal",
+        action="store_true",
+        help="Wrapper-observed assertion that the new prompt belongs to the same goal.",
+    )
+    codex_followup.add_argument(
+        "--external-session-ref",
+        default="",
+        help="Observed Codex thread/session reference from the wrapper.",
+    )
+    codex_followup.add_argument(
+        "--codex-session-ref",
+        default="",
+        help="Observed Codex session id suitable for resume contracts.",
+    )
+    codex_followup.add_argument(
+        "--codex-thread-ref",
+        default="",
+        help="Observed Codex thread/conversation reference when distinct from the session id.",
+    )
+    codex_followup.add_argument(
+        "--codex-log-jsonl",
+        default=None,
+        help="Observed Codex JSONL/process output to summarize; raw events are not echoed.",
+    )
+    codex_followup.add_argument(
+        "--codex-log-ref",
+        default="",
+        help="Evidence reference for the observed Codex log source.",
+    )
+    codex_followup.add_argument(
+        "--evidence-ref",
+        action="append",
+        help="Evidence reference for the observed session/log/source.",
+    )
     _add_codex_review_options(codex_followup)
     codex_followup.set_defaults(func=cmd_chat_codex_followup)
 
@@ -668,17 +996,23 @@ def _add_chat_commands(sub) -> None:
     session_sub = session.add_subparsers(dest="session_command", required=True)
 
     session_start = session_sub.add_parser("start")
-    session_start.add_argument("message", nargs="*", help="Chat message to bind to a wrapper session.")
+    session_start.add_argument(
+        "message", nargs="*", help="Chat message to bind to a wrapper session."
+    )
     session_start.add_argument("--source", choices=CHAT_SOURCES, default="generic")
     session_start.add_argument("--limit", type=int, default=3)
-    session_start.add_argument("--min-confidence", choices=CONFIDENCE_LEVELS, default="high")
+    session_start.add_argument(
+        "--min-confidence", choices=CONFIDENCE_LEVELS, default="high"
+    )
     session_start.add_argument("--stdin", action="store_true")
     session_start.add_argument("--event-json", default=None)
     session_start.add_argument("--source-event-id", default="")
     session_start.add_argument("--channel-ref", default="")
     session_start.add_argument("--user-ref", default="")
     _add_render_profile_option(session_start)
-    session_start.add_argument("--executor", choices=CODING_EXECUTOR_TARGETS, default=None)
+    session_start.add_argument(
+        "--executor", choices=CODING_EXECUTOR_TARGETS, default=None
+    )
     _add_target_metadata_options(session_start)
     session_start.set_defaults(func=cmd_chat_session_start)
 
@@ -696,12 +1030,19 @@ def _add_chat_commands(sub) -> None:
 
     session_select = session_sub.add_parser("select-executor")
     session_select.add_argument("session_id")
-    session_select.add_argument("executor", choices=tuple(value for value in CODING_EXECUTOR_TARGETS if value != "choose"))
+    session_select.add_argument(
+        "executor",
+        choices=tuple(value for value in CODING_EXECUTOR_TARGETS if value != "choose"),
+    )
     session_select.set_defaults(func=cmd_chat_session_select_executor)
 
     session_prepare = session_sub.add_parser("prepare-handoff")
     session_prepare.add_argument("session_id")
-    session_prepare.add_argument("message", nargs="*", help="Original or clarified task text for the prepared handoff.")
+    session_prepare.add_argument(
+        "message",
+        nargs="*",
+        help="Original or clarified task text for the prepared handoff.",
+    )
     session_prepare.add_argument("--limit", type=int, default=3)
     session_prepare.add_argument("--stdin", action="store_true")
     session_prepare.add_argument("--event-json", default=None)
@@ -709,11 +1050,20 @@ def _add_chat_commands(sub) -> None:
     session_prepare.add_argument("--source-event-id", default="")
     session_prepare.add_argument("--channel-ref", default="")
     session_prepare.add_argument("--user-ref", default="")
-    session_prepare.add_argument("--executor", choices=tuple(value for value in CODING_EXECUTOR_TARGETS if value != "choose"), default=None)
+    session_prepare.add_argument(
+        "--executor",
+        choices=tuple(value for value in CODING_EXECUTOR_TARGETS if value != "choose"),
+        default=None,
+    )
     session_prepare.add_argument(
         "--context-pack",
         default=None,
         help="Optional handoff_context_pack/v1 JSON to attach to the prepared executor prompt when conflict-free.",
+    )
+    session_prepare.add_argument(
+        "--handoff-contract",
+        default=None,
+        help="Optional handoff_contract/v1 JSON file path declaring typed inputs/postconditions/forbidden actions to attach to the prepared handoff.",
     )
     session_prepare.set_defaults(func=cmd_chat_session_prepare_handoff)
 
@@ -744,18 +1094,37 @@ def _add_chat_commands(sub) -> None:
 
     session_record_executor = session_sub.add_parser("record-executor")
     session_record_executor.add_argument("session_id")
-    session_record_executor.add_argument("--result", choices=("completed", "blocked", "failed"), required=True)
+    session_record_executor.add_argument(
+        "--result", choices=("completed", "blocked", "failed"), required=True
+    )
     session_record_executor.add_argument("--evidence-ref", action="append")
     session_record_executor.add_argument("--summary", default="")
-    session_record_executor.add_argument("--codex-log-jsonl", default=None, help="Observed Codex JSONL/process output to summarize; raw events are not echoed.")
-    session_record_executor.add_argument("--codex-log-ref", default="", help="Evidence reference for the observed Codex log source.")
+    session_record_executor.add_argument(
+        "--codex-log-jsonl",
+        default=None,
+        help="Observed Codex JSONL/process output to summarize; raw events are not echoed.",
+    )
+    session_record_executor.add_argument(
+        "--codex-log-ref",
+        default="",
+        help="Evidence reference for the observed Codex log source.",
+    )
+    session_record_executor.add_argument(
+        "--postcondition-exit",
+        action="append",
+        default=None,
+        metavar="ID=STATUS",
+        help="Observed integer exit status for a declared handoff postcondition; repeatable.",
+    )
     session_record_executor.set_defaults(func=cmd_chat_session_record_executor)
 
     session_request_verification = session_sub.add_parser("request-verification")
     session_request_verification.add_argument("session_id")
     session_request_verification.add_argument("--evidence-ref", action="append")
     session_request_verification.add_argument("--summary", default="")
-    session_request_verification.set_defaults(func=cmd_chat_session_request_verification)
+    session_request_verification.set_defaults(
+        func=cmd_chat_session_request_verification
+    )
 
     session_show = session_sub.add_parser("show")
     session_show.add_argument("session_id")

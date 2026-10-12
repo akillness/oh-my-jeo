@@ -6,10 +6,23 @@ import secrets
 from json import JSONDecodeError
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from ..coding.handoff_contract import (
+    HANDOFF_CONTRACT_KEY,
+    HANDOFF_CONTRACT_RECEIPT_SCHEMA_VERSION,
+    HANDOFF_CONTRACT_SCHEMA_VERSION,
+    contract_digest,
+    contract_verification_observed,
+    contract_verification_summary,
+)
+from ..workflows.memory import validate_handoff_context_pack
 from ..context_safety import build_coding_progress_reporting_policy
-from ..executor_progress import validate_progress_binding, validate_progress_event, validate_progress_report
+from ..executor_progress import (
+    validate_progress_binding,
+    validate_progress_event,
+    validate_progress_report,
+)
 from ..harness_quality import build_harness_progress
 from ..local_store import (
     atomic_write_json,
@@ -31,6 +44,7 @@ from ..paths import OmjPaths
 from .records import (
     DELEGATION_RESULTS,
     EVENT_LEVELS,
+    HANDOFF_CONTRACT_DIGEST_KEY,
     OBSERVED_RESULTS,
     OPTIONAL_RECORD_VALIDATORS,
     PRIVACY_MODES,
@@ -67,6 +81,8 @@ from .records import (
     validate_wrapper_record,
     validate_wrapper_session_record,
 )
+
+HANDOFF_CONTRACT_RECEIPT_FILENAME = "handoff_contract_receipt.json"
 
 
 def _slugify(value: str) -> str:
@@ -111,7 +127,12 @@ def read_state_error(paths: OmjPaths) -> str | None:
 def update_state(paths: OmjPaths, patch: dict[str, Any]) -> dict[str, Any]:
     current, state_error = read_state_result(paths)
     current = current or {"schema_version": SCHEMA_VERSION}
-    merged = {**current, **patch, "schema_version": SCHEMA_VERSION, "updated_at": utc_now()}
+    merged = {
+        **current,
+        **patch,
+        "schema_version": SCHEMA_VERSION,
+        "updated_at": utc_now(),
+    }
     if state_error:
         merged["previous_state_error"] = state_error
     try:
@@ -130,12 +151,21 @@ def create_run(paths: OmjPaths, metadata: dict[str, Any]) -> dict[str, Any]:
     evidence_dir = run_dir / "evidence"
     ensure_dir(evidence_dir, private=True)
     atomic_write_json(run_dir / "run.json", run, private=True)
-    append_event(run_dir, {"event": "run_recorded", "level": "info", "message": f"{skill}/{harness} recorded as {run['status']}"})
+    append_event(
+        run_dir,
+        {
+            "event": "run_recorded",
+            "level": "info",
+            "message": f"{skill}/{harness} recorded as {run['status']}",
+        },
+    )
     update_state(paths, {"last_run_id": run_id})
     return run
 
 
-def create_prepared_coding_delegation_run(paths: OmjPaths, metadata: dict[str, Any]) -> dict[str, Any]:
+def create_prepared_coding_delegation_run(
+    paths: OmjPaths, metadata: dict[str, Any]
+) -> dict[str, Any]:
     prepared_metadata = {
         **metadata,
         "status": "prepared",
@@ -227,7 +257,9 @@ def write_routing_decision(run_dir: Path, routing: dict[str, Any]) -> dict[str, 
     return record
 
 
-def write_coding_delegation(run_dir: Path, delegation: dict[str, Any]) -> dict[str, Any]:
+def write_coding_delegation(
+    run_dir: Path, delegation: dict[str, Any]
+) -> dict[str, Any]:
     record = build_coding_delegation_record(delegation)
     atomic_write_json(run_dir / "coding_delegation.json", record, private=True)
     append_event(
@@ -249,8 +281,147 @@ def write_coding_delegation(run_dir: Path, delegation: dict[str, Any]) -> dict[s
 
 
 def _run_id_for_dir(run_dir: Path) -> str:
-    run = read_json_object(run_dir / "run.json") if (run_dir / "run.json").exists() else None
-    return str(run.get("run_id", run_dir.name)) if isinstance(run, dict) else run_dir.name
+    run = (
+        read_json_object(run_dir / "run.json")
+        if (run_dir / "run.json").exists()
+        else None
+    )
+    return (
+        str(run.get("run_id", run_dir.name)) if isinstance(run, dict) else run_dir.name
+    )
+
+
+def _handoff_contract_from_record(
+    record: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Return the first typed handoff_contract carried by a coding_delegation record."""
+    if not isinstance(record, Mapping):
+        return None
+    for handoff_key in ("executor_handoff", "prompt_handoff", "runtime_handoff"):
+        handoff = record.get(handoff_key)
+        contract = (
+            handoff.get(HANDOFF_CONTRACT_KEY) if isinstance(handoff, Mapping) else None
+        )
+        if isinstance(contract, dict) and contract:
+            return contract
+    return None
+
+
+def stored_handoff_contract(run_dir: Path) -> dict[str, Any] | None:
+    """Return the typed handoff contract carried by a persisted Codex run.
+
+    Codex Run-only. Non-Codex owners keep their own session-scoped contract snapshot
+    (see write_handoff_contract_receipt_at / read_handoff_contract_receipt_at below) and
+    must not call this against a non-Codex run directory.
+    """
+    return _handoff_contract_from_record(
+        read_json_object(run_dir / "coding_delegation.json")
+    )
+
+
+def stored_handoff_contract_digest(run_dir: Path) -> str | None:
+    """Return the contract digest pinned when the run's coding_delegation.json was first written.
+
+    Pinned once at persist time, before any later edit of the file is possible, so comparing
+    it against contract_digest(stored_handoff_contract(run_dir)) detects a contract changed
+    after dispatch even when no receipt has been recorded yet.
+    """
+    record = read_json_object(run_dir / "coding_delegation.json")
+    digest = (
+        record.get(HANDOFF_CONTRACT_DIGEST_KEY) if isinstance(record, dict) else None
+    )
+    return digest if isinstance(digest, str) and digest else None
+
+
+def write_handoff_contract_receipt_at(
+    receipt_path: Path, receipt: dict[str, Any]
+) -> dict[str, Any]:
+    """Atomically persist a handoff_contract_receipt/v1 at an explicit path.
+
+    Owner-neutral: a plain atomic write with no event-journal append and no coupling to a
+    Codex run directory, so any session owner can call this against its own storage.
+    """
+    atomic_write_json(receipt_path, receipt, private=True)
+    return receipt
+
+
+def read_handoff_contract_receipt_at(receipt_path: Path) -> dict[str, Any] | None:
+    """Read a handoff_contract_receipt/v1 from an explicit path.
+
+    Returns None on a missing file or a schema mismatch instead of raising or fabricating
+    a status; callers decide what "no receipt yet" means for their own verdict.
+    """
+    if not receipt_path.exists():
+        return None
+    receipt = read_json_object(receipt_path)
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema_version") != HANDOFF_CONTRACT_RECEIPT_SCHEMA_VERSION
+    ):
+        return None
+    return receipt
+
+
+def handoff_contract_receipt_status_summary(
+    contract: Mapping[str, Any] | None,
+    receipt: Mapping[str, Any] | None,
+    *,
+    pinned_digest: str | None = None,
+) -> dict[str, Any]:
+    """Bounded, owner-neutral handoff_contract status for a get_status/status-card surface.
+
+    Exposes only schema_version/status/verdict/unobserved_postconditions (never raw exit
+    codes, commands, or other private handoff inputs). Delegates to
+    coding.handoff_contract.contract_verification_summary so every owner (Codex, Claude
+    Code, Hermes, generic) derives the same digest-bound verdict from the same rule.
+    """
+    if not isinstance(contract, Mapping) or not contract:
+        return {
+            "schema_version": HANDOFF_CONTRACT_SCHEMA_VERSION,
+            "status": "no_contract",
+            "verdict": "no_contract",
+            "unobserved_postconditions": [],
+        }
+    if pinned_digest is not None and pinned_digest != contract_digest(contract):
+        return {
+            "schema_version": HANDOFF_CONTRACT_SCHEMA_VERSION,
+            "status": "prepared_not_observed",
+            "verdict": "not_observed",
+            "reason": "no_exit_status_recorded",
+            "unobserved_postconditions": [
+                str(entry.get("id"))
+                for entry in contract.get("postconditions", [])
+                if isinstance(entry, Mapping)
+            ],
+        }
+    return contract_verification_summary(contract, receipt)
+
+
+def write_handoff_contract_receipt(
+    run_dir: Path, receipt: dict[str, Any]
+) -> dict[str, Any]:
+    """Persist caller-provided postcondition exit evidence for a Codex run's handoff contract."""
+    write_handoff_contract_receipt_at(
+        run_dir / HANDOFF_CONTRACT_RECEIPT_FILENAME, receipt
+    )
+    append_event(
+        run_dir,
+        {
+            "event": "handoff_contract_receipt_recorded",
+            "level": "info",
+            "message": f"handoff contract {receipt['status']} {receipt['verdict']}",
+            "data": {
+                "status": receipt["status"],
+                "verdict": receipt["verdict"],
+                "unobserved_postconditions": list(receipt["unobserved_postconditions"]),
+            },
+        },
+    )
+    return receipt
+
+
+def read_handoff_contract_receipt(run_dir: Path) -> dict[str, Any] | None:
+    return read_handoff_contract_receipt_at(run_dir / HANDOFF_CONTRACT_RECEIPT_FILENAME)
 
 
 def write_review_record(run_dir: Path, review: dict[str, Any]) -> dict[str, Any]:
@@ -262,7 +433,11 @@ def write_review_record(run_dir: Path, review: dict[str, Any]) -> dict[str, Any]
             "event": "review_recorded",
             "level": "info",
             "message": f"review {record['status']}",
-            "data": {"status": record["status"], "observed": record["observed"], "required": record["required"]},
+            "data": {
+                "status": record["status"],
+                "observed": record["observed"],
+                "required": record["required"],
+            },
         },
     )
     return record
@@ -277,7 +452,11 @@ def write_ci_record(run_dir: Path, ci: dict[str, Any]) -> dict[str, Any]:
             "event": "ci_recorded",
             "level": "info",
             "message": f"ci {record['status']}",
-            "data": {"status": record["status"], "observed": record["observed"], "required": record["required"]},
+            "data": {
+                "status": record["status"],
+                "observed": record["observed"],
+                "required": record["required"],
+            },
         },
     )
     return record
@@ -292,13 +471,20 @@ def write_merge_record(run_dir: Path, merge: dict[str, Any]) -> dict[str, Any]:
             "event": "merge_recorded",
             "level": "info",
             "message": f"merge {record['status']}",
-            "data": {"status": record["status"], "observed": record["observed"], "ready": record["ready"], "merged": record["merged"]},
+            "data": {
+                "status": record["status"],
+                "observed": record["observed"],
+                "ready": record["ready"],
+                "merged": record["merged"],
+            },
         },
     )
     return record
 
 
-def write_runtime_observation(target_dir: Path, observation: dict[str, Any]) -> dict[str, Any]:
+def write_runtime_observation(
+    target_dir: Path, observation: dict[str, Any]
+) -> dict[str, Any]:
     record = build_runtime_observation_record(observation)
     ensure_dir(target_dir, private=True)
     path = target_dir / "runtime_observations.jsonl"
@@ -325,20 +511,28 @@ def write_runtime_observation(target_dir: Path, observation: dict[str, Any]) -> 
     return record
 
 
-def append_journal_observation(paths: OmjPaths, observation: dict[str, Any]) -> dict[str, Any]:
+def append_journal_observation(
+    paths: OmjPaths, observation: dict[str, Any]
+) -> dict[str, Any]:
     return append_observation_event(paths, observation)
 
 
-def _append_runtime_observation_to_journal(target_dir: Path, record: dict[str, Any]) -> None:
+def _append_runtime_observation_to_journal(
+    target_dir: Path, record: dict[str, Any]
+) -> None:
     try:
         runtime_dir = target_dir.parents[1]
-        paths = OmjPaths(omj_home=runtime_dir.parent, hermes_home=Path("~/.hermes").expanduser())
+        paths = OmjPaths(
+            omj_home=runtime_dir.parent, hermes_home=Path("~/.hermes").expanduser()
+        )
         append_observation_event(
             paths,
             {
                 "target_type": record.get("target_type", ""),
                 "target_id": record.get("target_id", ""),
-                "run_id": record.get("target_id", "") if record.get("target_type") == "run" else "",
+                "run_id": record.get("target_id", "")
+                if record.get("target_type") == "run"
+                else "",
                 "event": record.get("event_type", ""),
                 "status": record.get("status", "observed"),
                 "observed_at": record.get("updated_at", ""),
@@ -354,7 +548,9 @@ def _append_runtime_observation_to_journal(target_dir: Path, record: dict[str, A
         return
 
 
-def _journal_events_for_run_result(paths: OmjPaths, run_id: str) -> tuple[list[dict[str, Any]], list[str]]:
+def _journal_events_for_run_result(
+    paths: OmjPaths, run_id: str
+) -> tuple[list[dict[str, Any]], list[str]]:
     events, errors = read_observation_events_result(paths)
     return [event for event in events if str(event.get("run_id", "")) == run_id], errors
 
@@ -416,8 +612,10 @@ def _legacy_lifecycle_projection(shown: dict[str, Any]) -> dict[str, Any]:
         "ci_observed": bool(ci.get("observed", False)),
         "merge_gate_observed": bool(merge.get("ready", False)),
         "merge_observed": bool(merge.get("merged", False)),
-        "blocked": delegation.get("result") == "blocked" or wrapper.get("completion_status") == "blocked",
-        "failed": delegation.get("result") == "failed" or wrapper.get("completion_status") == "failed",
+        "blocked": delegation.get("result") == "blocked"
+        or wrapper.get("completion_status") == "blocked",
+        "failed": delegation.get("result") == "failed"
+        or wrapper.get("completion_status") == "failed",
         "cancelled": False,
         "observation_status": observation_status,
         "journal_event_count": 0,
@@ -426,7 +624,9 @@ def _legacy_lifecycle_projection(shown: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _apply_limit(records: list[dict[str, Any]], limit: int | None) -> list[dict[str, Any]]:
+def _apply_limit(
+    records: list[dict[str, Any]], limit: int | None
+) -> list[dict[str, Any]]:
     if limit is None:
         return records
     if limit < 1:
@@ -458,15 +658,20 @@ def read_runtime_observations(target_dir: Path) -> list[dict[str, Any]]:
     return read_runtime_observations_result(target_dir)[0]
 
 
-def read_runtime_observations_result(target_dir: Path) -> tuple[list[dict[str, Any]], list[str]]:
+def read_runtime_observations_result(
+    target_dir: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
     return read_jsonl_objects(target_dir / "runtime_observations.jsonl")
 
 
-def runtime_observations_for_target(records: list[dict[str, Any]], target_type: str, target_id: str) -> list[dict[str, Any]]:
+def runtime_observations_for_target(
+    records: list[dict[str, Any]], target_type: str, target_id: str
+) -> list[dict[str, Any]]:
     return [
         record
         for record in records
-        if record.get("target_type") == target_type and str(record.get("target_id", "")) == target_id
+        if record.get("target_type") == target_type
+        and str(record.get("target_id", "")) == target_id
     ]
 
 
@@ -492,7 +697,10 @@ def show_run(paths: OmjPaths, run_id: str) -> dict[str, Any]:
         "review": read_json_object(run_dir / "review.json"),
         "ci": read_json_object(run_dir / "ci.json"),
         "merge": read_json_object(run_dir / "merge.json"),
-        "evidence": sorted(path.name for path in evidence_dir.iterdir()) if evidence_dir.exists() else [],
+        "handoff_contract_receipt": read_handoff_contract_receipt(run_dir),
+        "evidence": sorted(path.name for path in evidence_dir.iterdir())
+        if evidence_dir.exists()
+        else [],
     }
     if event_errors:
         result["event_errors"] = event_errors
@@ -504,11 +712,15 @@ def show_run(paths: OmjPaths, run_id: str) -> dict[str, Any]:
     return result
 
 
-def list_wrapper_session_records(paths: OmjPaths, *, limit: int | None = None) -> list[dict[str, Any]]:
+def list_wrapper_session_records(
+    paths: OmjPaths, *, limit: int | None = None
+) -> list[dict[str, Any]]:
     if not paths.runtime_wrapper_sessions_dir.exists():
         return []
     sessions: list[dict[str, Any]] = []
-    for session_json in sorted(paths.runtime_wrapper_sessions_dir.glob("*/session.json")):
+    for session_json in sorted(
+        paths.runtime_wrapper_sessions_dir.glob("*/session.json")
+    ):
         session = read_json_object(session_json)
         if session:
             sessions.append(session)
@@ -538,9 +750,19 @@ def show_wrapper_session_record(paths: OmjPaths, session_id: str) -> dict[str, A
 
 def _show_executor_progress(target_dir: Path) -> dict[str, Any]:
     progress_dir = target_dir / "executor_progress"
-    raw_binding, binding_read_error = read_json_object_result(progress_dir / "binding.json")
-    binding_errors = [binding_read_error] if binding_read_error else validate_progress_binding(raw_binding) if isinstance(raw_binding, dict) else []
-    binding = raw_binding if isinstance(raw_binding, dict) and not binding_errors else {}
+    raw_binding, binding_read_error = read_json_object_result(
+        progress_dir / "binding.json"
+    )
+    binding_errors = (
+        [binding_read_error]
+        if binding_read_error
+        else validate_progress_binding(raw_binding)
+        if isinstance(raw_binding, dict)
+        else []
+    )
+    binding = (
+        raw_binding if isinstance(raw_binding, dict) and not binding_errors else {}
+    )
     events, event_errors = read_jsonl_objects(progress_dir / "events.jsonl")
     reports, report_errors = read_jsonl_objects(progress_dir / "reports.jsonl")
     binding_id = str(binding.get("binding_id", ""))
@@ -562,10 +784,16 @@ def _show_executor_progress(target_dir: Path) -> dict[str, Any]:
     result = {
         "schema_version": "omj_executor_progress_show/v1",
         "diagnostic_only": True,
-        "state": "diagnostic_error" if binding_errors else _executor_progress_show_state(target_dir, binding),
+        "state": "diagnostic_error"
+        if binding_errors
+        else _executor_progress_show_state(target_dir, binding),
         "binding": binding,
-        "latest_event": _compact_executor_progress_event(matching_events[-1]) if matching_events else {},
-        "latest_report": _compact_executor_progress_report(matching_reports[-1]) if matching_reports else {},
+        "latest_event": _compact_executor_progress_event(matching_events[-1])
+        if matching_events
+        else {},
+        "latest_report": _compact_executor_progress_report(matching_reports[-1])
+        if matching_reports
+        else {},
         "claim_boundary": (
             "Runtime show exposes diagnostic progress metadata. It is not result, verification, review, CI, "
             "merge-readiness, or merge evidence."
@@ -605,18 +833,108 @@ def _compact_executor_progress_report(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _compact_handoff_context_pack(value: Any) -> dict[str, Any] | None:
+    """Return bounded metadata for a validated attached handoff context pack."""
+    if not isinstance(value, dict):
+        return None
+    if validate_handoff_context_pack(
+        value, require_conflict_free=True, label="runtime context_pack"
+    ):
+        return None
+    counts: dict[str, int] = {}
+    for source_key, count_key in (
+        ("source_refs", "source_ref_count"),
+        ("included_context", "included_context_count"),
+        ("excluded_context", "excluded_context_count"),
+        ("blocked_by_conflicts", "blocked_by_conflicts_count"),
+    ):
+        entries = value.get(source_key)
+        if not isinstance(entries, list):
+            return None
+        count = len(entries)
+        if count < 0 or count > 1_000_000:
+            return None
+        counts[count_key] = count
+    return {
+        "schema_version": value.get("schema_version"),
+        "executor_target": value.get("executor_target"),
+        "session_id": value.get("session_id"),
+        **counts,
+        "redaction_policy": value.get("redaction_policy"),
+        "claim_boundary": value.get("claim_boundary"),
+    }
+
+
+def _compact_prepared_handoff(
+    handoff: dict[str, Any], context_pack: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Project executor handoff metadata without exposing prompt or task payloads."""
+    if not handoff:
+        return {}
+
+    def compact_strings(value: Any) -> list[str]:
+        if not isinstance(value, (list, tuple)):
+            return []
+        return [str(item) for item in value if str(item)]
+
+    execution_brief = handoff.get("execution_brief")
+    if isinstance(execution_brief, dict):
+        compact_brief: dict[str, Any] = {
+            "task_source": str(execution_brief.get("task_source", "")),
+            "recommended_workflow": str(
+                execution_brief.get("recommended_workflow", "")
+            ),
+            "recommended_harness": str(execution_brief.get("recommended_harness", "")),
+            "intent": str(execution_brief.get("intent", "")),
+            "codex_owns": compact_strings(execution_brief.get("codex_owns", [])),
+            "hermes_owns": compact_strings(execution_brief.get("hermes_owns", [])),
+        }
+    else:
+        compact_brief = {}
+    evidence_contract = handoff.get("evidence_contract")
+    if isinstance(evidence_contract, dict):
+        compact_evidence: dict[str, list[str]] = {
+            "prepared_is_not": compact_strings(
+                evidence_contract.get("prepared_is_not", [])
+            ),
+            "observed_required_for": compact_strings(
+                evidence_contract.get("observed_required_for", [])
+            ),
+        }
+    else:
+        compact_evidence = {}
+    result: dict[str, Any] = {
+        "schema_version": str(handoff.get("schema_version", "")),
+        "selected_executor_profile": str(handoff.get("selected_executor_profile", "")),
+        "recommended_workflow": str(handoff.get("recommended_workflow", "")),
+        "recommended_harness": str(handoff.get("recommended_harness", "")),
+        "execution_brief": compact_brief,
+        "evidence_contract": compact_evidence,
+    }
+    if context_pack is not None:
+        result["context_pack"] = context_pack
+    return result
+
+
 def _executor_progress_show_state(target_dir: Path, binding: dict[str, Any]) -> str:
     delegation = read_json_object(target_dir / "delegation.json") or {}
-    if bool(delegation.get("observed")) and str(delegation.get("result", "")) in {"completed", "blocked", "failed"}:
+    if bool(delegation.get("observed")) and str(delegation.get("result", "")) in {
+        "completed",
+        "blocked",
+        "failed",
+    }:
         return "closed"
     executor_session = read_json_object(target_dir / "executor_session.json") or {}
-    if bool(executor_session.get("result_observed")) and str(executor_session.get("result", "")) in {"completed", "blocked", "failed"}:
+    if bool(executor_session.get("result_observed")) and str(
+        executor_session.get("result", "")
+    ) in {"completed", "blocked", "failed"}:
         return "closed"
     return str(binding.get("state", ""))
 
 
 def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str, Any]:
     shown = show_run(paths, run_id)
+    run_dir = paths.runtime_runs_dir / run_id
     run = _object_or_empty(shown.get("run"))
     coding = _object_or_empty(shown.get("coding_delegation"))
     delegation = _object_or_empty(shown.get("delegation"))
@@ -624,24 +942,54 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
     review_record = _object_or_empty(shown.get("review"))
     ci_record = _object_or_empty(shown.get("ci"))
     merge_record = _object_or_empty(shown.get("merge"))
-    runtime_observations = runtime_observations_for_target(_list_or_empty(shown.get("runtime_observations")), "run", run_id)
+    runtime_observations = runtime_observations_for_target(
+        _list_or_empty(shown.get("runtime_observations")), "run", run_id
+    )
     lifecycle = _object_or_empty(shown.get("lifecycle"))
-    legacy_runtime_observation = summarize_runtime_observation_status(runtime_observations)
+    legacy_runtime_observation = summarize_runtime_observation_status(
+        runtime_observations
+    )
     handoff = _object_or_empty(coding.get("executor_handoff"))
     review = _object_or_empty(handoff.get("review"))
+    declared_contract = _handoff_contract_from_record(coding)
+    contract_receipt = shown.get("handoff_contract_receipt")
+    pinned_contract_digest = coding.get(HANDOFF_CONTRACT_DIGEST_KEY)
 
     prepared = run.get("artifact_kind") == "prepared_coding_delegation" and bool(coding)
     action = str(coding.get("action", "unknown"))
     handoff_available = bool(handoff)
-    executor_target = str(handoff.get("executor_target") or coding.get("executor_profile") or "generic")
-    execution_observed = bool(delegation.get("observed", False)) or bool(lifecycle.get("execution_observed", False))
+    executor_target = str(
+        handoff.get("executor_target") or coding.get("executor_profile") or "generic"
+    )
+    execution_observed = bool(delegation.get("observed", False)) or bool(
+        lifecycle.get("execution_observed", False)
+    )
     execution_status = str(
         delegation.get("result")
-        or ("completed" if lifecycle.get("execution_observed") else "not_observed" if prepared else "unknown")
+        or (
+            "completed"
+            if lifecycle.get("execution_observed")
+            else "not_observed"
+            if prepared
+            else "unknown"
+        )
     )
-    prompt_dispatched = bool(wrapper.get("prompt_dispatched", False)) or bool(lifecycle.get("prompt_dispatched", False))
+    prompt_dispatched = bool(wrapper.get("prompt_dispatched", False)) or bool(
+        lifecycle.get("prompt_dispatched", False)
+    )
     response_observed = bool(wrapper.get("hermes_response_observed", False))
-    verification_observed = bool(wrapper.get("verification_observed", False)) or bool(lifecycle.get("verification_observed", False))
+    verification_observed = bool(wrapper.get("verification_observed", False)) or bool(
+        lifecycle.get("verification_observed", False)
+    )
+    if declared_contract is not None:
+        contract_observed = (
+            isinstance(pinned_contract_digest, str)
+            and pinned_contract_digest == contract_digest(declared_contract)
+            and contract_verification_observed(declared_contract, contract_receipt)
+        )
+        verification_observed = verification_observed and contract_observed
+        lifecycle = dict(lifecycle)
+        lifecycle["verification_observed"] = verification_observed
     completion_status = str(wrapper.get("completion_status") or "unknown")
     verification_status = _verification_status_summary(
         observed=verification_observed,
@@ -649,8 +997,12 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         unobserved_gaps=wrapper.get("unobserved_gaps", []),
     )
     review_required = bool(review.get("required", coding.get("review_required", False)))
-    review_workflow = review.get("workflow") if review else coding.get("review_workflow")
-    review_status = _review_status_summary(review_required, review_workflow, review, review_record)
+    review_workflow = (
+        review.get("workflow") if review else coding.get("review_workflow")
+    )
+    review_status = _review_status_summary(
+        review_required, review_workflow, review, review_record
+    )
     review_status = _apply_lifecycle_review_status(review_status, lifecycle)
     ci_required = bool(ci_record) or review_status["status"] == "passed"
     ci_status = _ci_status_summary(ci_required, ci_record)
@@ -658,7 +1010,9 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
     merge_required = bool(merge_record) or ci_status["status"] == "passed"
     merge_status = _merge_status_summary(merge_required, merge_record)
     merge_status = _apply_lifecycle_merge_status(merge_status, lifecycle)
-    harness_quality = _object_or_empty(coding.get("harness_quality") or handoff.get("harness_quality"))
+    harness_quality = _object_or_empty(
+        coding.get("harness_quality") or handoff.get("harness_quality")
+    )
     harness_progress = _delegated_harness_progress(
         harness_quality,
         prepared=prepared,
@@ -670,7 +1024,18 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         ci_status=ci_status,
         merge_status=merge_status,
     )
-
+    prepared_status: dict[str, Any] = {
+        "available": prepared,
+        "action": action,
+        "status": coding.get("status", run.get("observation_status", "unknown")),
+        "executor_target": executor_target,
+        "workflow": coding.get("recommended_workflow", run.get("skill", "unknown")),
+        "harness": coding.get("recommended_harness", run.get("harness", "unknown")),
+        "handoff_available": handoff_available,
+        "handoff_schema_version": handoff.get("schema_version"),
+    }
+    compact_context_pack = _compact_handoff_context_pack(handoff.get("context_pack"))
+    prepared_handoff = _compact_prepared_handoff(handoff, compact_context_pack)
     next_action = _delegated_status_next_action(
         prepared=prepared,
         action=action,
@@ -701,17 +1066,15 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         "run_id": run_id,
         "source": coding.get("source", "generic"),
         "source_metadata": coding.get("source_metadata", {}),
-        "prepared": {
-            "available": prepared,
-            "action": action,
-            "status": coding.get("status", run.get("observation_status", "unknown")),
-            "executor_target": executor_target,
-            "workflow": coding.get("recommended_workflow", run.get("skill", "unknown")),
-            "harness": coding.get("recommended_harness", run.get("harness", "unknown")),
-            "handoff_available": handoff_available,
-            "handoff_schema_version": handoff.get("schema_version"),
-        },
-        "handoff_contract": _handoff_contract_summary(handoff),
+        "prepared": prepared_status,
+        "prepared_handoff": prepared_handoff,
+        "handoff_contract": handoff_contract_receipt_status_summary(
+            declared_contract,
+            contract_receipt,
+            pinned_digest=pinned_contract_digest
+            if declared_contract is not None
+            else None,
+        ),
         "harness_quality": harness_quality,
         "harness_progress": harness_progress,
         "execution": {
@@ -734,12 +1097,17 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         "review": {
             **review_status,
             "workflow": review_workflow,
-            "evidence_required": review.get("evidence_required", "Record review evidence separately before claiming review observed."),
+            "evidence_required": review.get(
+                "evidence_required",
+                "Record review evidence separately before claiming review observed.",
+            ),
         },
         "ci": ci_status,
         "merge_readiness": {
             "required": merge_status["required"],
-            "status": "ready" if merge_status["status"] in {"ready", "merged"} else merge_status["status"],
+            "status": "ready"
+            if merge_status["status"] in {"ready", "merged"}
+            else merge_status["status"],
             "observed": merge_status["observed"],
             "target_branch": merge_status["target_branch"],
             "evidence_refs": merge_status["evidence_refs"],
@@ -749,7 +1117,9 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         "runtime_observation": runtime_observation_status,
         "lifecycle": lifecycle,
         "next_action": next_action,
-        "progress_reporting_policy": build_coding_progress_reporting_policy(next_action=next_action),
+        "progress_reporting_policy": build_coding_progress_reporting_policy(
+            next_action=next_action
+        ),
         "safe_summary": _delegated_status_summary(
             prepared=prepared,
             action=action,
@@ -774,7 +1144,9 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
     }
 
 
-def summarize_runtime_observation_status(records: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize_runtime_observation_status(
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
     latest_by_event: dict[str, dict[str, Any]] = {}
     for record in records:
         if not isinstance(record, dict):
@@ -782,7 +1154,9 @@ def summarize_runtime_observation_status(records: list[dict[str, Any]]) -> dict[
         event_type = str(record.get("event_type", ""))
         current = latest_by_event.get(event_type)
         if event_type in RUNTIME_OBSERVATION_EVENTS and (
-            current is None or _runtime_observation_sort_key(record) >= _runtime_observation_sort_key(current)
+            current is None
+            or _runtime_observation_sort_key(record)
+            >= _runtime_observation_sort_key(current)
         ):
             latest_by_event[event_type] = record
 
@@ -804,7 +1178,11 @@ def summarize_runtime_observation_status(records: list[dict[str, Any]]) -> dict[
         elif status == "not_observed":
             not_observed_events.append(event_type)
 
-    missing_events = [event_type for event_type in RUNTIME_OBSERVATION_EVENTS if event_type not in latest_by_event]
+    missing_events = [
+        event_type
+        for event_type in RUNTIME_OBSERVATION_EVENTS
+        if event_type not in latest_by_event
+    ]
     unsatisfied_events = [*not_observed_events, *missing_events]
     if failed_events:
         next_action = f"surface_runtime_failure:{failed_events[-1]}"
@@ -934,16 +1312,25 @@ def _validate_runtime_observations_against_expected(
 
 
 def _expected_runtime_profile_for_session(session: dict[str, Any]) -> str:
-    if session.get("status") != "runtime_handoff_prepared" or session.get("work_owner_mode") != "runtime_handoff":
+    if (
+        session.get("status") != "runtime_handoff_prepared"
+        or session.get("work_owner_mode") != "runtime_handoff"
+    ):
         return ""
-    return _runtime_profile_from_handoff(session.get("runtime_handoff")) or str(session.get("selected_executor_profile") or "")
+    return _runtime_profile_from_handoff(session.get("runtime_handoff")) or str(
+        session.get("selected_executor_profile") or ""
+    )
 
 
-def _expected_runtime_profile_for_run(run: dict[str, Any], coding: dict[str, Any] | None) -> str | None:
+def _expected_runtime_profile_for_run(
+    run: dict[str, Any], coding: dict[str, Any] | None
+) -> str | None:
     if not isinstance(coding, dict):
         return None
     if coding.get("work_owner_mode") == "runtime_handoff":
-        return _runtime_profile_from_handoff(coding.get("runtime_handoff")) or str(coding.get("selected_executor_profile") or "")
+        return _runtime_profile_from_handoff(coding.get("runtime_handoff")) or str(
+            coding.get("selected_executor_profile") or ""
+        )
     if run.get("artifact_kind") == "prepared_coding_delegation":
         return ""
     return None
@@ -976,9 +1363,13 @@ def _delegated_harness_progress(
     step_states = {
         "coding_delegation_prepared": "complete" if prepared else "pending",
         "executor_dispatch_observed": "complete" if prompt_dispatched else "pending",
-        "executor_result_observed": _executor_progress_state(execution_observed, execution_status),
+        "executor_result_observed": _executor_progress_state(
+            execution_observed, execution_status
+        ),
         "verification_recorded": "complete" if verification_observed else "pending",
-        "review_ci_merge_recorded_when_required": _downstream_gate_progress_state(review_status, ci_status, merge_status),
+        "review_ci_merge_recorded_when_required": _downstream_gate_progress_state(
+            review_status, ci_status, merge_status
+        ),
     }
     return build_harness_progress(harness_quality, step_states)
 
@@ -999,15 +1390,25 @@ def _downstream_gate_progress_state(
     for status in (review_status, ci_status, merge_status):
         if status.get("status") in {"blocked", "failed"}:
             return "blocked"
-    downstream_required = bool(review_status.get("required")) or bool(ci_status.get("required")) or bool(merge_status.get("required"))
+    downstream_required = (
+        bool(review_status.get("required"))
+        or bool(ci_status.get("required"))
+        or bool(merge_status.get("required"))
+    )
     if not downstream_required:
         return "not_required"
-    if review_status.get("satisfied") and ci_status.get("satisfied") and merge_status.get("satisfied"):
+    if (
+        review_status.get("satisfied")
+        and ci_status.get("satisfied")
+        and merge_status.get("satisfied")
+    ):
         return "complete"
     return "pending"
 
 
-def _verification_status_summary(*, observed: bool, completion_status: str, unobserved_gaps: Any) -> dict[str, Any]:
+def _verification_status_summary(
+    *, observed: bool, completion_status: str, unobserved_gaps: Any
+) -> dict[str, Any]:
     gaps = _string_list(unobserved_gaps)
     if observed:
         status = "passed"
@@ -1030,85 +1431,6 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if str(item)]
 
 
-def _handoff_contract_summary(handoff: dict[str, Any]) -> dict[str, Any]:
-    if not handoff:
-        return {}
-    summary: dict[str, Any] = {
-        "schema_version": handoff.get("schema_version", ""),
-        "selected_executor_profile": handoff.get("selected_executor_profile", handoff.get("executor_target", "")),
-        "execution_brief": _object_or_empty(handoff.get("execution_brief")),
-        "runtime_brief": _object_or_empty(handoff.get("runtime_brief")),
-        "isolation_plan": _isolation_plan_summary(_object_or_empty(handoff.get("isolation_plan"))),
-        "report_contract": _object_or_empty(handoff.get("report_contract")),
-        "evidence_contract": _object_or_empty(handoff.get("evidence_contract")),
-        "acceptance_criteria": _string_list(handoff.get("acceptance_criteria")),
-        "verification": _string_list(handoff.get("verification")),
-    }
-    context_pack = _object_or_empty(handoff.get("context_pack"))
-    if context_pack:
-        summary["context_pack"] = _context_pack_summary(context_pack)
-    context_pack_blocked = _object_or_empty(handoff.get("context_pack_blocked"))
-    if context_pack_blocked:
-        summary["context_pack_blocked"] = _context_pack_blocked_summary(context_pack_blocked)
-    memory_recall_pack = _object_or_empty(handoff.get("memory_recall_pack"))
-    if memory_recall_pack:
-        summary["memory_recall_pack"] = _memory_recall_pack_summary(memory_recall_pack)
-    return summary
-
-
-def _context_pack_summary(context_pack: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "schema_version": context_pack.get("schema_version", ""),
-        "executor_target": context_pack.get("executor_target", ""),
-        "session_id": context_pack.get("session_id", ""),
-        "source_ref_count": len(_list_or_empty(context_pack.get("source_refs"))),
-        "included_context_count": len(_list_or_empty(context_pack.get("included_context"))),
-        "excluded_context_count": len(_list_or_empty(context_pack.get("excluded_context"))),
-        "blocked_by_conflicts_count": len(_list_or_empty(context_pack.get("blocked_by_conflicts"))),
-        "redaction_policy": context_pack.get("redaction_policy", ""),
-        "claim_boundary": context_pack.get("claim_boundary", ""),
-    }
-
-
-def _isolation_plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
-    if not plan:
-        return {}
-    return {
-        "schema_version": plan.get("schema_version", ""),
-        "status": plan.get("status", ""),
-        "strategy": plan.get("strategy", ""),
-        "risk_level": plan.get("risk_level", ""),
-        "workspace_policy": plan.get("workspace_policy", ""),
-        "required_before": [str(item) for item in plan.get("required_before", []) if str(item)]
-        if isinstance(plan.get("required_before"), list)
-        else [],
-        "wrapper_actions": [str(item) for item in plan.get("wrapper_actions", []) if str(item)]
-        if isinstance(plan.get("wrapper_actions"), list)
-        else [],
-        "claim_boundary": plan.get("claim_boundary", ""),
-    }
-
-
-def _context_pack_blocked_summary(context_pack_blocked: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "schema_version": context_pack_blocked.get("schema_version", ""),
-        "blocked_by_conflicts_count": len(_list_or_empty(context_pack_blocked.get("blocked_by_conflicts"))),
-        "claim_boundary": context_pack_blocked.get("claim_boundary", ""),
-    }
-
-
-def _memory_recall_pack_summary(memory_recall_pack: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "schema_version": memory_recall_pack.get("schema_version", ""),
-        "executor_target": memory_recall_pack.get("executor_target", ""),
-        "session_id": memory_recall_pack.get("session_id", ""),
-        "record_count": len(_list_or_empty(memory_recall_pack.get("included_records"))),
-        "excluded_count": len(_list_or_empty(memory_recall_pack.get("excluded_records"))),
-        "redaction_policy": memory_recall_pack.get("redaction_policy", ""),
-        "claim_boundary": memory_recall_pack.get("claim_boundary", ""),
-    }
-
-
 def _list_or_empty(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -1129,7 +1451,8 @@ def _review_status_summary(
             "required": required,
             "observed": observed,
             "status": status,
-            "satisfied": observed and (status == "passed" or (status == "not_required" and not required)),
+            "satisfied": observed
+            and (status == "passed" or (status == "not_required" and not required)),
             "reviewer": record.get("reviewer", ""),
             "evidence_refs": record.get("evidence_refs", []),
             "summary": record.get("summary", ""),
@@ -1151,14 +1474,24 @@ def _ci_status_summary(required: bool, record: dict[str, Any]) -> dict[str, Any]
         status = str(record.get("status", "not_observed"))
         observed = bool(record.get("observed", False))
         checks = record.get("checks", [])
-        checks_passed = bool(checks) and all(isinstance(check, dict) and check.get("status") == "passed" for check in checks)
-        checks_not_required = all(isinstance(check, dict) and check.get("status") == "not_required" for check in checks)
+        checks_passed = bool(checks) and all(
+            isinstance(check, dict) and check.get("status") == "passed"
+            for check in checks
+        )
+        checks_not_required = all(
+            isinstance(check, dict) and check.get("status") == "not_required"
+            for check in checks
+        )
         required = required or bool(record.get("required", required))
         return {
             "required": required,
             "observed": observed,
             "status": status,
-            "satisfied": observed and ((status == "not_required" and not required and checks_not_required) or (status == "passed" and checks_passed)),
+            "satisfied": observed
+            and (
+                (status == "not_required" and not required and checks_not_required)
+                or (status == "passed" and checks_passed)
+            ),
             "provider": record.get("provider", ""),
             "checks": checks,
             "evidence_refs": record.get("evidence_refs", []),
@@ -1216,7 +1549,9 @@ def _merge_status_summary(required: bool, record: dict[str, Any]) -> dict[str, A
     }
 
 
-def _apply_lifecycle_review_status(status: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+def _apply_lifecycle_review_status(
+    status: dict[str, Any], lifecycle: dict[str, Any]
+) -> dict[str, Any]:
     if not lifecycle.get("review_observed") or status.get("observed"):
         return status
     return {
@@ -1224,7 +1559,10 @@ def _apply_lifecycle_review_status(status: dict[str, Any], lifecycle: dict[str, 
         "observed": True,
         "status": "passed",
         "satisfied": True,
-        "summary": str(_object_or_empty(lifecycle.get("latest_event")).get("summary") or status.get("summary", "")),
+        "summary": str(
+            _object_or_empty(lifecycle.get("latest_event")).get("summary")
+            or status.get("summary", "")
+        ),
     }
 
 
@@ -1237,15 +1575,21 @@ def _apply_lifecycle_ci_status(
         return status
     return {
         **status,
-        "required": bool(status.get("required")) or review_status.get("status") == "passed",
+        "required": bool(status.get("required"))
+        or review_status.get("status") == "passed",
         "observed": True,
         "status": "passed",
         "satisfied": True,
-        "summary": str(_object_or_empty(lifecycle.get("latest_event")).get("summary") or status.get("summary", "")),
+        "summary": str(
+            _object_or_empty(lifecycle.get("latest_event")).get("summary")
+            or status.get("summary", "")
+        ),
     }
 
 
-def _apply_lifecycle_merge_status(status: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+def _apply_lifecycle_merge_status(
+    status: dict[str, Any], lifecycle: dict[str, Any]
+) -> dict[str, Any]:
     if status.get("observed"):
         return status
     latest = _object_or_empty(lifecycle.get("latest_event"))
@@ -1419,7 +1763,9 @@ def _delegated_status_summary(
     if not prepared:
         return "No prepared coding delegation was found for this run."
     if action == "clarify":
-        return "The coding request needs clarification before executor/runtime dispatch."
+        return (
+            "The coding request needs clarification before executor/runtime dispatch."
+        )
     if action == "fallback":
         return "The coding request fell back to the router; do not dispatch it to an executor yet."
     if action != "delegate":
@@ -1464,16 +1810,30 @@ def _delegated_status_integrity_warnings(
     warnings: list[str] = []
     artifact_kind = run.get("artifact_kind")
     if artifact_kind == "prepared_coding_delegation" and not coding:
-        warnings.append("prepared_coding_delegation run is missing coding_delegation.json")
+        warnings.append(
+            "prepared_coding_delegation run is missing coding_delegation.json"
+        )
     if coding and artifact_kind != "prepared_coding_delegation":
-        warnings.append("coding_delegation.json exists but run artifact_kind is not prepared_coding_delegation")
+        warnings.append(
+            "coding_delegation.json exists but run artifact_kind is not prepared_coding_delegation"
+        )
     if prepared and run.get("observation_status") != "prepared_not_observed":
-        warnings.append("prepared coding delegation run has unexpected observation_status")
+        warnings.append(
+            "prepared coding delegation run has unexpected observation_status"
+        )
     if action != "delegate" and handoff:
         warnings.append("non-delegate coding action must not include executor_handoff")
-    if action == "delegate" and handoff and handoff.get("status") != "prepared_not_observed":
+    if (
+        action == "delegate"
+        and handoff
+        and handoff.get("status") != "prepared_not_observed"
+    ):
         warnings.append("executor_handoff has unexpected status")
-    if wrapper and wrapper.get("completion_status") == "completed" and not wrapper.get("prompt_dispatched"):
+    if (
+        wrapper
+        and wrapper.get("completion_status") == "completed"
+        and not wrapper.get("prompt_dispatched")
+    ):
         warnings.append("wrapper reports completed without prompt_dispatched")
     if delegation.get("observed") and not wrapper.get("prompt_dispatched", False):
         warnings.append("delegation is observed but wrapper dispatch is not observed")
@@ -1494,9 +1854,17 @@ def validate_run_dir(run_dir: Path) -> dict[str, Any]:
     else:
         errors.extend(f"{run_path}: {error}" for error in validate_run_record(run))
         coding_delegation_path = run_dir / "coding_delegation.json"
-        if run.get("artifact_kind") == "prepared_coding_delegation" and not coding_delegation_path.exists():
-            errors.append(f"{coding_delegation_path}: missing coding_delegation.json for prepared_coding_delegation run")
-        if run.get("artifact_kind") == "prepared_coding_delegation" and coding_delegation_path.exists():
+        if (
+            run.get("artifact_kind") == "prepared_coding_delegation"
+            and not coding_delegation_path.exists()
+        ):
+            errors.append(
+                f"{coding_delegation_path}: missing coding_delegation.json for prepared_coding_delegation run"
+            )
+        if (
+            run.get("artifact_kind") == "prepared_coding_delegation"
+            and coding_delegation_path.exists()
+        ):
             try:
                 coding = read_json_object(coding_delegation_path)
             except (OSError, JSONDecodeError, ValueError) as exc:
@@ -1505,25 +1873,39 @@ def validate_run_dir(run_dir: Path) -> dict[str, Any]:
             if isinstance(coding, dict):
                 coding_for_observation = coding
                 selection = coding.get("executor_selection")
-                choice_required = isinstance(selection, dict) and selection.get("choice_required") is True
+                choice_required = (
+                    isinstance(selection, dict)
+                    and selection.get("choice_required") is True
+                )
                 if choice_required:
-                    errors.append(f"{coding_delegation_path}: executor choice must not be stored as a prepared runtime run")
+                    errors.append(
+                        f"{coding_delegation_path}: executor choice must not be stored as a prepared runtime run"
+                    )
                 if coding.get("work_owner_mode") == "prompt_only_handoff":
-                    errors.append(f"{coding_delegation_path}: prompt-only handoff must not be stored as a prepared runtime run")
+                    errors.append(
+                        f"{coding_delegation_path}: prompt-only handoff must not be stored as a prepared runtime run"
+                    )
                 if coding.get("work_owner_mode") == "runtime_handoff":
-                    errors.append(f"{coding_delegation_path}: runtime handoff must not be stored as a prepared runtime run")
+                    errors.append(
+                        f"{coding_delegation_path}: runtime handoff must not be stored as a prepared runtime run"
+                    )
                 if (
                     coding.get("work_owner_mode") != "external_executor"
                     or coding.get("selected_executor_profile") != "codex"
                     or not isinstance(coding.get("executor_handoff"), dict)
                 ):
-                    errors.append(f"{coding_delegation_path}: prepared runtime run requires a Codex executor_handoff")
+                    errors.append(
+                        f"{coding_delegation_path}: prepared runtime run requires a Codex executor_handoff"
+                    )
     events_path = run_dir / "events.jsonl"
     if events_path.exists():
         events, event_errors = read_jsonl_objects(events_path)
         errors.extend(event_errors)
         for index, event in enumerate(events, start=1):
-            errors.extend(f"{events_path}:{index}: {error}" for error in validate_event_record(event))
+            errors.extend(
+                f"{events_path}:{index}: {error}"
+                for error in validate_event_record(event)
+            )
     else:
         errors.append(f"{events_path}: missing events.jsonl")
     observations_path = run_dir / "runtime_observations.jsonl"
@@ -1536,7 +1918,10 @@ def validate_run_dir(run_dir: Path) -> dict[str, Any]:
                 for error in validate_runtime_observation_record(observation)
             )
         if isinstance(run, dict):
-            if coding_for_observation is None and (run_dir / "coding_delegation.json").exists():
+            if (
+                coding_for_observation is None
+                and (run_dir / "coding_delegation.json").exists()
+            ):
                 try:
                     coding = read_json_object(run_dir / "coding_delegation.json")
                 except (OSError, JSONDecodeError, ValueError):
@@ -1580,38 +1965,59 @@ def _validate_run_status_gate_consistency(run_dir: Path) -> list[str]:
 
     handoff = _object_or_empty(coding.get("executor_handoff"))
     handoff_review = _object_or_empty(handoff.get("review"))
-    review_required = bool(handoff_review.get("required", coding.get("review_required", False)))
-    review_status = _review_status_summary(review_required, handoff_review.get("workflow"), handoff_review, review_record)
+    review_required = bool(
+        handoff_review.get("required", coding.get("review_required", False))
+    )
+    review_status = _review_status_summary(
+        review_required, handoff_review.get("workflow"), handoff_review, review_record
+    )
     ci_required_by_ladder = review_status["status"] == "passed"
     ci_required = bool(ci_record) or ci_required_by_ladder
     ci_status = _ci_status_summary(ci_required, ci_record)
 
-    execution_satisfied = bool(delegation.get("observed", False)) and delegation.get("result") == "completed"
+    execution_satisfied = (
+        bool(delegation.get("observed", False))
+        and delegation.get("result") == "completed"
+    )
     verification_satisfied = bool(wrapper.get("verification_observed", False))
     review_path = run_dir / "review.json"
     ci_path = run_dir / "ci.json"
     merge_path = run_dir / "merge.json"
 
     if review_required and review_record.get("status") == "not_required":
-        errors.append(f"{review_path}: review not_required cannot downgrade required review evidence")
+        errors.append(
+            f"{review_path}: review not_required cannot downgrade required review evidence"
+        )
     if ci_required_by_ladder and ci_record.get("status") == "not_required":
-        errors.append(f"{ci_path}: ci not_required cannot downgrade required CI evidence")
+        errors.append(
+            f"{ci_path}: ci not_required cannot downgrade required CI evidence"
+        )
     if review_record.get("status") == "passed" and not verification_satisfied:
         errors.append(f"{review_path}: review passed requires verification evidence")
     if ci_record.get("status") == "passed":
         if not verification_satisfied:
             errors.append(f"{ci_path}: ci passed requires verification evidence")
         if not review_status["satisfied"]:
-            errors.append(f"{ci_path}: ci passed requires review passed or not_required")
+            errors.append(
+                f"{ci_path}: ci passed requires review passed or not_required"
+            )
     if merge_record.get("status") in {"ready", "merged"}:
         if not execution_satisfied:
-            errors.append(f"{merge_path}: merge {merge_record.get('status')} requires completed executor evidence")
+            errors.append(
+                f"{merge_path}: merge {merge_record.get('status')} requires completed executor evidence"
+            )
         if not verification_satisfied:
-            errors.append(f"{merge_path}: merge {merge_record.get('status')} requires verification evidence")
+            errors.append(
+                f"{merge_path}: merge {merge_record.get('status')} requires verification evidence"
+            )
         if not review_status["satisfied"]:
-            errors.append(f"{merge_path}: merge {merge_record.get('status')} requires review passed or not_required")
+            errors.append(
+                f"{merge_path}: merge {merge_record.get('status')} requires review passed or not_required"
+            )
         if not ci_status["satisfied"]:
-            errors.append(f"{merge_path}: merge {merge_record.get('status')} requires CI passed or not_required")
+            errors.append(
+                f"{merge_path}: merge {merge_record.get('status')} requires CI passed or not_required"
+            )
     return errors
 
 
@@ -1620,14 +2026,24 @@ def validate_runtime(paths: OmjPaths, run_id: str | None = None) -> dict[str, An
         run_dirs = [paths.runtime_runs_dir / run_id]
         session_dirs = _wrapper_session_dirs_for_run(paths, run_id)
     else:
-        run_dirs = sorted(path for path in paths.runtime_runs_dir.glob("*") if path.is_dir()) if paths.runtime_runs_dir.exists() else []
+        run_dirs = (
+            sorted(path for path in paths.runtime_runs_dir.glob("*") if path.is_dir())
+            if paths.runtime_runs_dir.exists()
+            else []
+        )
         session_dirs = (
-            sorted(path for path in paths.runtime_wrapper_sessions_dir.glob("*") if path.is_dir())
+            sorted(
+                path
+                for path in paths.runtime_wrapper_sessions_dir.glob("*")
+                if path.is_dir()
+            )
             if paths.runtime_wrapper_sessions_dir.exists()
             else []
         )
     results = [validate_run_dir(run_dir) for run_dir in run_dirs]
-    session_results = [validate_wrapper_session_dir(session_dir) for session_dir in session_dirs]
+    session_results = [
+        validate_wrapper_session_dir(session_dir) for session_dir in session_dirs
+    ]
     journal_result = validate_observation_journal(paths, run_id=run_id)
     _add_duplicate_wrapper_run_link_errors(session_results, session_dirs)
     return {
@@ -1644,14 +2060,18 @@ def _wrapper_session_dirs_for_run(paths: OmjPaths, run_id: str) -> list[Path]:
     if not paths.runtime_wrapper_sessions_dir.exists():
         return []
     session_dirs: list[Path] = []
-    for session_json in sorted(paths.runtime_wrapper_sessions_dir.glob("*/session.json")):
+    for session_json in sorted(
+        paths.runtime_wrapper_sessions_dir.glob("*/session.json")
+    ):
         session = read_json_object(session_json)
         if session and session.get("current_run_id") == run_id:
             session_dirs.append(session_json.parent)
     return session_dirs
 
 
-def _add_duplicate_wrapper_run_link_errors(session_results: list[dict[str, Any]], session_dirs: list[Path]) -> None:
+def _add_duplicate_wrapper_run_link_errors(
+    session_results: list[dict[str, Any]], session_dirs: list[Path]
+) -> None:
     owners_by_run_id: dict[str, list[str]] = {}
     for session_dir in session_dirs:
         session = read_json_object(session_dir / "session.json")
@@ -1667,7 +2087,9 @@ def _add_duplicate_wrapper_run_link_errors(session_results: list[dict[str, Any]]
     }
     if not duplicate_errors:
         return
-    results_by_session_id = {str(result.get("session_id")): result for result in session_results}
+    results_by_session_id = {
+        str(result.get("session_id")): result for result in session_results
+    }
     for session_dir in session_dirs:
         session = read_json_object(session_dir / "session.json")
         if not session:
@@ -1678,7 +2100,9 @@ def _add_duplicate_wrapper_run_link_errors(session_results: list[dict[str, Any]]
         result = results_by_session_id.get(session_dir.name)
         if not result:
             continue
-        result.setdefault("errors", []).append(f"{session_dir / 'session.json'}: {duplicate_errors[run_id]}")
+        result.setdefault("errors", []).append(
+            f"{session_dir / 'session.json'}: {duplicate_errors[run_id]}"
+        )
         result["ok"] = False
 
 
@@ -1703,7 +2127,11 @@ SENSITIVE_TEXT_KEYS = (
     "delivery_target",
 )
 SENSITIVE_LIST_KEYS = ("evidence_refs", "observed_evidence_refs", "correlation_aliases")
-EVIDENCE_KEYS_TO_PRESERVE = ("prompt_dispatched", "hermes_response_observed", "verification_observed")
+EVIDENCE_KEYS_TO_PRESERVE = (
+    "prompt_dispatched",
+    "hermes_response_observed",
+    "verification_observed",
+)
 
 
 def _should_redact_key(key: str) -> bool:
@@ -1714,7 +2142,9 @@ def _should_redact_key(key: str) -> bool:
         return True
     if lowered in SENSITIVE_TEXT_KEYS:
         return True
-    return any(part in lowered for part in SENSITIVE_KEY_PARTS + SENSITIVE_TEXT_KEY_PARTS)
+    return any(
+        part in lowered for part in SENSITIVE_KEY_PARTS + SENSITIVE_TEXT_KEY_PARTS
+    )
 
 
 def _redacted_value(key: str, value: Any) -> Any:
@@ -1745,7 +2175,11 @@ def export_runtime(
     full: bool = True,
     run_id: str | None = None,
 ) -> dict[str, Any]:
-    runs = [read_json_object(paths.runtime_runs_dir / run_id / "run.json")] if run_id else list_runs(paths, limit=limit)
+    runs = (
+        [read_json_object(paths.runtime_runs_dir / run_id / "run.json")]
+        if run_id
+        else list_runs(paths, limit=limit)
+    )
     runs = [run for run in runs if isinstance(run, dict)]
     if run_id:
         wrapper_sessions = _wrapper_session_records_for_run(paths, run_id, limit=limit)
@@ -1753,7 +2187,9 @@ def export_runtime(
         wrapper_sessions = list_wrapper_session_records(paths, limit=limit)
     journal_events, journal_errors = read_observation_events_result(paths)
     if run_id:
-        journal_events = [event for event in journal_events if str(event.get("run_id", "")) == run_id]
+        journal_events = [
+            event for event in journal_events if str(event.get("run_id", "")) == run_id
+        ]
     payload = {
         "schema_version": SCHEMA_VERSION,
         "runtime_dir": str(paths.runtime_dir),
@@ -1768,7 +2204,12 @@ def export_runtime(
         },
         "runs": [show_run(paths, run["run_id"]) for run in runs] if full else runs,
         "wrapper_sessions": (
-            [show_wrapper_session_record(paths, session["session_id"]) for session in wrapper_sessions] if full else wrapper_sessions
+            [
+                show_wrapper_session_record(paths, session["session_id"])
+                for session in wrapper_sessions
+            ]
+            if full
+            else wrapper_sessions
         ),
         "journal": {
             "path": str(paths.runtime_journal_events_path),
@@ -1784,7 +2225,9 @@ def export_runtime(
     return payload
 
 
-def _wrapper_session_records_for_run(paths: OmjPaths, run_id: str, *, limit: int | None = None) -> list[dict[str, Any]]:
+def _wrapper_session_records_for_run(
+    paths: OmjPaths, run_id: str, *, limit: int | None = None
+) -> list[dict[str, Any]]:
     sessions: list[dict[str, Any]] = []
     for session_dir in _wrapper_session_dirs_for_run(paths, run_id):
         session = read_json_object(session_dir / "session.json")
@@ -1813,7 +2256,10 @@ def validate_wrapper_session_dir(session_dir: Path) -> dict[str, Any]:
     if not session:
         errors.append(f"{session_path}: missing session.json")
     else:
-        errors.extend(f"{session_path}: {error}" for error in validate_wrapper_session_record(session))
+        errors.extend(
+            f"{session_path}: {error}"
+            for error in validate_wrapper_session_record(session)
+        )
         if session.get("session_id") != session_dir.name:
             errors.append(f"{session_path}: session_id must match directory name")
     events_path = session_dir / "events.jsonl"
@@ -1821,7 +2267,10 @@ def validate_wrapper_session_dir(session_dir: Path) -> dict[str, Any]:
         events, event_errors = read_jsonl_objects(events_path)
         errors.extend(event_errors)
         for index, event in enumerate(events, start=1):
-            errors.extend(f"{events_path}:{index}: {error}" for error in validate_event_record(event))
+            errors.extend(
+                f"{events_path}:{index}: {error}"
+                for error in validate_event_record(event)
+            )
     else:
         errors.append(f"{events_path}: missing events.jsonl")
     observations_path = session_dir / "runtime_observations.jsonl"
@@ -1834,13 +2283,19 @@ def validate_wrapper_session_dir(session_dir: Path) -> dict[str, Any]:
                 for error in validate_runtime_observation_record(observation)
             )
         if session:
-            errors.extend(validate_runtime_observations_for_wrapper_session(observations_path, session, observations))
+            errors.extend(
+                validate_runtime_observations_for_wrapper_session(
+                    observations_path, session, observations
+                )
+            )
     if session:
         errors.extend(_validate_wrapper_session_run_link(session_dir, session, events))
     return {"session_id": session_dir.name, "ok": not errors, "errors": errors}
 
 
-def _validate_wrapper_session_run_link(session_dir: Path, session: dict[str, Any], events: list[dict[str, Any]]) -> list[str]:
+def _validate_wrapper_session_run_link(
+    session_dir: Path, session: dict[str, Any], events: list[dict[str, Any]]
+) -> list[str]:
     errors: list[str] = []
     run_id = str(session.get("current_run_id", ""))
     if not run_id:
@@ -1851,26 +2306,46 @@ def _validate_wrapper_session_run_link(session_dir: Path, session: dict[str, Any
     coding_path = run_dir / "coding_delegation.json"
     run = read_json_object(run_path)
     if not run:
-        return [f"{session_path}: current_run_id does not point to an existing runtime run"]
+        return [
+            f"{session_path}: current_run_id does not point to an existing runtime run"
+        ]
     errors.extend(f"{run_path}: {error}" for error in validate_run_record(run))
     if run.get("artifact_kind") != "prepared_coding_delegation":
-        errors.append(f"{session_path}: current_run_id must point to a prepared coding delegation run")
-    if run.get("phase") != "prepared" or run.get("observation_status") != "prepared_not_observed":
-        errors.append(f"{session_path}: linked run must preserve prepared_not_observed boundary")
+        errors.append(
+            f"{session_path}: current_run_id must point to a prepared coding delegation run"
+        )
+    if (
+        run.get("phase") != "prepared"
+        or run.get("observation_status") != "prepared_not_observed"
+    ):
+        errors.append(
+            f"{session_path}: linked run must preserve prepared_not_observed boundary"
+        )
     coding = read_json_object(coding_path)
     if not coding:
         errors.append(f"{session_path}: linked run is missing coding_delegation.json")
     else:
-        errors.extend(f"{coding_path}: {error}" for error in validate_coding_delegation_record(coding))
+        errors.extend(
+            f"{coding_path}: {error}"
+            for error in validate_coding_delegation_record(coding)
+        )
         handoff = coding.get("executor_handoff") if isinstance(coding, dict) else None
         if not isinstance(handoff, dict) or handoff.get("executor_target") != "codex":
-            errors.append(f"{session_path}: linked run must include a Codex executor handoff")
+            errors.append(
+                f"{session_path}: linked run must include a Codex executor handoff"
+            )
         if isinstance(coding, dict) and coding.get("status") != "prepared_not_observed":
-            errors.append(f"{session_path}: linked coding delegation must be prepared_not_observed")
+            errors.append(
+                f"{session_path}: linked coding delegation must be prepared_not_observed"
+            )
     has_link_event = any(
-        event.get("event") == "handoff_prepared" and isinstance(event.get("data"), dict) and event["data"].get("run_id") == run_id
+        event.get("event") == "handoff_prepared"
+        and isinstance(event.get("data"), dict)
+        and event["data"].get("run_id") == run_id
         for event in events
     )
     if not has_link_event:
-        errors.append(f"{session_path}: current_run_id must be recorded by a handoff_prepared session event")
+        errors.append(
+            f"{session_path}: current_run_id must be recorded by a handoff_prepared session event"
+        )
     return errors

@@ -14,11 +14,30 @@ from ..targets import TARGET_METADATA_KEYS
 
 
 def _paths(args: argparse.Namespace):
-    return resolve_paths(args.omj_home, args.hermes_home, scope=getattr(args, "scope", None))
+    return resolve_paths(
+        args.omj_home, args.hermes_home, scope=getattr(args, "scope", None)
+    )
 
 
 def _print_json(data: object) -> None:
     print(json.dumps(data, indent=2, sort_keys=True))
+
+
+def _postcondition_exit_statuses(args: argparse.Namespace) -> dict[str, int] | None:
+    entries = getattr(args, "postcondition_exit", None)
+    if not entries:
+        return None
+    statuses: dict[str, int] = {}
+    for raw in entries:
+        name, separator, value = str(raw).partition("=")
+        if not separator or not name:
+            raise OmjError("--postcondition-exit must use ID=STATUS")
+        try:
+            status = int(value)
+        except ValueError as exc:
+            raise OmjError("--postcondition-exit STATUS must be an integer") from exc
+        statuses[name] = status
+    return statuses
 
 
 def _wants_json(args: argparse.Namespace) -> bool:
@@ -33,7 +52,13 @@ def _explicit_source_metadata(args: argparse.Namespace) -> dict[str, str]:
         "user_ref": getattr(args, "user_ref", ""),
         "render_profile": getattr(args, "render_profile", ""),
     }
-    values.update({key: getattr(args, key, "") for key in TARGET_METADATA_KEYS if key != "hermes_home"})
+    values.update(
+        {
+            key: getattr(args, key, "")
+            for key in TARGET_METADATA_KEYS
+            if key != "hermes_home"
+        }
+    )
     return {key: str(value) for key, value in values.items() if value}
 
 
@@ -52,7 +77,9 @@ def _resolved_executor(args: argparse.Namespace, *, default: str) -> str:
     return default
 
 
-def _chat_input_and_metadata(args: argparse.Namespace) -> tuple[dict[str, object] | str, dict[str, str]]:
+def _chat_input_and_metadata(
+    args: argparse.Namespace,
+) -> tuple[dict[str, object] | str, dict[str, str]]:
     try:
         if args.event_json:
             raw = (

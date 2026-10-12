@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -460,12 +461,12 @@ def build_project_memory_recall_pack(
             continue
         # Failure-first: a query-relevant failed_attempt is a dead end the next run
         # must not repeat, so it is surfaced ahead of everything else -- but ONLY when
-        # the query actually hits it (real token/tag overlap, never the empty-query
-        # score of 1). An unrelated dead end therefore never crowds out relevant
+        # the query actually hits it (real token/tag overlap, never the unqueried or
+        # no-indexable-token score of 1). An unrelated dead end never crowds out relevant
         # context. Ported from jeo-code memory.ts priorityOrder: resurfacing a known
         # failure is higher-leverage than reinforcing what already works ("close the
         # gaps, don't just polish strengths").
-        failure_first = bool(query.strip()) and str(record.get("record_type", "")) == "failed_attempt" and score > 0
+        failure_first = bool(query.strip()) and str(record.get("record_type", "")) == "failed_attempt" and score > 1
         included.append(_recall_item(record, score=score, staleness=staleness, failure_first=failure_first))
     included.sort(
         key=lambda item: (
@@ -482,7 +483,7 @@ def build_project_memory_recall_pack(
         "session_id": session_id,
         "task_ref": task_ref,
         "policy": policy,
-        "scope": _scope(scope_kind or "project", scope_ref or "default"),
+        "scope": _scope(scope_kind or "*", scope_ref or "*"),
         "included_records": included,
         "excluded_records": excluded,
         "record_count": len(included),
@@ -929,7 +930,7 @@ def _empty_recall_pack(
         "session_id": session_id,
         "task_ref": task_ref,
         "policy": policy,
-        "scope": _scope(scope_kind or "project", scope_ref or "default"),
+        "scope": _scope(scope_kind or "*", scope_ref or "*"),
         "included_records": [],
         "excluded_records": [{"record_id": "", "reason": reason, "staleness": {"state": "not_checked"}}],
         "record_count": 0,
@@ -963,6 +964,8 @@ def _memory_recall_score(record: dict[str, Any], query: str) -> int:
     if not query.strip():
         return 1
     query_tokens = _memory_tokens(query)
+    if not query_tokens:
+        return 1
     record_tokens = _memory_tokens(
         " ".join(
             [
@@ -977,8 +980,34 @@ def _memory_recall_score(record: dict[str, Any], query: str) -> int:
     return len(overlap) * 10 + len(tag_overlap) * 5
 
 
+_MEMORY_LATIN_EXTRA = "\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u1e00-\u1eff\u0300-\u036f"
+_MEMORY_WORD_TOKEN = re.compile(rf"[a-z0-9_/{_MEMORY_LATIN_EXTRA}-]{{3,}}")
+_MEMORY_SHORT_ASCII_TOKEN = re.compile(
+    rf"(?<![a-z0-9_/{_MEMORY_LATIN_EXTRA}-])[a-z0-9]{{2}}(?![a-z0-9_/{_MEMORY_LATIN_EXTRA}-])"
+)
+_MEMORY_SHORT_STOPWORDS = frozenset(
+    {
+        "am", "an", "as", "at", "be", "by", "do", "he", "if", "in", "is", "it",
+        "me", "my", "no", "of", "oh", "on", "or", "so", "to", "up", "us", "we",
+    }
+)
+_MEMORY_CJK_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]+")
+
+
 def _memory_tokens(value: str) -> set[str]:
-    return {token for token in re.split(r"[^a-z0-9_/-]+", value.lower()) if len(token) >= 3}
+    lowered = unicodedata.normalize("NFC", value).lower()
+    tokens = set(_MEMORY_WORD_TOKEN.findall(lowered))
+    for word in tuple(tokens):
+        if not word.isascii():
+            folded = _folded_text(word)
+            if len(folded) >= 3:
+                tokens.add(folded)
+    tokens.update(token for token in _MEMORY_SHORT_ASCII_TOKEN.findall(lowered) if token not in _MEMORY_SHORT_STOPWORDS)
+    for run in _MEMORY_CJK_RUN.findall(lowered):
+        if len(run) >= 2:
+            tokens.add(run)
+        tokens.update(run[index : index + 2] for index in range(len(run) - 1))
+    return tokens
 
 
 def _record_scope_matches(record: dict[str, Any], *, scope_kind: str | None, scope_ref: str | None) -> bool:
@@ -999,8 +1028,61 @@ def _record_staleness(record: dict[str, Any]) -> dict[str, object]:
     return {"state": "fresh", "stale_after": str(staleness.get("stale_after", "")), "expires_at": str(ttl.get("expires_at", ""))}
 
 
+_EN_QUANTITY = (
+    r"(?:\d{1,4}|an?|one|two|three|four|five|six|seven|eight|nine|ten"
+    r"|(?:a\s+)?few|several|(?:a\s+)?couple(?:\s+of)?)"
+)
+_EN_TIME_UNIT = r"(?:days?|weeks?|months?|years?|hours?|minutes?)"
+_EN_WEEKDAY = r"(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+_FR_QUANTITY = r"(?:\d{1,4}|une?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|quelques|plusieurs)"
+_FR_TIME_UNIT = r"(?:jours?|semaines?|mois|ann[ée]es?|ans?|heures?|minutes?)"
+_FR_WEEKDAY = r"(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)"
+_RELATIVE_TIME_PATTERN = re.compile(
+    r"(?<!\d)\d{1,4}\s*(?:일|주|개월|달|년|시간|분)\s*(?:뒤|후|이내|안에|내로)"
+    r"|(?<![가-힣])(?:그저께|어제|오늘|내일|모레|다음\s*주|다음\s*달|이번\s*주)(?:은|는|이|가|에|에는|부터|까지|도|만)?(?![가-힣])"
+    r"|\b(?:yesterday|today|tomorrow|next\s+(?:week|month|year)|in\s+(?!(?:an?|one)\s+(?!few\b|couple\b))" + _EN_QUANTITY + r"\s+" + _EN_TIME_UNIT
+    + r"|" + _EN_QUANTITY + r"\s+" + _EN_TIME_UNIT + r"\s+ago|last\s+(?:week|month|year)|the\s+other\s+day"
+    r"|(?<!\bthe\s)(?:last|next)\s+" + _EN_WEEKDAY + r"(?!\s+(?:of|in)\b)"
+    r"|(?<!\bmost\s)(?<!\bleast\s)recently)\b"
+    r"|(?<!\d)\d{1,4}\s*(?:日|週間|ヶ月|か月|年)\s*(?:後|以内)"
+    r"|(?<!\d)\d{1,4}\s*(?:天|周|個月|个月|年)\s*(?:后|後|以内|以內|内|內)"
+    r"|明日|昨日|来週|来月|明天|昨天|下周(?!期)|下個月|下个月"
+    r"|\b(?:(?:dans|d['’]ici)\s+" + _FR_QUANTITY + r"\s+" + _FR_TIME_UNIT
+    + r"|(?:la\s+)?semaine\s+prochaine|(?:le\s+)?mois\s+prochain|(?:l['’])?ann[ée]e\s+prochaine"
+    r"|demain|aujourd['’]hui|avant-hier"
+    r"|il\s+y\s+a\s+" + _FR_QUANTITY + r"\s+" + _FR_TIME_UNIT
+    + r"|" + _FR_WEEKDAY + r"\s+(?:dernier|prochain)"
+    r"|(?<!\bplus\s)(?<!\bmoins\s)r[ée]cemment"
+    r"|(?:la\s+)?semaine\s+derni[èe]re|(?:le\s+)?mois\s+dernier|(?:l['’])?ann[ée]e\s+derni[èe]re|l['’]an\s+dernier"
+    r"|d['’]ici\s+(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|demain|la\s+fin\s+(?:de\s+la\s+semaine|du\s+mois)))\b",
+    re.IGNORECASE,
+)
+
+
+def _relative_time_phrase(value: str) -> str:
+    match = _RELATIVE_TIME_PATTERN.search(value)
+    return match.group(0) if match else ""
+
+
+def _folded_text(content: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", content.replace("\u2019", "'"))
+    return "".join(char for char in decomposed if not unicodedata.combining(char)).lower()
+
+
+_FRENCH_PROMPT_INJECTION_PATTERNS = (
+    re.compile(r"\b(?:ignor|oubli)\w*\s+(?:toutes\s+)?(?:les|tes|vos)\s+(?:instructions|consignes)\s+(?:precedentes|anterieures)"),
+    re.compile(r"\brevel\w*\s+(?:(?:ton|votre)\s+prompt|le\s+prompt\s+systeme)"),
+)
+_FRENCH_TEMPORARY_PATTERNS = (
+    re.compile(r"\b(?:c'est|ceci\s+est)\s+temporaire"),
+    re.compile(r"\b(?:workaround|contournement|correctif|solution|fix|hack|bricolage|rustine|patch)\s+(?:provisoire|temporaire)"),
+    re.compile(r"\bcontournement\s+en\s+attendant"),
+)
+
+
 def _project_memory_safety(summary: str, content: str, *, tags: list[str]) -> dict[str, object]:
     text = "\n".join([summary, content, " ".join(tags)])
+    folded_text = _folded_text(text)
     reasons: list[str] = []
     blocked = False
     if _looks_sensitive(text):
@@ -1018,6 +1100,12 @@ def _project_memory_safety(summary: str, content: str, *, tags: list[str]) -> di
         reasons.append("short_lived_commit_reference")
     if re.search(r"\b(?:temporary|for this session|wip|in progress|pending ci|currently running|today|tomorrow|yesterday)\b", text, flags=re.IGNORECASE):
         reasons.append("temporary_task_progress")
+    if any(pattern.search(folded_text) for pattern in _FRENCH_PROMPT_INJECTION_PATTERNS):
+        reasons.append("prompt_injection_shaped_text")
+    if any(pattern.search(folded_text) for pattern in _FRENCH_TEMPORARY_PATTERNS):
+        reasons.append("temporary_task_progress")
+    if _relative_time_phrase(summary.strip()):
+        reasons.append("relative_time_phrase")
     if len(content) > 2400:
         reasons.append("long_content_requires_review")
     status = "blocked" if blocked else "needs_review" if reasons else "safe"
@@ -1032,6 +1120,7 @@ def _project_memory_safety(summary: str, content: str, *, tags: list[str]) -> di
             "full_transcripts",
             "short_lived_pr_or_commit_ids",
             "temporary_task_progress",
+            "prompt_injection_shaped_text",
         ],
     }
 

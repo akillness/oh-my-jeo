@@ -1,6 +1,6 @@
 ---
 name: agent-ops-review
-description: [omj] Hermes agent ops review workflow: help a manager inspect AI-agent research, coding, review, status, blockers, quality gates, and throughput levers.
+description: [omj] Hermes agent ops review workflow: help a manager inspect AI-agent research, coding, review, status, blockers, quality gates, throughput levers, and bounded session forensics.
 metadata:
   hermes:
     tags: [workflow, oh-my-jeo, operator]
@@ -28,26 +28,28 @@ This is a Hermes-native `agent-ops-review` workflow skill.
 
 Good example:
 
-- Prompt: agent-ops-review show me quality, blockers, and throughput for AI-agent research, coding, and review work.
+- Prompt: agent-ops-review inspect a bounded session read-only, separate source roles, and prepare an export for my review.
 - Expected behavior: Produce `prepare_agent_ops_review` with required context, wrapper actions, and not-evidence boundaries.
 - Why: The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.
 
 Bad example:
 
-- Prompt: agent-ops-review claim Codex finished and CI passed because a handoff exists.
+- Prompt: agent-ops-review post the diagnosis to an issue because I agreed with it.
 - Expected behavior: Report the missing observed evidence or authority instead of claiming the external step happened.
 - Why: Prepared OMJ guidance is not platform, runtime, connector, file, memory, or delivery evidence.
 
 ## Completion Checklist
 
-- The local command, managed path, config surface, and state artifact inspected are named.
-- Blocking issues, warnings, and optional surfaces are separated.
-- The next repair action is explicit and does not claim a reload or runtime observation.
+- The session/turn range, expected behavior, observed behavior, and one observable are bounded before reads.
+- Forensics are read-only, capped, source-role and authorship aware, and partial counts are labelled rather than inferred.
+- Exports are prepared only; exact text of third-party content is shown and separately approved before any send.
+- Load `references/session-forensics.md` for read-only source-role, exact-text approval, and leak-aware export.
 
 ## Recovery Notes
 
-- If a managed path or config key is missing, route to setup/update repair instead of editing hidden state.
-- If a reload or plugin load was not observed, keep the diagnostic result as local health evidence only.
+- If the requested range or observable is missing, ask for that boundary instead of reading an unbounded session.
+- If replay, reset, mutation, or export writing is requested, stop for its separate user approval and keep diagnosis read-only.
+- If source-role or count evidence is capped, report the partial result and gap rather than infer a complete timeline; leak scanning is not guaranteed even when approved.
 
 ## OMJ Context Rail
 
@@ -63,9 +65,9 @@ Bad example:
 
 ## Use When
 
-Use when Hermes should explain AI-agent work from a manager/operator perspective: quality gates, progress, blockers, next actions, and throughput opportunities across research, coding, review, and status.
+Use when Hermes should explain AI-agent work from a manager/operator perspective: quality gates, progress, blockers, next actions, throughput opportunities, or read-only bounded session forensics across research, coding, review, and status.
 
-    Strong routing signals: `agent-ops-review`, `agent ops review`, `agent productivity`, `operator productivity`, `manager view`, `quality dashboard`, `throughput review`, `agent work quality`, `coding progress quality`, `coding progress`, `codex progress`, `codex status`, `coding agent status`, `where is codex`, `research coding review status`, `ai agent manager`, `third-party manager`, `관리자 입장`, `Codex 작업`, `Codex 작업이 어디까지`, `코덱스 작업`, `작업이 어디까지`, `진행됐는지`, `진행되었는지`, `작업 생산량`, `처리량`, `품질 퀄리티`, `작업 품질`, `진행상황`, `리서치 코딩 리뷰`
+    Strong routing signals: `agent-ops-review`, `agent-debug`, `agent ops review`, `agent productivity`, `operator productivity`, `manager view`, `quality dashboard`, `throughput review`, `agent work quality`, `coding progress quality`, `coding progress`, `codex progress`, `codex status`, `coding agent status`, `where is codex`, `research coding review status`, `ai agent manager`, `third-party manager`, `session forensics`, `debug session`, `bounded session`, `관리자 입장`, `Codex 작업`, `Codex 작업이 어디까지`, `코덱스 작업`, `작업이 어디까지`, `진행됐는지`, `진행되었는지`, `작업 생산량`, `처리량`, `품질 퀄리티`, `작업 품질`, `진행상황`, `리서치 코딩 리뷰`
 
 ## Catalog Metadata
 

@@ -13,6 +13,13 @@ from ..hermes_planning import (
     write_hermes_plan,
     write_plan_handoff_context_pack,
 )
+from ..workflows.plan_variants import (
+    build_plan_variant,
+    build_plan_variant_delta,
+    build_plan_variant_ref,
+    render_plan_variant_text,
+    validate_plan_variant,
+)
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..installer import OmjError
 from ..hermes_bootstrap import (
@@ -135,6 +142,65 @@ def cmd_hermes_install(args: argparse.Namespace) -> int:
         return 1
     return 0
 
+def _read_variant_json_values(values: list[str], label: str) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for value in values:
+        raw = value
+        if not value.lstrip().startswith(("{", "[")):
+            candidate = Path(value).expanduser()
+            if candidate.exists():
+                raw = candidate.read_text(encoding="utf-8")
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{label} must be JSON or a readable JSON path") from exc
+        if isinstance(payload, dict):
+            rows.append(payload)
+        elif isinstance(payload, list) and all(isinstance(item, dict) for item in payload):
+            rows.extend(payload)
+        else:
+            raise ValueError(f"{label} JSON must be an object or array of objects")
+    return rows
+
+
+def _parse_variant_delta(value: str) -> dict[str, object]:
+    fields = value.split("|", 4)
+    if len(fields) < 4:
+        raise ValueError("--delta must use dimension|label|parent_value|variant_value|reason")
+    return build_plan_variant_delta(*fields[:4], reason=fields[4] if len(fields) == 5 else "")
+
+
+def _parse_variant_ref(value: str) -> dict[str, object]:
+    fields = value.split("|", 3)
+    if len(fields) < 2:
+        raise ValueError("--ref must use kind|ref|reviewed|note")
+    reviewed = fields[2].strip().casefold() in {"1", "true", "yes", "reviewed"} if len(fields) >= 3 else False
+    return build_plan_variant_ref(fields[0], fields[1], reviewed=reviewed, note=fields[3] if len(fields) == 4 else "")
+
+
+def cmd_hermes_plan_variant(args: argparse.Namespace) -> int:
+    try:
+        parent = read_hermes_plan_artifact(args.parent)
+        deltas = [_parse_variant_delta(value) for value in args.delta or []]
+        deltas.extend(_read_variant_json_values(args.delta_json or [], "delta"))
+        refs = [_parse_variant_ref(value) for value in args.ref or []]
+        refs.extend(_read_variant_json_values(args.ref_json or [], "ref"))
+        variant = build_plan_variant(parent, args.name, deltas, refs=refs, created_at=args.created_at or None)
+        errors = validate_plan_variant(variant)
+        if errors:
+            raise ValueError("; ".join(errors))
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise OmjError(str(exc)) from exc
+    payload = {
+        "schema_version": "omj_plan_variant_cli/v1",
+        "variant": variant,
+        "validation": {"valid": True, "errors": []},
+        "rendered_text": render_plan_variant_text(variant),
+        "parent_unchanged": True,
+    }
+    _print_json(payload)
+    return 0
+
 
 
 def _add_hermes_commands(sub) -> None:
@@ -206,3 +272,18 @@ def _add_hermes_commands(sub) -> None:
         help="With --apply, run the installer even when a hermes runtime is already present.",
     )
     install.set_defaults(func=cmd_hermes_install)
+
+    variant = hermes_sub.add_parser(
+        "plan-variant",
+        aliases=("variant",),
+        help="Build a metadata-only child variant from an accepted Hermes plan.",
+    )
+    variant.add_argument("--parent", required=True, help="Accepted hermes_plan/v1 Markdown artifact path.")
+    variant.add_argument("--name", required=True, help="Human-readable variant name.")
+    variant.add_argument("--delta", action="append", default=[], metavar="DIMENSION|LABEL|PARENT|VARIANT|REASON")
+    variant.add_argument("--delta-json", "--delta-file", action="append", default=[], dest="delta_json", metavar="JSON_OR_PATH")
+    variant.add_argument("--ref", action="append", default=[], metavar="KIND|REF|REVIEWED|NOTE")
+    variant.add_argument("--ref-json", "--ref-file", action="append", default=[], dest="ref_json", metavar="JSON_OR_PATH")
+    variant.add_argument("--created-at", default="", help="Optional caller-supplied metadata timestamp.")
+    variant.add_argument("--json", action="store_true", help="Reserved for parity; output is always machine-readable JSON.")
+    variant.set_defaults(func=cmd_hermes_plan_variant)

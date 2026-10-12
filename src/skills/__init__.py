@@ -22,6 +22,14 @@ from .catalog import (
 )
 from .packaging import builtin_skill_reference_templates, builtin_skill_templates
 from .render import SkillReferenceTemplate, SkillTemplate, router_skill, workflow_reference_payload, workflow_skill
+from .prepared import (
+    PREPARED_MEMBERS,
+    prepared_guidance_errors,
+    prepared_guidance_index,
+    prepared_guidance_member,
+    prepared_guidance_reference_templates,
+    validate_prepared_guidance_catalog,
+)
 
 __all__ = [
     "CORE_SKILLS",
@@ -46,6 +54,12 @@ __all__ = [
     "workflow_reference_definitions",
     "builtin_skill_templates",
     "builtin_skill_reference_templates",
+    "PREPARED_MEMBERS",
+    "prepared_guidance_errors",
+    "prepared_guidance_index",
+    "prepared_guidance_member",
+    "prepared_guidance_reference_templates",
+    "validate_prepared_guidance_catalog",
     "router_skill",
     "workflow_reference_payload",
     "workflow_skill",

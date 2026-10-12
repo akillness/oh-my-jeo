@@ -26,6 +26,12 @@ from .skills import (
     workflow_reference_definitions,
     workflow_reference_payload,
     workflow_skill,
+    PREPARED_MEMBERS,
+    prepared_guidance_errors,
+    prepared_guidance_index,
+    prepared_guidance_member,
+    prepared_guidance_reference_templates,
+    validate_prepared_guidance_catalog,
 )
 
 __all__ = [
@@ -41,6 +47,12 @@ __all__ = [
     "builtin_harnesses",
     "builtin_skill_reference_templates",
     "builtin_skill_templates",
+    "PREPARED_MEMBERS",
+    "prepared_guidance_errors",
+    "prepared_guidance_index",
+    "prepared_guidance_member",
+    "prepared_guidance_reference_templates",
+    "validate_prepared_guidance_catalog",
     "capability_definitions",
     "harness_definition",
     "harness_quality_contract",

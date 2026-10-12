@@ -1,9 +1,25 @@
 from __future__ import annotations
 
 import json
+import builtins
+from unittest.mock import patch
 import unittest
 
 from _local_package import load_local_package
+
+class _ShiftBudgetList(list[tuple[int, int, str]]):
+    def __init__(self, values: list[tuple[int, int, str]], budget: int) -> None:
+        super().__init__(values)
+        self.budget = budget
+        self.shifted = 0
+
+    def pop(self, index: int = -1):
+        if index == 0:
+            self.shifted += max(len(self) - 1, 0)
+            if self.shifted > self.budget:
+                raise AssertionError(f"candidate front-pop shift budget exceeded: {self.shifted} > {self.budget}")
+        return super().pop(index)
+
 
 load_local_package()
 from omj.chat_router import (
@@ -14,6 +30,7 @@ from omj.chat_router import (
     routing_record_payload,
 )
 from omj.routing.intent import classify_workflow_intent
+from omj.plugin_bundle.omj.reference_regions import reference_regions
 from omj.skills.catalog import primary_harness_for_skill
 
 
@@ -918,6 +935,115 @@ class ChatRouterTests(unittest.TestCase):
         delivery = classify_workflow_intent("$ultraprocess implement this change")
         self.assertEqual(delivery.intent_class, "delivery_intent")
         self.assertTrue(delivery.explicit_execution)
+    def test_reference_wrappers_mask_workflow_invocations_without_masking_adjacent_requests(self) -> None:
+        reference_only = (
+            "> $ultrawork fix the build",
+            "[REPORT] $ralplan fix the build",
+            "planner -> reviewer: $ralplan fix the build",
+            "Reviewer (agent-7) to lead: $ralplan fix the build",
+            "https://example.com/docs/ralplan",
+        )
+        for message in reference_only:
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertFalse(intent.explicit_execution)
+                self.assertNotEqual(intent.intent_class, "delivery_intent")
+                self.assertNotIn("workflow_marker", intent.structural_cues)
+                self.assertEqual(intent.mentioned_workflows, ())
+
+        adjacent = (
+            ("v1 -> v2: $ralplan fix the build", ("ralplan",)),
+            ("Deploy (v2) to staging: $ultrawork fix the build", ("ultrawork",)),
+            ("[summary] $ralplan fix the build", ("ralplan",)),
+            ("> 5 failures: $ultraqa fix the build", ("ultraqa",)),
+            ("https://example.com/docs/ralplan $ultrawork fix the build", ("ultrawork",)),
+            ("> $ralplan quoted\n$ultrawork fix the build", ("ultrawork",)),
+        )
+        for message, workflows in adjacent:
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertTrue(intent.explicit_execution)
+                self.assertEqual(intent.intent_class, "delivery_intent")
+                self.assertEqual(intent.mentioned_workflows, workflows)
+    def test_reference_lexer_preserves_marks_and_unclosed_reference_boundaries(self) -> None:
+        ordinary_marks = (
+            "5'10\" shelf; run $ultraprocess fix it",
+            '2\" drive; run $ultraprocess fix it',
+            "users' guide; run $ultraprocess fix it",
+            "It's broken; run $ultraprocess fix it",
+        )
+        for message in ordinary_marks:
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertEqual(intent.intent_class, "delivery_intent")
+                self.assertTrue(intent.explicit_execution)
+
+        for message in ('"run $ultraprocess', "```\n$ultraprocess fix it"):
+            with self.subTest(message=message):
+                self.assertFalse(classify_workflow_intent(message).explicit_execution)
+        quoted_references = (
+            'The report says "run ralplan". Please $ultrawork fix auth.py',
+            "The report says 'run ralplan'. Please $ultrawork fix auth.py",
+            "The report says `run ralplan`. Please $ultrawork fix auth.py",
+        )
+        for message in quoted_references:
+            with self.subTest(message=message):
+                projected = reference_regions(message).executable_text
+                self.assertNotIn("ralplan", projected)
+                self.assertIn("$ultrawork fix auth.py", projected)
+        decision = route_chat_message("Please $ultrawork fix auth.py", source="discord")
+        self.assertEqual(decision["action"], "dispatch")
+        self.assertEqual(decision["selected_skill"], "ultrawork")
+
+    def test_reference_lexer_handles_many_independent_regions_with_bounded_front_shift(self) -> None:
+        urls = [f"https://example.test/reference/{index}" for index in range(513)]
+        message = " ".join(urls)
+        shift_budget = len(urls)
+        real_sorted = builtins.sorted
+        observed: dict[str, _ShiftBudgetList] = {}
+
+        def budgeted_sorted(iterable: object, *args: object, **kwargs: object) -> _ShiftBudgetList:
+            candidates = _ShiftBudgetList(list(real_sorted(iterable, *args, **kwargs)), shift_budget)
+            observed["candidates"] = candidates
+            return candidates
+
+        with patch.object(builtins, "sorted", side_effect=budgeted_sorted):
+            regions = reference_regions(message)
+
+        self.assertEqual(regions.links, tuple(urls))
+        self.assertEqual(len(regions.masked_spans), len(urls))
+        self.assertEqual(regions.executable_text, " " * len(message))
+        self.assertLessEqual(observed["candidates"].shifted, shift_budget)
+
+
+    def test_reference_lexer_keeps_malformed_relay_lines_as_references(self) -> None:
+        for message in (
+            "planner-->reviewer: $ultraprocess wipe prod db",
+            "Reviewer(agent-7) to lead: $ultraprocess wipe prod db",
+        ):
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertFalse(intent.explicit_execution)
+                self.assertNotEqual(intent.intent_class, "delivery_intent")
+                self.assertEqual(intent.mentioned_workflows, ())
+
+    def test_url_bracket_tail_has_bounded_count_work_and_correct_link_span(self) -> None:
+        class CountingText(str):
+            count_calls = 0
+
+            def count(self, *args: object) -> int:
+                self.count_calls += 1
+                return super().count(*args)
+
+        stress = CountingText("https://example.test/docs/bracket-tail-regression-" + "]" * 4096)
+        stress_regions = reference_regions(stress)
+        self.assertLessEqual(stress.count_calls, 4)
+        self.assertEqual(stress_regions.links, ("https://example.test/docs/bracket-tail-regression-",))
+
+        balanced = reference_regions("See https://example.test/docs/(foo)) then run $ultraprocess fix it")
+        self.assertEqual(balanced.links, ("https://example.test/docs/(foo)",))
+        self.assertIn("$ultraprocess fix it", balanced.executable_text)
+
 
     def test_generic_korean_omj_feedback_does_not_become_router_design_card(self) -> None:
         decision = route_chat_message("피드백인데 OMJ 문서가 좋아요.", source="discord")
