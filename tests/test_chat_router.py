@@ -997,7 +997,7 @@ class ChatRouterTests(unittest.TestCase):
     def test_reference_lexer_handles_many_independent_regions_with_bounded_front_shift(self) -> None:
         urls = [f"https://example.test/reference/{index}" for index in range(513)]
         message = " ".join(urls)
-        shift_budget = len(urls) * 32
+        shift_budget = len(urls)
         real_sorted = builtins.sorted
         observed: dict[str, _ShiftBudgetList] = {}
 
