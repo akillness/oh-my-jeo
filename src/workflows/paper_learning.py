@@ -234,7 +234,9 @@ def validate_paper_learning_card(card: dict[str, Any]) -> list[str]:
     if not isinstance(ledger, list) or not ledger:
         errors.append("coverage_ledger must be a non-empty list")
     if not set(PAPER_LEARNING_NOT_OBSERVED).issubset(set(card.get("not_observed", []))):
-        errors.append("not_observed must include paper extraction and validation boundaries")
+        errors.append(
+            "not_observed must include paper extraction and validation boundaries"
+        )
     return errors
 
 
