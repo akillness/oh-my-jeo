@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from .localization import normalized_phrase, routing_tokens
+from .localization import normalized_phrase, prepare_routing_text, routing_tokens
 from .intent import META_OR_FEEDBACK_INTENTS, classify_workflow_intent
 
 
@@ -267,9 +267,10 @@ _EXECUTOR_STATUS_META_EXCLUSION_PHRASES = (
 
 def classify_task(message: str) -> dict[str, object] | None:
     """Classify high-level user tasks before choosing lower-level workflow rails."""
-    normalized = normalized_phrase(message)
+    routing_text = prepare_routing_text(message)
+    normalized = normalized_phrase(routing_text.scoring_text)
     compact = normalized.replace(" ", "")
-    tokens = set(routing_tokens(message, stopwords=set()))
+    tokens = set(routing_tokens(routing_text.scoring_text, stopwords=set()))
     tokens.update(normalized.split())
     intent = classify_workflow_intent(message)
 

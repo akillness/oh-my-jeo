@@ -78,6 +78,7 @@ Quality bar:
 - Do not enter a finish-until-done loop until scope, acceptance criteria, and verification commands are concrete.
 - For coding edits, prepare and track selected runtime evidence instead of implying unobserved work happened.
 - Report completion only from observed execution and verification evidence.
+- Ruling: decision, reason, reversible, in-scope, cost if wrong — initial independent review, then at most two re-reviews from a fresh reviewer.
 
 Handoff policy:
 

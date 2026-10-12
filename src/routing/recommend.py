@@ -500,7 +500,7 @@ def recommend_skills(query: str, *, limit: int = 5, apply_guardrails: bool = Tru
     query_tokens = _tokens(normalized_query)
     prepared_definitions = _prepared_routable_definitions()
     definitions = [prepared.definition for prepared in prepared_definitions]
-    explicit_skill = explicit_skill_invocation(query, {definition.name for definition in definitions})
+    explicit_skill = explicit_skill_invocation(routing_text.scoring_text, {definition.name for definition in definitions})
     scored = [
         _score_definition(prepared, normalized_query, query_tokens, query, routing_text.locale_matches)
         for prepared in prepared_definitions

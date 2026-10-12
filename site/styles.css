@@ -82,17 +82,18 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  min-width: 0;
   font-weight: 800;
   font-size: 18px;
 }
 
-.brand::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #7ed7c2;
-  box-shadow: 0 0 0 5px rgba(126, 215, 194, 0.14);
+.brand__icon {
+  display: block;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .brand--link {
@@ -4074,14 +4075,6 @@ body.home-page {
 .home-page .brand {
   font-size: 19px;
   letter-spacing: 0;
-}
-
-.home-page .brand::before {
-  width: 10px;
-  height: 10px;
-  background: var(--home-teal);
-  border-radius: 3px;
-  box-shadow: 0 0 0 5px rgba(66, 240, 208, 0.12);
 }
 
 .home-page .nav {

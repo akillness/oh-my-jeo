@@ -39,14 +39,18 @@ Bad example:
 
 ## Completion Checklist
 
-- The plan names goals, non-goals, assumptions, acceptance criteria, and verification shape.
-- Draft recommendations, accepted decisions, and executor handoffs are separate states.
-- Rejected options or unresolved tradeoffs are recorded before handoff.
+- The plan names current state, target state, non-goals, and the next decision boundary.
+- Review Focus names at most five requirement-implied uncovered inputs, each paired with its expected behavior and owning test or task, or states none found when no unmapped input remains.
+- Every acceptance criterion maps to a task and verification scenario; target-state coverage gaps are explicit.
+- Keep each step one checkable action sized proportionate to the change; sizing bands are recorded where scope warrants them.
+- The plan remains unapproved until the user explicitly accepts the plan; a prepared handoff is not approval or execution evidence.
+- Before the plan is offered for acceptance, answer four questions for test authoring: what behavior changes, what regression it plausibly prevents, what the closest existing coverage is, and whether it touches a production-unused seam.
 
 ## Recovery Notes
 
-- If acceptance criteria or verification are missing, route back to clarification before handoff.
-- If assumptions materially affect the plan, keep them visible and avoid treating the plan as accepted.
+- If current or target state is missing, stop and ask for the smallest decision-changing fact before planning further.
+- If a criterion lacks a task or verification scenario, keep the plan blocked rather than silently accepting a gap.
+- If the user has not explicitly accepted the plan, keep the plan awaiting, do not prepare an implementation handoff, and do not start implementation.
 
 ## OMJ Context Rail
 
@@ -78,6 +82,7 @@ Quality bar:
 - Make goals, non-goals, risks, acceptance criteria, and verification shape explicit.
 - Keep draft plans unapproved until a user or wrapper accepts them.
 - Only prepare coding handoff guidance after the plan is accepted.
+- Bound Review Focus to five inputs and pass the four-question test-authoring gate.
 
 Handoff policy:
 

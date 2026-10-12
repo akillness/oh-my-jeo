@@ -1,0 +1,21 @@
+{
+  "schema": "omj_brand_asset/v1",
+  "asset": "oh-my-jeo-icon.png",
+  "brand": "oh-my-jeo",
+  "provider": "openai-codex",
+  "model": "gpt-6.1-sol",
+  "generated_at": "2026-10-12",
+  "aspect_ratio": "1:1",
+  "requested_size": [1024, 1024],
+  "observed_source_size": [1254, 1254],
+  "output_size": [1024, 1024],
+  "output_format": "PNG",
+  "prompt": "Create an original, polished product icon for oh-my-jeo, a specification-first AI workflow orchestration tool. The icon is a single bold geometric lowercase j-shaped routing path, its top dot a small teal square rotated 45 degrees. The j-shaped path curves cleanly around an open circular compass ring, with three small terminal nodes on the ring representing independent collaborating coding agents. It must be a coherent simple emblem with broad strokes that remain recognizable at 32 pixels. It must not use Hermes helmets, wings, faces, existing brand logos or generic robot imagery. Center the emblem in a dark midnight navy rounded-square app tile, with ample 18% safe margin on all sides. Use bright mint teal #2dd4bf for the j, light sky cyan #38bdf8 for the ring, and warm ivory #f8fafc for the dot. The icon should look like precision engineering and calm coordination, not neon cyberpunk. No text or letters other than the abstract j shape, no watermark, no typography, no busy background. Front-on, crisply defined vector-like shapes with subtle dimensional finish and very restrained shadow. 1:1 square, 1024 by 1024 pixels.",
+  "processing": [
+    "Converted the generated WEBP to RGBA PNG with native macOS sips.",
+    "Cropped the outer field to the app tile and composited opaque interior pixels over midnight navy.",
+    "Applied a clean antialiased rounded-rectangle alpha mask and replaced the noisy edge fringe with the tile background using Python standard-library PNG processing.",
+    "Resized the cleaned tile to 1024 by 1024 with native macOS sips."
+  ],
+  "usage": "Dedicated OMJ identity icon for README, site navigation, favicon and social preview; not an execution or verification claim."
+}

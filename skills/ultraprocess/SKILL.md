@@ -45,12 +45,15 @@ Bad example:
 - The implementation owner is selected and handoff, dispatch, run, review, CI, and PR readiness are separated.
 - The code-review gate is observed or explicitly marked not_observed.
 - Docs sync is checked when behavior, setup, commands, examples, or public claims changed.
+- An in-scope reversible Ruling records the decision, reason, and cost-if-wrong before execution.
+- The four tests-first questions have meaningful answers, and independent review rounds remain within the cap with fresh evidence.
 
 ## Recovery Notes
 
 - If the task expands beyond one delivery cycle, stop and route to loop with the current evidence as input.
 - If no implementation owner is selected, keep the work prepared_not_observed and ask for Codex, Claude Code, Hermes, or another runtime.
 - If review, CI, docs sync, or PR evidence is missing, report the stage gap instead of saying the process is complete.
+- If the Ruling, tests-first answers, fresh reviewer, or review cap is missing, keep execution blocked and name the exact gate.
 
 ## OMJ Context Rail
 

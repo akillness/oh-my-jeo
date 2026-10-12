@@ -8,6 +8,7 @@ from ..goal_loop import explicit_loop_invocation_signal
 from ..ingress import CHAT_SOURCES, extract_message_text
 from .catalog_questions import is_file_or_text_lookup_question, is_skill_catalog_question
 from .intent import scrub_diagnostic_status_text
+from .reference_regions import executable_routing_text
 from .policy import (
     CONFIDENCE_LEVELS,
     ROUTE_ACTIONS,
@@ -134,7 +135,7 @@ def route_chat_message(
     if min_confidence not in CONFIDENCE_LEVELS:
         raise ValueError(f"unsupported chat route confidence threshold: {min_confidence}")
 
-    routing_message = scrub_diagnostic_status_text(message)
+    routing_message = scrub_diagnostic_status_text(executable_routing_text(message))
     definitions = routable_definitions()
     full_recommendations = recommend_skills(routing_message, limit=len(definitions))
     explicit_skill = explicit_skill_invocation(routing_message, definitions)
@@ -288,7 +289,10 @@ def route_chat_message(
 
 
 def _has_explicit_invocation_prefix(message: str) -> bool:
-    first = message.strip().split(maxsplit=1)[0].strip(":,").lower()
+    parts = message.strip().split(maxsplit=1)
+    if not parts:
+        return False
+    first = parts[0].strip(":,").lower()
     return first.startswith(("$", "/", "./", "@"))
 
 

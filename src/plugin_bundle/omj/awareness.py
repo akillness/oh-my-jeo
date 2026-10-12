@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from .reference_regions import executable_routing_text, reference_regions
 
 _DIAGNOSTIC_STATUS_MARKERS = (
     "[omj awareness]",
@@ -153,7 +154,7 @@ except ImportError:  # pragma: no cover - exercised by standalone plugin hosts.
         )
 
     def classify_omj_quality_intent(message: str) -> _FallbackOmjQualityIntent:
-        text = unicodedata.normalize("NFKC", message).casefold()
+        text = unicodedata.normalize("NFKC", executable_routing_text(message)).casefold()
         compact = text.replace(" ", "")
         system_target_cues = []
         if re.search(r"(?<![a-z0-9])omj(?![a-z0-9])", text):
@@ -252,7 +253,7 @@ except ImportError:  # pragma: no cover - exercised by standalone plugin hosts.
         )
 
     def classify_workflow_intent(message: str) -> _FallbackWorkflowIntent:
-        text = unicodedata.normalize("NFKC", message).casefold()
+        text = unicodedata.normalize("NFKC", executable_routing_text(message)).casefold()
         compact = text.replace(" ", "")
         diagnostic_evaluation = _fallback_diagnostic_omj_evaluation_context(text, compact)
         analysis_text = text if diagnostic_evaluation or not _diagnostic_status_context(text) else _without_diagnostic_status_lines(text)
@@ -267,7 +268,11 @@ except ImportError:  # pragma: no cover - exercised by standalone plugin hosts.
             "ultrawork",
             "ultraqa",
         }
-        mentioned_workflows = tuple(workflow for workflow in delivery_workflows if workflow in analysis_text)
+        regions = reference_regions(message)
+        reference_text = " ".join(regions.references).casefold()
+        executable_workflows = tuple(workflow for workflow in delivery_workflows if workflow in analysis_text)
+        reference_workflows = tuple(workflow for workflow in delivery_workflows if workflow in reference_text)
+        mentioned_workflows = tuple(dict.fromkeys((*executable_workflows, *reference_workflows)))
         runtime_terms = []
         for term, label in (
             ("codex", "Codex"),
@@ -332,11 +337,12 @@ except ImportError:  # pragma: no cover - exercised by standalone plugin hosts.
         ) or " omj " in f" {analysis_text} "
         specific_runtime_reference = any(term != "Codex" for term in runtime_terms)
         workflow_or_specific_runtime = bool(mentioned_workflows or specific_runtime_reference)
+        structural_reference = bool(reference_workflows)
         if execution:
             intent_class = "delivery_intent"
         elif diagnostic_evaluation or missing or (feedback_cues and (routing_context or workflow_or_specific_runtime)):
             intent_class = "feedback_signal"
-        elif meta_cues and (routing_context or workflow_or_specific_runtime):
+        elif (meta_cues or structural_reference) and (routing_context or workflow_or_specific_runtime):
             intent_class = "meta_discussion"
         else:
             intent_class = "unknown"
@@ -846,7 +852,7 @@ def workflow_context_card_for_workflow(workflow: str) -> dict[str, object]:
 
 def awareness_context_matches_message(message: str) -> bool:
     """Return true when a non-first-turn message should refresh OMJ context."""
-    text = unicodedata.normalize("NFKC", message).casefold()
+    text = unicodedata.normalize("NFKC", executable_routing_text(message)).casefold()
     if not text.strip():
         return False
     tokens = set(re.findall(r"[a-z0-9][a-z0-9_-]*", text))
@@ -857,14 +863,18 @@ def awareness_context_matches_message(message: str) -> bool:
 
 def awareness_route_hint(message: str, *, max_hints: int = 2) -> dict[str, object]:
     """Return bounded message-specific workflow hints without exposing raw text."""
-    normalized = unicodedata.normalize("NFKC", message).casefold()
+    routing_message = executable_routing_text(message)
+    normalized = unicodedata.normalize("NFKC", routing_message).casefold()
     diagnostic_status = _diagnostic_status_context(normalized)
-    diagnostic_eval = _prefers_diagnostic_workflow_learning_hint(message, classify_workflow_intent(message))
+    diagnostic_eval = _prefers_diagnostic_workflow_learning_hint(
+        routing_message,
+        classify_workflow_intent(message),
+    )
     routing_normalized = normalized if diagnostic_eval or not diagnostic_status else _without_diagnostic_status_lines(normalized)
     tokens = set(re.findall(r"[a-z0-9][a-z0-9_-]*", routing_normalized))
     hint_limit = max(max_hints, 0)
     intent = classify_workflow_intent(message)
-    omj_quality_intent = classify_omj_quality_intent(message)
+    omj_quality_intent = classify_omj_quality_intent(routing_message)
     diagnostic_learning_first = diagnostic_eval
     hints: list[dict[str, object]] = []
     if normalized.strip() and hint_limit:

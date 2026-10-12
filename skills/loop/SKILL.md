@@ -46,6 +46,8 @@ Bad example:
 - The current loop_status_card/v1 names the queue item, tick status, verification_plan, and next action.
 - failure_mode_summary checks verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition before progress advances.
 - Completion is backed by linked goal/runtime evidence; queued loop ticks alone are not observed work.
+- A machine-decidable finish line, fenced paths, independent judge, prior approval for self-rule edits, and bounded acceptance-failure policy are recorded.
+- Keep a per-item retry cap, require human approval before any self-rule edit, never self-grade loop completion, and stop rather than leave an unjudged item marked done.
 
 ## Recovery Notes
 
@@ -53,6 +55,7 @@ Bad example:
 - If feedback is unclear, ask one gate question or route back to research/plan rather than advancing the loop.
 - If the goal turns into external waiting, record the waiting state and next observable signal instead of continuing locally.
 - If context or budget is exhausted, checkpoint the loop artifact and continue from the latest loop_cycle/v1 state.
+- If the finish line, fence, judge, or prior approval is missing, stop at prepared_not_observed and request the missing gate.
 
 ## OMJ Context Rail
 
@@ -68,7 +71,7 @@ Bad example:
 
 ## Use When
 
-Use when the user starts a high-level goal or invokes loop. Direct loop invocation means start/continue through interviewer, planner, researcher, builder, reviewer, and loop-controller lanes until a real gate stops it.
+Use for high-level goals or direct loop invocation; start/continue through interviewer, planner, researcher, builder, reviewer, and loop controller until a real gate.
 
     Strong routing signals: `loop`, `./loop`, `$loop`, `goal loop`, `long horizon goal`, `never stop`, `research plan ultragoal feedback`, `token exhaustion resume`, `permission profile`, `star 10k`, `10k star`, `loop engineering`, `루프`, `목표 루프`, `장기 목표`, `끝까지`, `토큰 고갈`, `피드백 루프`
 
@@ -81,24 +84,18 @@ Quality tier: `loop-gated`
 
 Quality bar:
 
-- Treat direct `loop`, `./loop`, `$loop`, and OMJ loop invocations as a start/continue signal rather than a picker or passive clarification path.
-- Classify the goal as task, project, ambition, external-wait, or unclear inside the loop, then keep progressing until a real permission, evidence, verification, context, budget, or external-wait gate appears.
-- Expose core OMJ roles: interviewer, planner, researcher, builder, reviewer, and loop controller.
-- Route tiny direct tasks to one-cycle delivery surfaces instead of forcing loop overhead.
-- Reframe a north-star ambition into a bounded arena, observable problem, next loop goal, and next verification without shrinking its ambition.
-- Separate task discovery, distribution, execution, verification, next-task decision, runtime tick queueing, ultragoal/handoff, feedback, waiting, and resume decisions.
-- Expose a permission profile before executor/runtime dispatch, repository mutation, PR, merge, or external publishing.
-- Expose the automation, worktree, skill, connector, and subagent building-block states without treating planned blocks as observed work.
-- Choose workflow patterns such as single-step, fan-out-and-synthesize, adversarial verification, tournament, or triage batch as orchestration metadata only.
-- Keep repeated scaffold shape stable, summarize within bounded budgets, and add verifier lanes only when risk or evidence warrants them.
-- Keep prepared worktree/subagent/connector plans, observed executor work, linked goal completion, and external waiting as distinct evidence states.
-- Use cheap inner-loop checks frequently and expensive outer-loop checks sparingly.
-- Keep the practical small-loop recipe visible: test as stop signal, plan -> execute -> verify, one task at a time.
-- Surface verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition as warnings before a loop starts looking self-steering.
+- Treat direct `loop`, `./loop`, `$loop`, and OMJ invocations as start/continue, not pickers. Classify task/project/ambition/external-wait/unclear; reach real permission/evidence/verification/context/budget/wait gates.
+- Expose interviewer/planner/researcher/builder/reviewer/loop-controller roles. Tiny tasks use one-cycle delivery. Reframe north-star ambition as bounded arena/observable problem/next goal/verification; never shrink ambition.
+- Separate discovery/distribution/execution/verification/next-task/queue/ultragoal-handoff/feedback/wait/resume. Permission profile precedes dispatch/mutation/PR/merge/publication.
+- Show automation/worktree/skill/connector/subagent states; separate prepared plans, observed executor work, linked goal completion, and external waits.
+- Single-step/fan-out-and-synthesize/adversarial/tournament/triage patterns are metadata only. Keep scaffolds stable and summaries bounded; verifier lanes require risk or evidence.
+- Use cheap inner-loop checks often, expensive outer-loop checks sparingly. Small-loop recipe: test as stop signal, plan -> execute -> verify, one task at a time.
+- Warn on verification_gap, comprehension_debt, cognitive_surrender, and stalled_repetition before apparent self-steering.
+- Require a machine-decidable finish line, fenced paths, independent judge and per-item retry cap. Human approval precedes self-rule edits; never self-grade. Stop at bounded acceptance failures; never mark unjudged items done.
 
 Handoff policy:
 
-Keep loop orchestration, role sequencing, verification-tier selection, deterministic runtime ticks, loop_engineering/v1 status, feedback evaluation, and permission narration in Hermes; prepare executor/runtime/worktree/connector/verifier handoffs only for concrete work and record completion only from linked evidence.
+Hermes owns loop roles, verification tiers, deterministic ticks, loop_engineering/v1 status, feedback, and permissions. Prepare concrete executor/runtime/worktree/connector/verifier handoffs; require linked completion evidence.
 
 Required inputs:
 
@@ -139,13 +136,13 @@ Artifact expectations:
 
 Safety rules:
 
-- Do not treat loop persistence as permission to bypass the selected permission profile.
-- Do not treat a runtime tick as worktree creation, subagent dispatch, connector I/O, implementation, review, CI, merge, publication, or completion evidence.
-- Do not claim goal completion from loop state; require linked goal_ledger/v1 completion evidence.
-- When context or token budget runs out, checkpoint or rely on resumable state instead of pretending the loop is complete.
-- External results such as market response, stars, or adoption are waiting states unless observed evidence is supplied.
-- Do not let unattended loop progress bypass verification; missing or failed verification returns to plan/research or waits for evidence.
-- Do not let comprehension debt or cognitive surrender hide behind green-looking loop status.
+- Loop persistence never bypasses the selected permission profile.
+- Runtime ticks are not evidence of worktree creation, subagent dispatch, connector I/O, implementation, review, CI, merge, publication, or completion.
+- Require linked goal_ledger/v1 completion evidence, not loop state.
+- Checkpoint/resume when context or token budget runs out; never claim completion.
+- Market response, stars, and adoption stay waiting unless observed.
+- Missing/failed verification returns to plan/research or waits; never bypass it.
+- Green-looking status never hides comprehension debt or cognitive surrender.
 
 ## Harness Discipline
 
