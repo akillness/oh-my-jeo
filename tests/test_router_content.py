@@ -986,6 +986,20 @@ class RouterContentTests(unittest.TestCase):
                 self.assertIn("Completion Checklist", skill.content)
                 self.assertIn("Recovery Notes", skill.content)
 
+    def test_plan_recovery_notes_await_before_implementation_handoff(self) -> None:
+        plan = next(skill for skill in builtin_skill_templates() if skill.name == "plan")
+        recovery_notes = plan.content.split("## Recovery Notes\n", 1)[1].split("\n## OMJ Context Rail\n", 1)[0]
+        pre_acceptance = next(
+            line
+            for line in recovery_notes.splitlines()
+            if line.startswith("- If the user has not explicitly accepted the plan,")
+        )
+
+        self.assertIn("keep the plan awaiting", pre_acceptance)
+        self.assertIn("do not prepare an implementation handoff", pre_acceptance)
+        self.assertIn("do not start implementation", pre_acceptance)
+        self.assertNotIn("prepared_not_observed", pre_acceptance)
+
     def test_installable_skills_expose_completion_and_recovery_guidance(self) -> None:
         for definition in installable_skill_definitions():
             with self.subTest(skill=definition.name):
