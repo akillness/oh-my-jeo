@@ -123,6 +123,16 @@ class MemoryContractTests(unittest.TestCase):
                 with self.subTest(summary=summary):
                     candidate = capture_project_memory_candidate(paths, summary)["candidate"]
                     self.assertEqual(candidate["safety"]["status"], "safe")
+    def test_relative_time_review_scans_untruncated_summary(self) -> None:
+        long_summary = ("This is a stable operator procedure with no volatile status. " * 5) + "It was deployed two weeks ago."
+
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            candidate = capture_project_memory_candidate(paths, long_summary)["candidate"]
+
+            self.assertEqual(candidate["safety"]["status"], "needs_review")
+            self.assertIn("relative_time_phrase", candidate["safety"]["review_reasons"])
+
 
     def test_french_multword_safety_cues_require_review_without_rejecting_benign_facts(self) -> None:
         review_required = (
