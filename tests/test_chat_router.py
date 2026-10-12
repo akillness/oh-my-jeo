@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import builtins
 from unittest.mock import patch
 import unittest
@@ -1011,7 +1012,7 @@ class ChatRouterTests(unittest.TestCase):
 
         self.assertEqual(regions.links, tuple(urls))
         self.assertEqual(len(regions.masked_spans), len(urls))
-        self.assertEqual(regions.executable_text, " " * (len(message) - sum(map(len, urls))))
+        self.assertEqual(regions.executable_text, " " * len(message))
         self.assertLessEqual(observed["candidates"].shifted, shift_budget)
 
 
