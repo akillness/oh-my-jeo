@@ -1,9 +1,24 @@
 from __future__ import annotations
 
-import json
+import builtins
+from unittest.mock import patch
 import unittest
 
 from _local_package import load_local_package
+
+class _ShiftBudgetList(list[tuple[int, int, str]]):
+    def __init__(self, values: list[tuple[int, int, str]], budget: int) -> None:
+        super().__init__(values)
+        self.budget = budget
+        self.shifted = 0
+
+    def pop(self, index: int = -1):
+        if index == 0:
+            self.shifted += max(len(self) - 1, 0)
+            if self.shifted > self.budget:
+                raise AssertionError(f"candidate front-pop shift budget exceeded: {self.shifted} > {self.budget}")
+        return super().pop(index)
+
 
 load_local_package()
 from omj.chat_router import (
@@ -978,6 +993,26 @@ class ChatRouterTests(unittest.TestCase):
         decision = route_chat_message("Please $ultrawork fix auth.py", source="discord")
         self.assertEqual(decision["action"], "dispatch")
         self.assertEqual(decision["selected_skill"], "ultrawork")
+
+    def test_reference_lexer_handles_many_independent_regions_with_bounded_front_shift(self) -> None:
+        urls = [f"https://example.test/reference/{index}" for index in range(513)]
+        message = " ".join(urls)
+        shift_budget = len(urls) * 32
+        real_sorted = builtins.sorted
+        observed: dict[str, _ShiftBudgetList] = {}
+
+        def budgeted_sorted(iterable: object, *args: object, **kwargs: object) -> _ShiftBudgetList:
+            candidates = _ShiftBudgetList(list(real_sorted(iterable, *args, **kwargs)), shift_budget)
+            observed["candidates"] = candidates
+            return candidates
+
+        with patch.object(builtins, "sorted", side_effect=budgeted_sorted):
+            regions = reference_regions(message)
+
+        self.assertEqual(regions.links, tuple(urls))
+        self.assertEqual(len(regions.masked_spans), len(urls))
+        self.assertEqual(regions.executable_text, " " * (len(message) - sum(map(len, urls))))
+        self.assertLessEqual(observed["candidates"].shifted, shift_budget)
 
 
     def test_reference_lexer_keeps_malformed_relay_lines_as_references(self) -> None:
