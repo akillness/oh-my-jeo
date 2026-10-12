@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import struct
+import zlib
 from pathlib import Path
 import unittest
 
@@ -1781,5 +1783,83 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("Runtime artifacts", site_docs)
 
 
+    def test_brand_icon_is_valid_and_published_on_every_static_surface(self) -> None:
+        icon = Path("assets/oh-my-jeo-icon.png")
+        payload = icon.read_bytes()
+        self.assertEqual(payload[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual(payload[12:16], b"IHDR")
+        width, height, bit_depth, color_type = struct.unpack(">IIBB", payload[16:26])
+        self.assertEqual((width, height), (1024, 1024))
+        self.assertEqual((bit_depth, color_type), (8, 6))
+        self.assertEqual(payload[-8:-4], b"IEND")
+        self.assertEqual(payload[24], 8)
+        self.assertEqual(payload[25], 6)
+        self.assertEqual(payload[28], 0)
+
+        idat = bytearray()
+        offset = 8
+        while offset < len(payload):
+            chunk_length = struct.unpack(">I", payload[offset : offset + 4])[0]
+            chunk_type = payload[offset + 4 : offset + 8]
+            chunk_data = payload[offset + 8 : offset + 8 + chunk_length]
+            if chunk_type == b"IDAT":
+                idat.extend(chunk_data)
+            offset += 12 + chunk_length
+        decoded = zlib.decompress(bytes(idat))
+        stride = width * 4
+        rows = []
+        cursor = 0
+        previous = bytearray(stride)
+        for _ in range(height):
+            filter_type = decoded[cursor]
+            cursor += 1
+            encoded = decoded[cursor : cursor + stride]
+            cursor += stride
+            row = bytearray(stride)
+            for index, value in enumerate(encoded):
+                left = row[index - 4] if index >= 4 else 0
+                up = previous[index]
+                up_left = previous[index - 4] if index >= 4 else 0
+                if filter_type == 0:
+                    row[index] = value
+                elif filter_type == 1:
+                    row[index] = (value + left) & 0xFF
+                elif filter_type == 2:
+                    row[index] = (value + up) & 0xFF
+                elif filter_type == 3:
+                    row[index] = (value + ((left + up) // 2)) & 0xFF
+                elif filter_type == 4:
+                    estimate = left + up - up_left
+                    pa = abs(estimate - left)
+                    pb = abs(estimate - up)
+                    pc = abs(estimate - up_left)
+                    predictor = left if pa <= pb and pa <= pc else up if pb <= pc else up_left
+                    row[index] = (value + predictor) & 0xFF
+                else:
+                    self.fail(f"unsupported PNG filter {filter_type}")
+            rows.append(row)
+            previous = row
+        corner_alphas = (rows[0][3], rows[0][-1], rows[-1][3], rows[-1][-1])
+        self.assertEqual(corner_alphas, (0, 0, 0, 0))
+        self.assertTrue(any(row[index] > 0 for row in rows for index in range(3, stride, 4)))
+
+        readme = Path("README.md").read_text(encoding="utf-8")
+        self.assertIn("assets/oh-my-jeo-icon.png", readme)
+        self.assertRegex(readme, r'<img[^>]+src="assets/oh-my-jeo-icon\.png"[^>]+alt="[^"]+"')
+
+        html_paths = [Path("site/index.html"), *sorted(Path("site/docs").glob("*/index.html"))]
+        for page in html_paths:
+            html = page.read_text(encoding="utf-8")
+            relative_icon = "assets/oh-my-jeo-icon.png" if page == html_paths[0] else "../../assets/oh-my-jeo-icon.png"
+            self.assertIn(f'href="{relative_icon}"', html, page.as_posix())
+            self.assertRegex(
+                html,
+                r'<img[^>]+src="(?:\.\./)*assets/oh-my-jeo-icon\.png"[^>]+width="32"[^>]+height="32"[^>]+alt="[^"]+"',
+                page.as_posix(),
+            )
+
+        pages_workflow = Path(".github/workflows/pages.yml").read_text(encoding="utf-8")
+        self.assertIn('"assets/oh-my-jeo-icon.png"', pages_workflow)
+        self.assertIn("cp assets/oh-my-jeo-icon.png _site/assets/oh-my-jeo-icon.png", pages_workflow)
 if __name__ == "__main__":
     unittest.main()

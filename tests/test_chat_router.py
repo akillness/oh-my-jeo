@@ -918,6 +918,36 @@ class ChatRouterTests(unittest.TestCase):
         delivery = classify_workflow_intent("$ultraprocess implement this change")
         self.assertEqual(delivery.intent_class, "delivery_intent")
         self.assertTrue(delivery.explicit_execution)
+    def test_reference_wrappers_mask_workflow_invocations_without_masking_adjacent_requests(self) -> None:
+        reference_only = (
+            "> $ultrawork fix the build",
+            "[REPORT] $ralplan fix the build",
+            "planner -> reviewer: $ralplan fix the build",
+            "Reviewer (agent-7) to lead: $ralplan fix the build",
+            "https://example.com/docs/ralplan",
+        )
+        for message in reference_only:
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertFalse(intent.explicit_execution)
+                self.assertNotEqual(intent.intent_class, "delivery_intent")
+                self.assertNotIn("workflow_marker", intent.structural_cues)
+                self.assertEqual(intent.mentioned_workflows, ())
+
+        adjacent = (
+            ("v1 -> v2: $ralplan fix the build", ("ralplan",)),
+            ("Deploy (v2) to staging: $ultrawork fix the build", ("ultrawork",)),
+            ("[summary] $ralplan fix the build", ("ralplan",)),
+            ("> 5 failures: $ultraqa fix the build", ("ultraqa",)),
+            ("https://example.com/docs/ralplan $ultrawork fix the build", ("ultrawork",)),
+            ("> $ralplan quoted\n$ultrawork fix the build", ("ultrawork",)),
+        )
+        for message, workflows in adjacent:
+            with self.subTest(message=message):
+                intent = classify_workflow_intent(message)
+                self.assertTrue(intent.explicit_execution)
+                self.assertEqual(intent.intent_class, "delivery_intent")
+                self.assertEqual(intent.mentioned_workflows, workflows)
 
     def test_generic_korean_omj_feedback_does_not_become_router_design_card(self) -> None:
         decision = route_chat_message("피드백인데 OMJ 문서가 좋아요.", source="discord")
