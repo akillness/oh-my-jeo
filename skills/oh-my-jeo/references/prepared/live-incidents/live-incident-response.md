@@ -1,8 +1,8 @@
 # Prepared guidance: live-incident-response
 
-Family: `live-incidents`  
-Category: `reliability`  
-Phase: `live-incident-command`  
+Family: `live-incidents`<br>
+Category: `reliability`<br>
+Phase: `live-incident-command`<br>
 Role: `operator`
 
 ## Contract

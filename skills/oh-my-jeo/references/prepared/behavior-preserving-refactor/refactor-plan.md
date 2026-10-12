@@ -1,8 +1,8 @@
 # Prepared guidance: refactor-plan
 
-Family: `behavior-preserving-refactor`  
-Category: `planning`  
-Phase: `refactor-plan`  
+Family: `behavior-preserving-refactor`<br>
+Category: `planning`<br>
+Phase: `refactor-plan`<br>
 Role: `planner`
 
 ## Contract

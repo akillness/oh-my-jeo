@@ -1,8 +1,8 @@
 # Prepared guidance: codebase-uml
 
-Family: `code-intelligence`  
-Category: `planning`  
-Phase: `codebase-uml`  
+Family: `code-intelligence`<br>
+Category: `planning`<br>
+Phase: `codebase-uml`<br>
 Role: `planner`
 
 ## Contract

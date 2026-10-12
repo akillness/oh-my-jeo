@@ -1,8 +1,8 @@
 # Prepared guidance: design-quality-gate
 
-Family: `design-direction`  
-Category: `materials`  
-Phase: `design-quality-gate`  
+Family: `design-direction`<br>
+Category: `materials`<br>
+Phase: `design-quality-gate`<br>
 Role: `operator`
 
 ## Contract

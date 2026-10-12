@@ -1,8 +1,8 @@
 # Prepared guidance: command-operator
 
-Family: `primitive-operators`  
-Category: `command`  
-Phase: `command-task`  
+Family: `primitive-operators`<br>
+Category: `command`<br>
+Phase: `command-task`<br>
 Role: `guide`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: production-audit
 
-Family: `production-readiness`  
-Category: `review`  
-Phase: `production-readiness`  
+Family: `production-readiness`<br>
+Category: `review`<br>
+Phase: `production-readiness`<br>
 Role: `reviewer`
 
 ## Contract

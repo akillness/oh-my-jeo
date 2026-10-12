@@ -1,8 +1,8 @@
 # Prepared guidance: workspace-file-operator
 
-Family: `primitive-operators`  
-Category: `filesystem`  
-Phase: `file-task`  
+Family: `primitive-operators`<br>
+Category: `filesystem`<br>
+Phase: `file-task`<br>
 Role: `guide`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: jev-failure-triage
 
-Family: `typed-jev-assist`  
-Category: `review`  
-Phase: `jev-failure-triage`  
+Family: `typed-jev-assist`<br>
+Category: `review`<br>
+Phase: `jev-failure-triage`<br>
 Role: `reviewer`
 
 ## Contract

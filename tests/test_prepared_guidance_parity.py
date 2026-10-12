@@ -306,6 +306,62 @@ class PreparedGuidanceParityTests(unittest.TestCase):
                     content = str(by_path[target]["content"])
                     self.assertEqual(hashlib.sha256(content.encode("utf-8")).hexdigest(), reference["source_sha256"])
 
+    def test_omj_contract_metadata_preserves_record_values_without_trailing_whitespace(
+        self,
+    ) -> None:
+        records = {
+            record["canonical_id"]: record
+            for record in (
+                _mapping(prepared.prepared_guidance_member(canonical_id))
+                for canonical_id in EXPECTED_MEMBER_IDS
+            )
+        }
+        templates = {
+            str(template["relative_path"]): str(template["content"])
+            for template in (
+                _mapping(template)
+                for template in prepared.prepared_guidance_reference_templates()
+            )
+        }
+        for canonical_id, record in records.items():
+            path = f"references/prepared/{record['family_id']}/{canonical_id}.md"
+            content = templates[path]
+            with self.subTest(canonical_id=canonical_id):
+                self.assertTrue(
+                    all(line == line.rstrip() for line in content.splitlines())
+                )
+                metadata: dict[str, str] = {}
+                metadata_lines: dict[str, str] = {}
+                for line in content.splitlines():
+                    for field in ("Family", "Category", "Phase", "Role"):
+                        prefix = f"{field}: "
+                        if line.startswith(prefix):
+                            metadata_lines[field] = line
+                            metadata[field] = (
+                                line[len(prefix) :].removesuffix("<br>").strip(" `")
+                            )
+                self.assertEqual(
+                    metadata,
+                    {
+                        "Family": str(record["family_id"]),
+                        "Category": str(record["category"]),
+                        "Phase": str(record["phase"]),
+                        "Role": str(record["role"]),
+                    },
+                )
+                for field in ("Family", "Category", "Phase"):
+                    self.assertTrue(metadata_lines[field].endswith("<br>"), field)
+                self.assertFalse(metadata_lines["Role"].endswith("<br>"))
+                self.assertEqual(
+                    metadata,
+                    {
+                        "Family": str(record["family_id"]),
+                        "Category": str(record["category"]),
+                        "Phase": str(record["phase"]),
+                        "Role": str(record["role"]),
+                    },
+                )
+
     def test_jev_members_disclose_missing_procedure_without_fabricating_provider(self) -> None:
         records = {record["canonical_id"]: record for record in (_mapping(prepared.prepared_guidance_member(canonical_id)) for canonical_id in EXPECTED_MEMBER_IDS)}
         for canonical_id in JEV_MEMBER_IDS:

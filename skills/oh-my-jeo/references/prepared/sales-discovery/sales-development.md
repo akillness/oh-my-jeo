@@ -1,8 +1,8 @@
 # Prepared guidance: sales-development
 
-Family: `sales-discovery`  
-Category: `strategy`  
-Phase: `sales-development`  
+Family: `sales-discovery`<br>
+Category: `strategy`<br>
+Phase: `sales-development`<br>
 Role: `operator`
 
 ## Contract

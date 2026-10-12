@@ -1,8 +1,8 @@
 # Prepared guidance: jev-ask
 
-Family: `typed-jev-assist`  
-Category: `gateway`  
-Phase: `jev-ask`  
+Family: `typed-jev-assist`<br>
+Category: `gateway`<br>
+Phase: `jev-ask`<br>
 Role: `guide`
 
 ## Contract

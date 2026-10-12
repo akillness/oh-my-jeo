@@ -1,8 +1,8 @@
 # Prepared guidance: jev-review-gate
 
-Family: `typed-jev-assist`  
-Category: `review`  
-Phase: `jev-review-gate`  
+Family: `typed-jev-assist`<br>
+Category: `review`<br>
+Phase: `jev-review-gate`<br>
 Role: `reviewer`
 
 ## Contract

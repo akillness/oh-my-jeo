@@ -1,8 +1,8 @@
 # Prepared guidance: running-work-board
 
-Family: `running-board`  
-Category: `operator`  
-Phase: `observability`  
+Family: `running-board`<br>
+Category: `operator`<br>
+Phase: `observability`<br>
 Role: `tracker`
 
 ## Contract

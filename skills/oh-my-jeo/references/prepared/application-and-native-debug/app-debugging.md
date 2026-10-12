@@ -1,8 +1,8 @@
 # Prepared guidance: app-debugging
 
-Family: `application-and-native-debug`  
-Category: `verification`  
-Phase: `app-root-cause`  
+Family: `application-and-native-debug`<br>
+Category: `verification`<br>
+Phase: `app-root-cause`<br>
 Role: `reviewer`
 
 ## Contract

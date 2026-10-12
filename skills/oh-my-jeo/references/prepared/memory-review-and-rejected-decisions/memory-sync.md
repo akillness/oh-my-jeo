@@ -1,8 +1,8 @@
 # Prepared guidance: memory-sync
 
-Family: `memory-review-and-rejected-decisions`  
-Category: `memory`  
-Phase: `curation-review`  
+Family: `memory-review-and-rejected-decisions`<br>
+Category: `memory`<br>
+Phase: `curation-review`<br>
 Role: `memory-keeper`
 
 ## Contract

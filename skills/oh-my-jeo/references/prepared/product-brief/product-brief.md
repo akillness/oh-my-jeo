@@ -1,8 +1,8 @@
 # Prepared guidance: product-brief
 
-Family: `product-brief`  
-Category: `planning`  
-Phase: `product-brief`  
+Family: `product-brief`<br>
+Category: `planning`<br>
+Phase: `product-brief`<br>
 Role: `planner`
 
 ## Contract

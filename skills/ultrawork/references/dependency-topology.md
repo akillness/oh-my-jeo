@@ -56,4 +56,3 @@ On a graph-capable host, encode real edges and dispatch the dependency-ready fro
 
 On a host without native DAG support, run edge-free units as plain parallel native subagents and run ordered units sequentially in topological order. This is a fallback inside `ulw-work`, not a separate skill or hidden runtime.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-

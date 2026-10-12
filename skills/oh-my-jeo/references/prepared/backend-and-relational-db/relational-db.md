@@ -1,8 +1,8 @@
 # Prepared guidance: relational-db
 
-Family: `backend-and-relational-db`  
-Category: `planning`  
-Phase: `relational-db`  
+Family: `backend-and-relational-db`<br>
+Category: `planning`<br>
+Phase: `relational-db`<br>
 Role: `planner`
 
 ## Contract

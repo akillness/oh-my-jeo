@@ -1,8 +1,8 @@
 # Prepared guidance: decision-recall
 
-Family: `memory-review-and-rejected-decisions`  
-Category: `memory`  
-Phase: `decision-recall`  
+Family: `memory-review-and-rejected-decisions`<br>
+Category: `memory`<br>
+Phase: `decision-recall`<br>
 Role: `memory-keeper`
 
 ## Contract

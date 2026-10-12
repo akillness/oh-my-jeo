@@ -1,8 +1,8 @@
 # Prepared guidance: jev-done-check
 
-Family: `typed-jev-assist`  
-Category: `review`  
-Phase: `jev-done-check`  
+Family: `typed-jev-assist`<br>
+Category: `review`<br>
+Phase: `jev-done-check`<br>
 Role: `reviewer`
 
 ## Contract

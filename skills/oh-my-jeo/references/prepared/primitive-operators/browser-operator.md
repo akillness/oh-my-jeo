@@ -1,8 +1,8 @@
 # Prepared guidance: browser-operator
 
-Family: `primitive-operators`  
-Category: `browser`  
-Phase: `browser-task`  
+Family: `primitive-operators`<br>
+Category: `browser`<br>
+Phase: `browser-task`<br>
 Role: `guide`
 
 ## Contract

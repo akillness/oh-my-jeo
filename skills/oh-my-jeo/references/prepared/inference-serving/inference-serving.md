@@ -1,8 +1,8 @@
 # Prepared guidance: inference-serving
 
-Family: `inference-serving`  
-Category: `operations`  
-Phase: `inference-serving`  
+Family: `inference-serving`<br>
+Category: `operations`<br>
+Phase: `inference-serving`<br>
 Role: `operator`
 
 ## Contract

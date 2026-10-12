@@ -1,8 +1,8 @@
 # Prepared guidance: achievements
 
-Family: `achievements`  
-Category: `observability`  
-Phase: `telemetry-card`  
+Family: `achievements`<br>
+Category: `observability`<br>
+Phase: `telemetry-card`<br>
 Role: `tracker`
 
 ## Contract

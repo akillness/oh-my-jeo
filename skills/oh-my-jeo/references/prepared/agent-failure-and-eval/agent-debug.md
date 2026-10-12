@@ -1,8 +1,8 @@
 # Prepared guidance: agent-debug
 
-Family: `agent-failure-and-eval`  
-Category: `operations`  
-Phase: `agent-debug`  
+Family: `agent-failure-and-eval`<br>
+Category: `operations`<br>
+Phase: `agent-debug`<br>
 Role: `operator`
 
 ## Contract

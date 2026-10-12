@@ -1,8 +1,8 @@
 # Prepared guidance: llm-app-dev
 
-Family: `llm-application-build`  
-Category: `delivery`  
-Phase: `llm-app-dev`  
+Family: `llm-application-build`<br>
+Category: `delivery`<br>
+Phase: `llm-app-dev`<br>
 Role: `operator`
 
 ## Contract

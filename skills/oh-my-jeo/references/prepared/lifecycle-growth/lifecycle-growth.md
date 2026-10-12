@@ -1,8 +1,8 @@
 # Prepared guidance: lifecycle-growth
 
-Family: `lifecycle-growth`  
-Category: `strategy`  
-Phase: `lifecycle-growth`  
+Family: `lifecycle-growth`<br>
+Category: `strategy`<br>
+Phase: `lifecycle-growth`<br>
 Role: `operator`
 
 ## Contract

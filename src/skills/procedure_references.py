@@ -74,7 +74,6 @@ The blast radius of a change is the code it edited and what rests on it: a test 
 
 A defect found outside the blast radius is not fixed on the side. Record it in the evidence ledger with the steps that reproduce it and the output that shows it, name it in the closing brief, and offer to file it as a tracked issue. Filing on a shared tracker changes external state, so it waits for approval unless filing was already authorized. A deferred defect never turns an acceptance criterion it touches into a pass: the criterion stays open and is reported as open.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 _DEPENDENCY_TOPOLOGY = r"""# Dependency Topology Discipline
@@ -135,7 +134,6 @@ On a graph-capable host, encode real edges and dispatch the dependency-ready fro
 
 On a host without native DAG support, run edge-free units as plain parallel native subagents and run ordered units sequentially in topological order. This is a fallback inside `ulw-work`, not a separate skill or hidden runtime.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 _TDD_RED_GREEN = r"""# TDD Red/Green Discipline
@@ -215,7 +213,6 @@ Hermes bundles the superpowers `test-driven-development` skill. When it is loade
 
 This discipline adapts the red/green/refactor practice popularized by Kent Beck and the obra/superpowers `test-driven-development` skill that Hermes bundles. The questions before a new test, the shapes of tests that guard nothing, and the pre-fix failure rule for bug regressions adapt concepts from code-yeongyu/oh-my-openagent (Sustainable Use License 1.0, concepts only). No upstream text is reproduced. OMJ maps the mechanisms onto its own lane, evidence, and `prepared_not_observed` vocabulary.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 _LOOP_DESIGN_REVIEW = r"""# Loop Design Review
@@ -310,7 +307,6 @@ The record is prepared design, not an observed run. A clear check is not evidenc
 
 The finish-line-with-fence pairing, the separate judge, the stricter review for self-modifying loops, and the pre-launch failure check adapt the loop-design-check skill from `affaan-m/everything-claude-code` (MIT). No upstream text is reproduced. OMJ maps the ideas onto its own loopability assessment, loop success criteria, queue verification plans, verification gate, and evidence vocabulary.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 _HYPOTHESIS_AND_RACE = r"""# Hypothesis, Flaky-Test, and Race Method
@@ -405,7 +401,6 @@ After the third failed fix, stop fixing. Every fix was tested against a structur
 
 A symptom that stopped after an edit, with no mechanism, is an open fault with a changed schedule.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 _SESSION_FORENSICS = r"""# Session Forensics Rules
@@ -469,7 +464,6 @@ In a delegated child's transcript, every user-role turn is the parent agent's br
 
 A finding cites a session id plus message ids, or `record:line`; one without a citation is dropped, not softened. The cited rows go into the competing-hypotheses step of the quality bar as evidence for or against, and causation still needs the revert-verify step there.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 _SERVICE_CONTRACT = r"""# Backend Service Contract
@@ -571,7 +565,6 @@ wording, the artifact vocabulary, and the `prepared_not_observed` claim
 boundary are OMJ's own, and OMJ keeps its no-execution boundary: every command
 below is something the executor runs, never OMJ.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
 """
 
 

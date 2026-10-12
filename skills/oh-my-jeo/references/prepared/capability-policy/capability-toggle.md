@@ -1,8 +1,8 @@
 # Prepared guidance: capability-toggle
 
-Family: `capability-policy`  
-Category: `operator`  
-Phase: `configuration`  
+Family: `capability-policy`<br>
+Category: `operator`<br>
+Phase: `configuration`<br>
 Role: `tracker`
 
 ## Contract

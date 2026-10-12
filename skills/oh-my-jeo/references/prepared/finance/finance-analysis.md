@@ -1,8 +1,8 @@
 # Prepared guidance: finance-analysis
 
-Family: `finance`  
-Category: `operations`  
-Phase: `finance-analysis`  
+Family: `finance`<br>
+Category: `operations`<br>
+Phase: `finance-analysis`<br>
 Role: `operator`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: skill-scout
 
-Family: `skill-portfolio`  
-Category: `operations`  
-Phase: `skill-scout`  
+Family: `skill-portfolio`<br>
+Category: `operations`<br>
+Phase: `skill-scout`<br>
 Role: `operator`
 
 ## Contract

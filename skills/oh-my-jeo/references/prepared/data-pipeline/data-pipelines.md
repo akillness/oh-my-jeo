@@ -1,8 +1,8 @@
 # Prepared guidance: data-pipelines
 
-Family: `data-pipeline`  
-Category: `planning`  
-Phase: `data-pipelines`  
+Family: `data-pipeline`<br>
+Category: `planning`<br>
+Phase: `data-pipelines`<br>
 Role: `planner`
 
 ## Contract

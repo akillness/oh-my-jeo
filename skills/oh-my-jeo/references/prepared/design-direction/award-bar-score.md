@@ -1,8 +1,8 @@
 # Prepared guidance: award-bar-score
 
-Family: `design-direction`  
-Category: `materials`  
-Phase: `award-bar-score`  
+Family: `design-direction`<br>
+Category: `materials`<br>
+Phase: `award-bar-score`<br>
 Role: `operator`
 
 ## Contract

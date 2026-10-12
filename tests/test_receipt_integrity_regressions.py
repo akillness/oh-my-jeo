@@ -10,8 +10,6 @@ from unittest.mock import patch
 from _cli_harness import run_cli
 from _local_package import load_local_package
 
-GOAL_ROOT = Path(__file__).resolve().parents[1]
-assert GOAL_ROOT == Path("/Users/jangyoung/.superset/worktrees/omj-hermes-updates-icon")
 load_local_package()
 
 from omj.coding.handoff_contract import contract_digest  # noqa: E402

@@ -1,8 +1,8 @@
 # Prepared guidance: external-connector-readiness
 
-Family: `external-and-provider-readiness`  
-Category: `connector`  
-Phase: `connector-readiness`  
+Family: `external-and-provider-readiness`<br>
+Category: `connector`<br>
+Phase: `connector-readiness`<br>
 Role: `guide`
 
 ## Contract

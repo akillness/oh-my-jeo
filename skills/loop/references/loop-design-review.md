@@ -90,4 +90,3 @@ The record is prepared design, not an observed run. A clear check is not evidenc
 
 The finish-line-with-fence pairing, the separate judge, the stricter review for self-modifying loops, and the pre-launch failure check adapt the loop-design-check skill from `affaan-m/everything-claude-code` (MIT). No upstream text is reproduced. OMJ maps the ideas onto its own loopability assessment, loop success criteria, queue verification plans, verification gate, and evidence vocabulary.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-

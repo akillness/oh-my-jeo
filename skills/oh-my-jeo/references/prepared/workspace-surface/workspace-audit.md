@@ -1,8 +1,8 @@
 # Prepared guidance: workspace-audit
 
-Family: `workspace-surface`  
-Category: `operations`  
-Phase: `workspace-audit`  
+Family: `workspace-surface`<br>
+Category: `operations`<br>
+Phase: `workspace-audit`<br>
 Role: `operator`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: git-workflow
 
-Family: `commit-and-git`  
-Category: `verification`  
-Phase: `git-repair`  
+Family: `commit-and-git`<br>
+Category: `verification`<br>
+Phase: `git-repair`<br>
 Role: `reviewer`
 
 ## Contract

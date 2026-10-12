@@ -1,8 +1,8 @@
 # Prepared guidance: skill-health
 
-Family: `skill-portfolio`  
-Category: `operations`  
-Phase: `skill-health`  
+Family: `skill-portfolio`<br>
+Category: `operations`<br>
+Phase: `skill-health`<br>
 Role: `operator`
 
 ## Contract

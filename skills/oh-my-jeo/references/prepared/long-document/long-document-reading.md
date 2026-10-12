@@ -1,8 +1,8 @@
 # Prepared guidance: long-document-reading
 
-Family: `long-document`  
-Category: `research`  
-Phase: `long-document-reading`  
+Family: `long-document`<br>
+Category: `research`<br>
+Phase: `long-document-reading`<br>
 Role: `researcher`
 
 ## Contract

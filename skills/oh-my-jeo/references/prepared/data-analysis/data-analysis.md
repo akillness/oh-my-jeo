@@ -1,8 +1,8 @@
 # Prepared guidance: data-analysis
 
-Family: `data-analysis`  
-Category: `analysis`  
-Phase: `data-task`  
+Family: `data-analysis`<br>
+Category: `analysis`<br>
+Phase: `data-task`<br>
 Role: `guide`
 
 ## Contract

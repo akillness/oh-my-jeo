@@ -1,8 +1,8 @@
 # Prepared guidance: internal-audit
 
-Family: `internal-controls`  
-Category: `review`  
-Phase: `internal-audit`  
+Family: `internal-controls`<br>
+Category: `review`<br>
+Phase: `internal-audit`<br>
 Role: `reviewer`
 
 ## Contract

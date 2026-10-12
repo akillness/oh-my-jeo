@@ -1,8 +1,8 @@
 # Prepared guidance: media-input-operator
 
-Family: `primitive-operators`  
-Category: `media`  
-Phase: `media-input-task`  
+Family: `primitive-operators`<br>
+Category: `media`<br>
+Phase: `media-input-task`<br>
 Role: `guide`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: visual-qa
 
-Family: `design-direction`  
-Category: `materials`  
-Phase: `visual-qa`  
+Family: `design-direction`<br>
+Category: `materials`<br>
+Phase: `visual-qa`<br>
 Role: `operator`
 
 ## Contract

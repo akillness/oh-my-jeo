@@ -1,8 +1,8 @@
 # Prepared guidance: frontend-refactor
 
-Family: `behavior-preserving-refactor`  
-Category: `maintenance`  
-Phase: `frontend-refactor`  
+Family: `behavior-preserving-refactor`<br>
+Category: `maintenance`<br>
+Phase: `frontend-refactor`<br>
 Role: `handoff-guide`
 
 ## Contract

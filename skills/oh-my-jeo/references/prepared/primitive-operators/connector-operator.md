@@ -1,8 +1,8 @@
 # Prepared guidance: connector-operator
 
-Family: `primitive-operators`  
-Category: `connector`  
-Phase: `connector-task`  
+Family: `primitive-operators`<br>
+Category: `connector`<br>
+Phase: `connector-task`<br>
 Role: `guide`
 
 ## Contract

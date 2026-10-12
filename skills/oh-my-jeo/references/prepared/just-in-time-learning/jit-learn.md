@@ -1,8 +1,8 @@
 # Prepared guidance: jit-learn
 
-Family: `just-in-time-learning`  
-Category: `research`  
-Phase: `learning-target`  
+Family: `just-in-time-learning`<br>
+Category: `research`<br>
+Phase: `learning-target`<br>
 Role: `researcher`
 
 ## Contract

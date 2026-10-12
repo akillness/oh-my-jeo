@@ -1,8 +1,8 @@
 # Prepared guidance: prompt-import-readiness
 
-Family: `external-and-provider-readiness`  
-Category: `prompt`  
-Phase: `prompt-import-readiness`  
+Family: `external-and-provider-readiness`<br>
+Category: `prompt`<br>
+Phase: `prompt-import-readiness`<br>
 Role: `guide`
 
 ## Contract

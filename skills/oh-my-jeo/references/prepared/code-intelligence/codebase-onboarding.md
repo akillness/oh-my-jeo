@@ -1,8 +1,8 @@
 # Prepared guidance: codebase-onboarding
 
-Family: `code-intelligence`  
-Category: `planning`  
-Phase: `codebase-onboarding`  
+Family: `code-intelligence`<br>
+Category: `planning`<br>
+Phase: `codebase-onboarding`<br>
 Role: `planner`
 
 ## Contract

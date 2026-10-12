@@ -1,8 +1,8 @@
 # Prepared guidance: tech-debt-audit
 
-Family: `behavior-preserving-refactor`  
-Category: `maintenance`  
-Phase: `tech-debt-audit`  
+Family: `behavior-preserving-refactor`<br>
+Category: `maintenance`<br>
+Phase: `tech-debt-audit`<br>
 Role: `reviewer`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: legal-compliance-review
 
-Family: `legal`  
-Category: `review`  
-Phase: `legal-compliance-review`  
+Family: `legal`<br>
+Category: `review`<br>
+Phase: `legal-compliance-review`<br>
 Role: `reviewer`
 
 ## Contract

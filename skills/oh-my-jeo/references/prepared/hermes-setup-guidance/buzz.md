@@ -1,8 +1,8 @@
 # Prepared guidance: buzz
 
-Family: `hermes-setup-guidance`  
-Category: `operator`  
-Phase: `messaging-integration`  
+Family: `hermes-setup-guidance`<br>
+Category: `operator`<br>
+Phase: `messaging-integration`<br>
 Role: `tracker`
 
 ## Contract

@@ -90,4 +90,3 @@ After the third failed fix, stop fixing. Every fix was tested against a structur
 
 A symptom that stopped after an edit, with no mechanism, is an open fault with a changed schedule.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-

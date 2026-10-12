@@ -1,8 +1,8 @@
 # Prepared guidance: security-safety-review
 
-Family: `application-security`  
-Category: `review`  
-Phase: `security-safety-review`  
+Family: `application-security`<br>
+Category: `review`<br>
+Phase: `security-safety-review`<br>
 Role: `reviewer`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: product-docs
 
-Family: `product-docs`  
-Category: `research`  
-Phase: `product-documentation`  
+Family: `product-docs`<br>
+Category: `research`<br>
+Phase: `product-documentation`<br>
 Role: `researcher`
 
 ## Contract

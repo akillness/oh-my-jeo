@@ -1,8 +1,8 @@
 # Prepared guidance: parallel-tools
 
-Family: `hermes-setup-guidance`  
-Category: `hermes-setup`  
-Phase: `setup`  
+Family: `hermes-setup-guidance`<br>
+Category: `hermes-setup`<br>
+Phase: `setup`<br>
 Role: `guide`
 
 ## Contract

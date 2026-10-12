@@ -59,4 +59,3 @@ In a delegated child's transcript, every user-role turn is the parent agent's br
 
 A finding cites a session id plus message ids, or `record:line`; one without a citation is dropped, not softened. The cited rows go into the competing-hypotheses step of the quality bar as evidence for or against, and causation still needs the revert-verify step there.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-

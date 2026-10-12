@@ -69,4 +69,3 @@ The blast radius of a change is the code it edited and what rests on it: a test 
 
 A defect found outside the blast radius is not fixed on the side. Record it in the evidence ledger with the steps that reproduce it and the output that shows it, name it in the closing brief, and offer to file it as a tracked issue. Filing on a shared tracker changes external state, so it waits for approval unless filing was already authorized. A deferred defect never turns an acceptance criterion it touches into a pass: the criterion stays open and is reported as open.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-

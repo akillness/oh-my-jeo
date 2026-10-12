@@ -1,8 +1,8 @@
 # Prepared guidance: model-finetuning
 
-Family: `model-finetuning`  
-Category: `planning`  
-Phase: `model-finetuning`  
+Family: `model-finetuning`<br>
+Category: `planning`<br>
+Phase: `model-finetuning`<br>
 Role: `planner`
 
 ## Contract

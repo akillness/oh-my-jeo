@@ -1,8 +1,8 @@
 # Prepared guidance: jev-route
 
-Family: `typed-jev-assist`  
-Category: `gateway`  
-Phase: `jev-route`  
+Family: `typed-jev-assist`<br>
+Category: `gateway`<br>
+Phase: `jev-route`<br>
 Role: `guide`
 
 ## Contract

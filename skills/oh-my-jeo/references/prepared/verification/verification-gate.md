@@ -1,8 +1,8 @@
 # Prepared guidance: verification-gate
 
-Family: `verification`  
-Category: `verification`  
-Phase: `verification-gate`  
+Family: `verification`<br>
+Category: `verification`<br>
+Phase: `verification-gate`<br>
 Role: `reviewer`
 
 ## Contract

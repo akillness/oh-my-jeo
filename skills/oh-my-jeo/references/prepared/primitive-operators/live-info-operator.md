@@ -1,8 +1,8 @@
 # Prepared guidance: live-info-operator
 
-Family: `primitive-operators`  
-Category: `live-info`  
-Phase: `live-info-task`  
+Family: `primitive-operators`<br>
+Category: `live-info`<br>
+Phase: `live-info-task`<br>
 Role: `guide`
 
 ## Contract

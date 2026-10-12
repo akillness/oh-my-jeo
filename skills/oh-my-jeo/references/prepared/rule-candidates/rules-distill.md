@@ -1,8 +1,8 @@
 # Prepared guidance: rules-distill
 
-Family: `rule-candidates`  
-Category: `knowledge`  
-Phase: `rules-distillation`  
+Family: `rule-candidates`<br>
+Category: `knowledge`<br>
+Phase: `rules-distillation`<br>
 Role: `memory-keeper`
 
 ## Contract

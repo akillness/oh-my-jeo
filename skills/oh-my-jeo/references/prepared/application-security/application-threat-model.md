@@ -1,8 +1,8 @@
 # Prepared guidance: application-threat-model
 
-Family: `application-security`  
-Category: `review`  
-Phase: `application-threat-model`  
+Family: `application-security`<br>
+Category: `review`<br>
+Phase: `application-threat-model`<br>
 Role: `reviewer`
 
 ## Contract

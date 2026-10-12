@@ -1,8 +1,8 @@
 # Prepared guidance: iac-change
 
-Family: `infrastructure`  
-Category: `planning`  
-Phase: `iac-change`  
+Family: `infrastructure`<br>
+Category: `planning`<br>
+Phase: `iac-change`<br>
 Role: `planner`
 
 ## Contract

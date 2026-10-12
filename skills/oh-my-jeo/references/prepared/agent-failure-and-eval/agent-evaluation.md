@@ -1,8 +1,8 @@
 # Prepared guidance: agent-evaluation
 
-Family: `agent-failure-and-eval`  
-Category: `operations`  
-Phase: `agent-evaluation`  
+Family: `agent-failure-and-eval`<br>
+Category: `operations`<br>
+Phase: `agent-evaluation`<br>
 Role: `operator`
 
 ## Contract

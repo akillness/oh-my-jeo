@@ -1,8 +1,8 @@
 # Prepared guidance: support-operations
 
-Family: `support`  
-Category: `triage`  
-Phase: `support-operations`  
+Family: `support`<br>
+Category: `triage`<br>
+Phase: `support-operations`<br>
 Role: `operator`
 
 ## Contract

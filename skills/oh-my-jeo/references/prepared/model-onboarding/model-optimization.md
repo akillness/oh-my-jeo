@@ -1,8 +1,8 @@
 # Prepared guidance: model-optimization
 
-Family: `model-onboarding`  
-Category: `optimization`  
-Phase: `model-onboarding`  
+Family: `model-onboarding`<br>
+Category: `optimization`<br>
+Phase: `model-onboarding`<br>
 Role: `tracker`
 
 ## Contract

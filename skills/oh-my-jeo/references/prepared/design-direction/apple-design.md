@@ -1,8 +1,8 @@
 # Prepared guidance: apple-design
 
-Family: `design-direction`  
-Category: `materials`  
-Phase: `apple-design`  
+Family: `design-direction`<br>
+Category: `materials`<br>
+Phase: `apple-design`<br>
 Role: `operator`
 
 ## Contract

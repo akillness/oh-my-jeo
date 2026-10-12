@@ -1,8 +1,8 @@
 # Prepared guidance: curriculum-design
 
-Family: `curriculum`  
-Category: `planning`  
-Phase: `curriculum-design`  
+Family: `curriculum`<br>
+Category: `planning`<br>
+Phase: `curriculum-design`<br>
 Role: `planner`
 
 ## Contract

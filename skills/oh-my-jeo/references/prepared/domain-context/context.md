@@ -1,8 +1,8 @@
 # Prepared guidance: context
 
-Family: `domain-context`  
-Category: `clarification`  
-Phase: `terminology-alignment`  
+Family: `domain-context`<br>
+Category: `clarification`<br>
+Phase: `terminology-alignment`<br>
 Role: `planner`
 
 ## Contract

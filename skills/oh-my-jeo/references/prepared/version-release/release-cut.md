@@ -1,8 +1,8 @@
 # Prepared guidance: release-cut
 
-Family: `version-release`  
-Category: `planning`  
-Phase: `release-cut`  
+Family: `version-release`<br>
+Category: `planning`<br>
+Phase: `release-cut`<br>
 Role: `planner`
 
 ## Contract

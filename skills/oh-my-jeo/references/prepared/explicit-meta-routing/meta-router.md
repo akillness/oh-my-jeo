@@ -1,8 +1,8 @@
 # Prepared guidance: meta-router
 
-Family: `explicit-meta-routing`  
-Category: `router`  
-Phase: `meta-routing`  
+Family: `explicit-meta-routing`<br>
+Category: `router`<br>
+Phase: `meta-routing`<br>
 Role: `guide`
 
 ## Contract

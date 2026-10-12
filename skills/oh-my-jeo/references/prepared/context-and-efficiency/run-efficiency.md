@@ -1,8 +1,8 @@
 # Prepared guidance: run-efficiency
 
-Family: `context-and-efficiency`  
-Category: `observability`  
-Phase: `run-efficiency`  
+Family: `context-and-efficiency`<br>
+Category: `observability`<br>
+Phase: `run-efficiency`<br>
 Role: `tracker`
 
 ## Contract

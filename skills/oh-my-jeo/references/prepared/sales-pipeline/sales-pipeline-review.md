@@ -1,8 +1,8 @@
 # Prepared guidance: sales-pipeline-review
 
-Family: `sales-pipeline`  
-Category: `operations`  
-Phase: `sales-pipeline-review`  
+Family: `sales-pipeline`<br>
+Category: `operations`<br>
+Phase: `sales-pipeline-review`<br>
 Role: `operator`
 
 ## Contract

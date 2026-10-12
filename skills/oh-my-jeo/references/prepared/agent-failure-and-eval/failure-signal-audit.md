@@ -1,8 +1,8 @@
 # Prepared guidance: failure-signal-audit
 
-Family: `agent-failure-and-eval`  
-Category: `review`  
-Phase: `failure-signal-audit`  
+Family: `agent-failure-and-eval`<br>
+Category: `review`<br>
+Phase: `failure-signal-audit`<br>
 Role: `reviewer`
 
 ## Contract

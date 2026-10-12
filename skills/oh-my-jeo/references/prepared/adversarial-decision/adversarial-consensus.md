@@ -1,8 +1,8 @@
 # Prepared guidance: adversarial-consensus
 
-Family: `adversarial-decision`  
-Category: `planning`  
-Phase: `adversarial-consensus`  
+Family: `adversarial-decision`<br>
+Category: `planning`<br>
+Phase: `adversarial-consensus`<br>
 Role: `planner`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: context-budget-review
 
-Family: `context-and-efficiency`  
-Category: `observability`  
-Phase: `context-budget-review`  
+Family: `context-and-efficiency`<br>
+Category: `observability`<br>
+Phase: `context-budget-review`<br>
 Role: `tracker`
 
 ## Contract

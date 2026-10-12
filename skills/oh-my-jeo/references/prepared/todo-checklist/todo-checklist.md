@@ -1,8 +1,8 @@
 # Prepared guidance: todo-checklist
 
-Family: `todo-checklist`  
-Category: `operator`  
-Phase: `observability`  
+Family: `todo-checklist`<br>
+Category: `operator`<br>
+Phase: `observability`<br>
 Role: `tracker`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: provider-profile-posture
 
-Family: `external-and-provider-readiness`  
-Category: `operations`  
-Phase: `provider-profile-posture`  
+Family: `external-and-provider-readiness`<br>
+Category: `operations`<br>
+Phase: `provider-profile-posture`<br>
 Role: `operator`
 
 ## Contract

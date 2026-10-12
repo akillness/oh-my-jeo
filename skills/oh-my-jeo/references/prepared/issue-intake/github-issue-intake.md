@@ -1,8 +1,8 @@
 # Prepared guidance: github-issue-intake
 
-Family: `issue-intake`  
-Category: `github-ops`  
-Phase: `issue-intake`  
+Family: `issue-intake`<br>
+Category: `github-ops`<br>
+Phase: `issue-intake`<br>
 Role: `operator`
 
 ## Contract

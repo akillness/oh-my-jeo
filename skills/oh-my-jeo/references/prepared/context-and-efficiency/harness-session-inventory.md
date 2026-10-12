@@ -1,8 +1,8 @@
 # Prepared guidance: harness-session-inventory
 
-Family: `context-and-efficiency`  
-Category: `observability`  
-Phase: `harness-session-inventory`  
+Family: `context-and-efficiency`<br>
+Category: `observability`<br>
+Phase: `harness-session-inventory`<br>
 Role: `tracker`
 
 ## Contract

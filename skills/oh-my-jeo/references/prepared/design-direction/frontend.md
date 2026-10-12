@@ -1,8 +1,8 @@
 # Prepared guidance: frontend
 
-Family: `design-direction`  
-Category: `materials`  
-Phase: `frontend-design`  
+Family: `design-direction`<br>
+Category: `materials`<br>
+Phase: `frontend-design`<br>
 Role: `operator`
 
 ## Contract

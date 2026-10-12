@@ -97,4 +97,3 @@ wording, the artifact vocabulary, and the `prepared_not_observed` claim
 boundary are OMJ's own, and OMJ keeps its no-execution boundary: every command
 below is something the executor runs, never OMJ.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-

@@ -1,8 +1,8 @@
 # Prepared guidance: accessibility-audit
 
-Family: `accessibility`  
-Category: `accessibility`  
-Phase: `accessibility-audit`  
+Family: `accessibility`<br>
+Category: `accessibility`<br>
+Phase: `accessibility-audit`<br>
 Role: `reviewer`
 
 ## Contract

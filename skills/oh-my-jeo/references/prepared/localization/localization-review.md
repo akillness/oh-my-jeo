@@ -1,8 +1,8 @@
 # Prepared guidance: localization-review
 
-Family: `localization`  
-Category: `review`  
-Phase: `localization-review`  
+Family: `localization`<br>
+Category: `review`<br>
+Phase: `localization-review`<br>
 Role: `reviewer`
 
 ## Contract

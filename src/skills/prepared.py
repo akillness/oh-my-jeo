@@ -311,7 +311,10 @@ def _contract_markdown(record: Mapping[str, Any]) -> str:
     prerequisites = bullets(record.get("blocked_prerequisites", ()))
     return (
         f"# Prepared guidance: {record['canonical_id']}\n\n"
-        f"Family: `{record['family_id']}`  \nCategory: `{record['category']}`  \nPhase: `{record['phase']}`  \nRole: `{record['role']}`\n\n"
+        f"Family: `{record['family_id']}`<br>\n"
+        f"Category: `{record['category']}`<br>\n"
+        f"Phase: `{record['phase']}`<br>\n"
+        f"Role: `{record['role']}`\n\n"
         f"## Contract\n{record['description']}\n\n"
         "This is a source-pinned, prepared-only contract. It is routing and handoff guidance, not provider, executor, dispatch, verification, review, CI, merge-readiness, or merge evidence.\n\n"
         f"## Triggers\n{bullets(record['triggers'])}\n\n"

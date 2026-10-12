@@ -1,8 +1,8 @@
 # Prepared guidance: commit-pr-authoring
 
-Family: `commit-and-git`  
-Category: `verification`  
-Phase: `commit-pr-authoring`  
+Family: `commit-and-git`<br>
+Category: `verification`<br>
+Phase: `commit-pr-authoring`<br>
 Role: `reviewer`
 
 ## Contract

@@ -417,5 +417,3 @@ def _is_archived(record: dict[str, Any], path: Path, memory_dir: Path) -> bool:
         return "archive" in path.relative_to(memory_dir).parts
     except ValueError:
         return False
-
-

@@ -1,8 +1,8 @@
 # Prepared guidance: design-orchestration
 
-Family: `design-direction`  
-Category: `materials`  
-Phase: `design-orchestration`  
+Family: `design-direction`<br>
+Category: `materials`<br>
+Phase: `design-orchestration`<br>
 Role: `operator`
 
 ## Contract

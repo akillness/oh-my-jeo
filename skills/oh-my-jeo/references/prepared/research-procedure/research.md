@@ -1,8 +1,8 @@
 # Prepared guidance: research
 
-Family: `research-procedure`  
-Category: `research`  
-Phase: `decision-grounding`  
+Family: `research-procedure`<br>
+Category: `research`<br>
+Phase: `decision-grounding`<br>
 Role: `researcher`
 
 ## Contract

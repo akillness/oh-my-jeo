@@ -1,8 +1,8 @@
 # Prepared guidance: decision-prototype
 
-Family: `decision-prototype`  
-Category: `planning`  
-Phase: `decision-prototype`  
+Family: `decision-prototype`<br>
+Category: `planning`<br>
+Phase: `decision-prototype`<br>
 Role: `planner`
 
 ## Contract

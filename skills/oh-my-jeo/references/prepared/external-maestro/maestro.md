@@ -1,8 +1,8 @@
 # Prepared guidance: maestro
 
-Family: `external-maestro`  
-Category: `execution`  
-Phase: `external-handoff`  
+Family: `external-maestro`<br>
+Category: `execution`<br>
+Phase: `external-handoff`<br>
 Role: `handoff-guide`
 
 ## Contract

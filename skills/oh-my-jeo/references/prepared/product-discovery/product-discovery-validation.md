@@ -1,8 +1,8 @@
 # Prepared guidance: product-discovery-validation
 
-Family: `product-discovery`  
-Category: `planning`  
-Phase: `product-discovery-validation`  
+Family: `product-discovery`<br>
+Category: `planning`<br>
+Phase: `product-discovery-validation`<br>
 Role: `planner`
 
 ## Contract

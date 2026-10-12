@@ -1,8 +1,8 @@
 # Prepared guidance: native-debugging
 
-Family: `application-and-native-debug`  
-Category: `verification`  
-Phase: `native-debugging`  
+Family: `application-and-native-debug`<br>
+Category: `verification`<br>
+Phase: `native-debugging`<br>
 Role: `reviewer`
 
 ## Contract

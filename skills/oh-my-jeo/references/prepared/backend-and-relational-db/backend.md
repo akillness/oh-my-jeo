@@ -1,8 +1,8 @@
 # Prepared guidance: backend
 
-Family: `backend-and-relational-db`  
-Category: `planning`  
-Phase: `backend-design`  
+Family: `backend-and-relational-db`<br>
+Category: `planning`<br>
+Phase: `backend-design`<br>
 Role: `planner`
 
 ## Contract

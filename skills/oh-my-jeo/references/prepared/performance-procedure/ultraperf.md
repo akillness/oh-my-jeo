@@ -1,8 +1,8 @@
 # Prepared guidance: ultraperf
 
-Family: `performance-procedure`  
-Category: `optimization`  
-Phase: `measured-optimization-loop`  
+Family: `performance-procedure`<br>
+Category: `optimization`<br>
+Phase: `measured-optimization-loop`<br>
 Role: `tracker`
 
 ## Contract

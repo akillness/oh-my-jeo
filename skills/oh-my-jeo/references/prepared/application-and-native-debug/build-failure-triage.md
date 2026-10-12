@@ -1,8 +1,8 @@
 # Prepared guidance: build-failure-triage
 
-Family: `application-and-native-debug`  
-Category: `verification`  
-Phase: `build-failure-triage`  
+Family: `application-and-native-debug`<br>
+Category: `verification`<br>
+Phase: `build-failure-triage`<br>
 Role: `reviewer`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: instinct-ledger
 
-Family: `atomic-instincts`  
-Category: `optimization`  
-Phase: `instinct-ledger`  
+Family: `atomic-instincts`<br>
+Category: `optimization`<br>
+Phase: `instinct-ledger`<br>
 Role: `tracker`
 
 ## Contract

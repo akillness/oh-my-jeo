@@ -1,8 +1,8 @@
 # Prepared guidance: agent-instructions
 
-Family: `instruction-maintenance`  
-Category: `planning`  
-Phase: `agent-instructions`  
+Family: `instruction-maintenance`<br>
+Category: `planning`<br>
+Phase: `agent-instructions`<br>
 Role: `planner`
 
 ## Contract

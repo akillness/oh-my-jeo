@@ -1,8 +1,8 @@
 # Prepared guidance: people-ops
 
-Family: `people`  
-Category: `operations`  
-Phase: `people-operations`  
+Family: `people`<br>
+Category: `operations`<br>
+Phase: `people-operations`<br>
 Role: `operator`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: rust
 
-Family: `rust`  
-Category: `planning`  
-Phase: `rust-development`  
+Family: `rust`<br>
+Category: `planning`<br>
+Phase: `rust-development`<br>
 Role: `planner`
 
 ## Contract

@@ -1,8 +1,8 @@
 # Prepared guidance: content-operator
 
-Family: `primitive-operators`  
-Category: `content`  
-Phase: `content-task`  
+Family: `primitive-operators`<br>
+Category: `content`<br>
+Phase: `content-task`<br>
 Role: `guide`
 
 ## Contract

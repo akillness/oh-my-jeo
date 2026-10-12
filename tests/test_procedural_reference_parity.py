@@ -242,6 +242,12 @@ class ProceduralParityTests(unittest.TestCase):
                 with self.subTest(skill=skill_name, fragment=fragment):
                     self.assertIn(fragment, content)
 
+    def test_canonical_omj_procedure_references_end_with_exactly_one_lf(self) -> None:
+        for relative_path in _CANONICAL_REFERENCE_OWNERS:
+            content = self._reference(relative_path)
+            with self.subTest(relative_path=relative_path):
+                self.assertEqual(len(content) - len(content.rstrip("\n")), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

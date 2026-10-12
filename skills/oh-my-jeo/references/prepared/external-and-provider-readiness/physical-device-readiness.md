@@ -1,8 +1,8 @@
 # Prepared guidance: physical-device-readiness
 
-Family: `external-and-provider-readiness`  
-Category: `operations`  
-Phase: `device-readiness`  
+Family: `external-and-provider-readiness`<br>
+Category: `operations`<br>
+Phase: `device-readiness`<br>
 Role: `operator`
 
 ## Contract

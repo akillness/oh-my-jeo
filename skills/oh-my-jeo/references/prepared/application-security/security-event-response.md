@@ -1,8 +1,8 @@
 # Prepared guidance: security-event-response
 
-Family: `application-security`  
-Category: `review`  
-Phase: `security-event-response`  
+Family: `application-security`<br>
+Category: `review`<br>
+Phase: `security-event-response`<br>
 Role: `reviewer`
 
 ## Contract

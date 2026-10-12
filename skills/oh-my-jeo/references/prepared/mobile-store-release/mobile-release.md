@@ -1,8 +1,8 @@
 # Prepared guidance: mobile-release
 
-Family: `mobile-store-release`  
-Category: `planning`  
-Phase: `mobile-release`  
+Family: `mobile-store-release`<br>
+Category: `planning`<br>
+Phase: `mobile-release`<br>
 Role: `planner`
 
 ## Contract

@@ -13,9 +13,6 @@ from _local_package import load_local_package
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_ROOT = Path("/Users/jangyoung/.superset/worktrees/omj-hermes-updates-icon")
-if ROOT != EXPECTED_ROOT:
-    raise AssertionError(f"test/source root drifted: {ROOT} != {EXPECTED_ROOT}")
 
 load_local_package()
 

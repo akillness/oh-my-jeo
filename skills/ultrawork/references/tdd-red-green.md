@@ -75,4 +75,3 @@ Hermes bundles the superpowers `test-driven-development` skill. When it is loade
 
 This discipline adapts the red/green/refactor practice popularized by Kent Beck and the obra/superpowers `test-driven-development` skill that Hermes bundles. The questions before a new test, the shapes of tests that guard nothing, and the pre-fix failure rule for bug regressions adapt concepts from code-yeongyu/oh-my-openagent (Sustainable Use License 1.0, concepts only). No upstream text is reproduced. OMJ maps the mechanisms onto its own lane, evidence, and `prepared_not_observed` vocabulary.
 > OMJ keeps this as executor-neutral, prepared guidance. It performs no native execution, dispatch, network/API call, or session-store read; a selected executor or operator must provide observed evidence before any claim of work.
-
