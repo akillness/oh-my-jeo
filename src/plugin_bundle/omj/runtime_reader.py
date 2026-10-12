@@ -824,7 +824,9 @@ def _executor_progress_projection(runtime_dir: Path, *, limit: int) -> dict[str,
 
 
 def _progress_bindings(runtime_dir: Path, *, limit: int) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
+    if limit <= 0:
+        return []
+    candidates: list[dict[str, Any]] = []
     roots = (
         (runtime_dir / "runs", "run"),
         (runtime_dir / "wrapper_sessions", "wrapper_session"),
@@ -832,26 +834,36 @@ def _progress_bindings(runtime_dir: Path, *, limit: int) -> list[dict[str, Any]]
     for root, target_type in roots:
         if not root.exists():
             continue
-        for binding_path in sorted(root.glob("*/executor_progress/binding.json"), reverse=True):
+        for binding_path in root.glob("*/executor_progress/binding.json"):
             binding = _read_json(binding_path)
             if not _valid_progress_binding(binding, target_type):
                 continue
-            progress_dir = binding_path.parent
-            events = _read_jsonl(progress_dir / "events.jsonl")
-            reports = _read_jsonl(progress_dir / "reports.jsonl")
-            binding_id = str(binding.get("binding_id", ""))
-            instance_id = str(binding.get("instance_id", ""))
-            matching_events = [event for event in events if _valid_progress_event(event, binding_id, instance_id)]
-            matching_reports = [report for report in reports if _valid_progress_report(report, binding_id, instance_id)]
-            items.append(
-                {
-                    "binding": binding,
-                    "latest_event": matching_events[-1] if matching_events else {},
-                    "latest_report": matching_reports[-1] if matching_reports else {},
-                }
-            )
-    items.sort(key=lambda item: str(item["binding"].get("updated_at", "")), reverse=True)
-    return items[:limit]
+            candidates.append({"binding": binding, "progress_dir": binding_path.parent})
+    candidates.sort(
+        key=lambda item: (
+            str(item["binding"].get("updated_at", "")),
+            str(item["binding"].get("binding_id", "")),
+        ),
+        reverse=True,
+    )
+    items: list[dict[str, Any]] = []
+    for candidate in candidates[:limit]:
+        binding = candidate["binding"]
+        progress_dir = candidate["progress_dir"]
+        events = _read_jsonl(progress_dir / "events.jsonl")
+        reports = _read_jsonl(progress_dir / "reports.jsonl")
+        binding_id = str(binding.get("binding_id", ""))
+        instance_id = str(binding.get("instance_id", ""))
+        matching_events = [event for event in events if _valid_progress_event(event, binding_id, instance_id)]
+        matching_reports = [report for report in reports if _valid_progress_report(report, binding_id, instance_id)]
+        items.append(
+            {
+                "binding": binding,
+                "latest_event": matching_events[-1] if matching_events else {},
+                "latest_report": matching_reports[-1] if matching_reports else {},
+            }
+        )
+    return items
 
 
 def _projected_binding_state(runtime_dir: Path, binding: dict[str, Any]) -> str:

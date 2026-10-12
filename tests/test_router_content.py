@@ -432,7 +432,7 @@ class RouterContentTests(unittest.TestCase):
 
         self.assertEqual({path.parent.name for path in Path("skills").glob("*/SKILL.md")}, set(templates))
         self.assertEqual(
-            {path.relative_to(Path("skills")) for path in Path("skills").glob("*/references/*.md")},
+            {path.relative_to(Path("skills")) for path in Path("skills").glob("*/references/**/*.md")},
             set(reference_templates),
         )
         hidden = {name for name, (_, installable) in FEATURE_SURFACE_EXPOSURES.items() if not installable}
@@ -843,6 +843,10 @@ class RouterContentTests(unittest.TestCase):
 
     def test_v302_catalog_guidance_is_rendered_without_hidden_enforcement(self) -> None:
         skills = {skill.name: skill for skill in builtin_skill_templates()}
+        references = {
+            str(Path(template.skill_name) / template.relative_path): template.content
+            for template in builtin_skill_reference_templates()
+        }
         required_fragments = {
             "plan": (
                 "Review Focus",
@@ -879,9 +883,7 @@ class RouterContentTests(unittest.TestCase):
                 "reversible",
                 "in-scope",
                 "cost if wrong",
-                "initial independent review",
-                "at most two re-reviews",
-                "fresh reviewer",
+                "Load `references/loop-design-review.md`",
             ),
             "loop": (
                 "machine-decidable finish line",
@@ -892,7 +894,7 @@ class RouterContentTests(unittest.TestCase):
                 "self-grade",
                 "unjudged",
             ),
-            "ultraqa": ("same reproduction command", "third failed attempt", "no fourth fix", "architecture", "user"),
+            "ultraqa": ("Load `references/hypothesis-and-race-method.md`",),
             "agent-ops-review": ("read-only", "bounded session", "source-role", "authorship", "exact text", "approval", "leak"),
         }
         for skill_name, fragments in required_fragments.items():
@@ -900,10 +902,49 @@ class RouterContentTests(unittest.TestCase):
                 with self.subTest(skill=skill_name, fragment=fragment):
                     self.assertIn(fragment, skills[skill_name].content)
 
-        references = {
-            str(Path(template.skill_name) / template.relative_path): template.content
-            for template in builtin_skill_reference_templates()
-        }
+        review_reference = references["loop/references/loop-design-review.md"]
+        review_sections = (
+            "## Where This Review Starts",
+            "## Finish Line, Acceptance Check, and Fence",
+            "## Checking the Fence",
+            "## The Judge Is Not the Builder",
+            "## Loops That Rewrite Their Own Rules",
+            "## Pre-Launch Failure Check",
+            "## What the Review Produces",
+        )
+        review_positions = [review_reference.index(section) for section in review_sections]
+        self.assertEqual(review_positions, sorted(review_positions))
+        for fragment in (
+            "A finish line with no fence is incomplete",
+            "When no second agent or session is available for an acceptance verdict, say so",
+            "the item stays unjudged and the loop stops at its verification gate",
+            "Declare a retry cap before launch",
+            "no later iteration runs under the new rule until a person has read what it would become and approved it",
+        ):
+            with self.subTest(review_fragment=fragment):
+                self.assertIn(fragment, review_reference)
+
+        qa_reference = references["ultraqa/references/hypothesis-and-race-method.md"]
+        qa_sections = (
+            "## 1. The reproduction record",
+            "## 2. Hypotheses on distinct axes",
+            "## 3. Flaky tests",
+            "## 4. Races and lost updates",
+            "## 5. When the running code is not the code being read",
+            "## 6. After three failed fixes",
+            "## 7. Evidence boundary",
+        )
+        qa_positions = [qa_reference.index(section) for section in qa_sections]
+        self.assertEqual(qa_positions, sorted(qa_positions))
+        for fragment in (
+            "same reproduction command",
+            "After the third failed fix, stop fixing.",
+            "Prepare no fourth fix.",
+            "selected executor or operator must provide observed evidence",
+        ):
+            with self.subTest(qa_fragment=fragment):
+                self.assertIn(fragment, qa_reference)
+
         backend_reference = references["oh-my-jeo/references/wrapper-routing.md"]
         for fragment in (
             "authoritative",
@@ -914,7 +955,6 @@ class RouterContentTests(unittest.TestCase):
         ):
             with self.subTest(backend_fragment=fragment):
                 self.assertIn(fragment, backend_reference)
-
         rendered = workflow_reference_markdown()
         self.assertIn("advisory wrapper guidance", rendered)
         self.assertIn("does not claim hidden Hermes runtime behavior", rendered)
@@ -1001,12 +1041,31 @@ class RouterContentTests(unittest.TestCase):
         self.assertNotIn("prepared_not_observed", pre_acceptance)
 
     def test_installable_skills_expose_completion_and_recovery_guidance(self) -> None:
+        templates = {template.name: template.content for template in builtin_skill_templates()}
+        references = {
+            template.relative_path: template.content
+            for template in builtin_skill_reference_templates()
+        }
         for definition in installable_skill_definitions():
             with self.subTest(skill=definition.name):
-                self.assertGreaterEqual(len(definition.final_checklist), 2)
-                self.assertGreaterEqual(len(definition.recovery_notes), 2)
+                self.assertTrue(definition.final_checklist)
+                self.assertTrue(definition.recovery_notes)
                 self.assertTrue(all(item.strip() for item in definition.final_checklist))
                 self.assertTrue(all(item.strip() for item in definition.recovery_notes))
+
+                body = templates[definition.name]
+                for item in (*definition.final_checklist, *definition.recovery_notes):
+                    self.assertIn(item, body)
+
+                pointers = tuple(
+                    f"references/{match.group(1)}"
+                    for match in re.finditer(r"Load `references/([^`]+)`", body)
+                )
+                for relative_path in pointers:
+                    with self.subTest(reference=relative_path):
+                        reference = references.get(relative_path)
+                        self.assertIsNotNone(reference)
+                        self.assertTrue(str(reference).strip())
 
     def test_default_completion_and_recovery_guidance_varies_by_lane(self) -> None:
         definitions = {definition.name: definition for definition in installable_skill_definitions()}
@@ -1017,8 +1076,19 @@ class RouterContentTests(unittest.TestCase):
         self.assertGreaterEqual(len(recovery_sets), 10)
         self.assertIn("source boundaries", " ".join(definitions["web-research"].final_checklist))
         self.assertIn("agenda", " ".join(definitions["meeting-brief"].final_checklist).lower())
-        self.assertIn("selected coding or runtime owner", " ".join(definitions["ralph"].final_checklist))
+        self.assertEqual(
+            definitions["ralph"].final_checklist,
+            (
+                "Ruling: decision, reason, reversible, in-scope, cost if wrong.",
+                "Load `references/loop-design-review.md` for machine-decidable finish line, independent judge, and bounded retries.",
+            ),
+        )
+        self.assertEqual(
+            definitions["ultraqa"].final_checklist,
+            ("Load `references/hypothesis-and-race-method.md`.",),
+        )
         self.assertIn("managed path", " ".join(definitions["skill"].final_checklist))
+
 
     def test_coding_handoff_skills_include_executor_readiness_fallback(self) -> None:
         templates = {template.name: template.content for template in builtin_skill_templates()}

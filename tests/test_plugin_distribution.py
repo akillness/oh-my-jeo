@@ -153,7 +153,10 @@ class PluginDistributionTests(unittest.TestCase):
                     "omj_status",
                 ],
             )
-            self.assertEqual(plugin["registered_hooks"], ["on_session_end", "pre_llm_call", "pre_tool_call"])
+            self.assertEqual(
+                set(plugin["registered_hooks"]),
+                {"on_session_end", "pre_llm_call", "pre_tool_call", "subagent_start"},
+            )
 
             inspection = inspect_plugin_bundle(resolve_paths(omj_home, hermes_home))
             self.assertTrue(inspection["plugin_distribution_ready"])

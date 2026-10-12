@@ -43,7 +43,11 @@ Bad example:
 - Observed repo facts and source/web evidence gaps are named.
 - At least two options or one chosen option plus rejected alternatives are recorded.
 - Risks, acceptance criteria, and verification commands are testable or explicitly blocked.
-- Record consumer current state and target state, Success criteria Criterion | Task | Verification scenario mapping, and sizing bands. Target-state coverage names every required consumer behavior and uncovered gap.
+- Record consumer current state and target state; map Success criteria Criterion | Task | Verification scenario and sizing bands. Target-state coverage includes each behavior unless the user excluded it; record gaps.
+- name each consumer of the result, their current workflow on this surface, and the state in which that workflow keeps working with no new friction or loss.
+- For every difference between current and target, each with why it matters; use an evidence-gap record below instead when unobserved.
+- Never shrink scope on your own; plan an MVP or a first phase only when the user requested one.
+- Size each task as one band, never as hours or days: `XS` (one small edit), `S` (one file and its test), `M` (several files in one module), `L` (several modules or one contract change), `XL` (crosses subsystems; split it into smaller tasks).
 - Review Focus has at most five unmapped failure cases with an owning test or task, or explicitly states none.
 - The plan stays unaccepted and awaiting with no handoff until an actual user answer accepts it. After acceptance, mark any prepared implementation handoff prepared_not_observed until selected-owner execution evidence is observed.
 

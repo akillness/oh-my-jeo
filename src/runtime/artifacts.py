@@ -6,8 +6,17 @@ import secrets
 from json import JSONDecodeError
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from ..coding.handoff_contract import (
+    HANDOFF_CONTRACT_KEY,
+    HANDOFF_CONTRACT_RECEIPT_SCHEMA_VERSION,
+    HANDOFF_CONTRACT_SCHEMA_VERSION,
+    contract_digest,
+    contract_verification_observed,
+    contract_verification_summary,
+)
+from ..workflows.memory import validate_handoff_context_pack
 from ..context_safety import build_coding_progress_reporting_policy
 from ..executor_progress import (
     validate_progress_binding,
@@ -35,6 +44,7 @@ from ..paths import OmjPaths
 from .records import (
     DELEGATION_RESULTS,
     EVENT_LEVELS,
+    HANDOFF_CONTRACT_DIGEST_KEY,
     OBSERVED_RESULTS,
     OPTIONAL_RECORD_VALIDATORS,
     PRIVACY_MODES,
@@ -71,6 +81,8 @@ from .records import (
     validate_wrapper_record,
     validate_wrapper_session_record,
 )
+
+HANDOFF_CONTRACT_RECEIPT_FILENAME = "handoff_contract_receipt.json"
 
 
 def _slugify(value: str) -> str:
@@ -277,6 +289,139 @@ def _run_id_for_dir(run_dir: Path) -> str:
     return (
         str(run.get("run_id", run_dir.name)) if isinstance(run, dict) else run_dir.name
     )
+
+
+def _handoff_contract_from_record(
+    record: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Return the first typed handoff_contract carried by a coding_delegation record."""
+    if not isinstance(record, Mapping):
+        return None
+    for handoff_key in ("executor_handoff", "prompt_handoff", "runtime_handoff"):
+        handoff = record.get(handoff_key)
+        contract = (
+            handoff.get(HANDOFF_CONTRACT_KEY) if isinstance(handoff, Mapping) else None
+        )
+        if isinstance(contract, dict) and contract:
+            return contract
+    return None
+
+
+def stored_handoff_contract(run_dir: Path) -> dict[str, Any] | None:
+    """Return the typed handoff contract carried by a persisted Codex run.
+
+    Codex Run-only. Non-Codex owners keep their own session-scoped contract snapshot
+    (see write_handoff_contract_receipt_at / read_handoff_contract_receipt_at below) and
+    must not call this against a non-Codex run directory.
+    """
+    return _handoff_contract_from_record(
+        read_json_object(run_dir / "coding_delegation.json")
+    )
+
+
+def stored_handoff_contract_digest(run_dir: Path) -> str | None:
+    """Return the contract digest pinned when the run's coding_delegation.json was first written.
+
+    Pinned once at persist time, before any later edit of the file is possible, so comparing
+    it against contract_digest(stored_handoff_contract(run_dir)) detects a contract changed
+    after dispatch even when no receipt has been recorded yet.
+    """
+    record = read_json_object(run_dir / "coding_delegation.json")
+    digest = (
+        record.get(HANDOFF_CONTRACT_DIGEST_KEY) if isinstance(record, dict) else None
+    )
+    return digest if isinstance(digest, str) and digest else None
+
+
+def write_handoff_contract_receipt_at(
+    receipt_path: Path, receipt: dict[str, Any]
+) -> dict[str, Any]:
+    """Atomically persist a handoff_contract_receipt/v1 at an explicit path.
+
+    Owner-neutral: a plain atomic write with no event-journal append and no coupling to a
+    Codex run directory, so any session owner can call this against its own storage.
+    """
+    atomic_write_json(receipt_path, receipt, private=True)
+    return receipt
+
+
+def read_handoff_contract_receipt_at(receipt_path: Path) -> dict[str, Any] | None:
+    """Read a handoff_contract_receipt/v1 from an explicit path.
+
+    Returns None on a missing file or a schema mismatch instead of raising or fabricating
+    a status; callers decide what "no receipt yet" means for their own verdict.
+    """
+    if not receipt_path.exists():
+        return None
+    receipt = read_json_object(receipt_path)
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema_version") != HANDOFF_CONTRACT_RECEIPT_SCHEMA_VERSION
+    ):
+        return None
+    return receipt
+
+
+def handoff_contract_receipt_status_summary(
+    contract: Mapping[str, Any] | None,
+    receipt: Mapping[str, Any] | None,
+    *,
+    pinned_digest: str | None = None,
+) -> dict[str, Any]:
+    """Bounded, owner-neutral handoff_contract status for a get_status/status-card surface.
+
+    Exposes only schema_version/status/verdict/unobserved_postconditions (never raw exit
+    codes, commands, or other private handoff inputs). Delegates to
+    coding.handoff_contract.contract_verification_summary so every owner (Codex, Claude
+    Code, Hermes, generic) derives the same digest-bound verdict from the same rule.
+    """
+    if not isinstance(contract, Mapping) or not contract:
+        return {
+            "schema_version": HANDOFF_CONTRACT_SCHEMA_VERSION,
+            "status": "no_contract",
+            "verdict": "no_contract",
+            "unobserved_postconditions": [],
+        }
+    if pinned_digest is not None and pinned_digest != contract_digest(contract):
+        return {
+            "schema_version": HANDOFF_CONTRACT_SCHEMA_VERSION,
+            "status": "prepared_not_observed",
+            "verdict": "not_observed",
+            "reason": "no_exit_status_recorded",
+            "unobserved_postconditions": [
+                str(entry.get("id"))
+                for entry in contract.get("postconditions", [])
+                if isinstance(entry, Mapping)
+            ],
+        }
+    return contract_verification_summary(contract, receipt)
+
+
+def write_handoff_contract_receipt(
+    run_dir: Path, receipt: dict[str, Any]
+) -> dict[str, Any]:
+    """Persist caller-provided postcondition exit evidence for a Codex run's handoff contract."""
+    write_handoff_contract_receipt_at(
+        run_dir / HANDOFF_CONTRACT_RECEIPT_FILENAME, receipt
+    )
+    append_event(
+        run_dir,
+        {
+            "event": "handoff_contract_receipt_recorded",
+            "level": "info",
+            "message": f"handoff contract {receipt['status']} {receipt['verdict']}",
+            "data": {
+                "status": receipt["status"],
+                "verdict": receipt["verdict"],
+                "unobserved_postconditions": list(receipt["unobserved_postconditions"]),
+            },
+        },
+    )
+    return receipt
+
+
+def read_handoff_contract_receipt(run_dir: Path) -> dict[str, Any] | None:
+    return read_handoff_contract_receipt_at(run_dir / HANDOFF_CONTRACT_RECEIPT_FILENAME)
 
 
 def write_review_record(run_dir: Path, review: dict[str, Any]) -> dict[str, Any]:
@@ -552,6 +697,7 @@ def show_run(paths: OmjPaths, run_id: str) -> dict[str, Any]:
         "review": read_json_object(run_dir / "review.json"),
         "ci": read_json_object(run_dir / "ci.json"),
         "merge": read_json_object(run_dir / "merge.json"),
+        "handoff_contract_receipt": read_handoff_contract_receipt(run_dir),
         "evidence": sorted(path.name for path in evidence_dir.iterdir())
         if evidence_dir.exists()
         else [],
@@ -687,6 +833,89 @@ def _compact_executor_progress_report(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _compact_handoff_context_pack(value: Any) -> dict[str, Any] | None:
+    """Return bounded metadata for a validated attached handoff context pack."""
+    if not isinstance(value, dict):
+        return None
+    if validate_handoff_context_pack(
+        value, require_conflict_free=True, label="runtime context_pack"
+    ):
+        return None
+    counts: dict[str, int] = {}
+    for source_key, count_key in (
+        ("source_refs", "source_ref_count"),
+        ("included_context", "included_context_count"),
+        ("excluded_context", "excluded_context_count"),
+        ("blocked_by_conflicts", "blocked_by_conflicts_count"),
+    ):
+        entries = value.get(source_key)
+        if not isinstance(entries, list):
+            return None
+        count = len(entries)
+        if count < 0 or count > 1_000_000:
+            return None
+        counts[count_key] = count
+    return {
+        "schema_version": value.get("schema_version"),
+        "executor_target": value.get("executor_target"),
+        "session_id": value.get("session_id"),
+        **counts,
+        "redaction_policy": value.get("redaction_policy"),
+        "claim_boundary": value.get("claim_boundary"),
+    }
+
+
+def _compact_prepared_handoff(
+    handoff: dict[str, Any], context_pack: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Project executor handoff metadata without exposing prompt or task payloads."""
+    if not handoff:
+        return {}
+
+    def compact_strings(value: Any) -> list[str]:
+        if not isinstance(value, (list, tuple)):
+            return []
+        return [str(item) for item in value if str(item)]
+
+    execution_brief = handoff.get("execution_brief")
+    if isinstance(execution_brief, dict):
+        compact_brief: dict[str, Any] = {
+            "task_source": str(execution_brief.get("task_source", "")),
+            "recommended_workflow": str(
+                execution_brief.get("recommended_workflow", "")
+            ),
+            "recommended_harness": str(execution_brief.get("recommended_harness", "")),
+            "intent": str(execution_brief.get("intent", "")),
+            "codex_owns": compact_strings(execution_brief.get("codex_owns", [])),
+            "hermes_owns": compact_strings(execution_brief.get("hermes_owns", [])),
+        }
+    else:
+        compact_brief = {}
+    evidence_contract = handoff.get("evidence_contract")
+    if isinstance(evidence_contract, dict):
+        compact_evidence: dict[str, list[str]] = {
+            "prepared_is_not": compact_strings(
+                evidence_contract.get("prepared_is_not", [])
+            ),
+            "observed_required_for": compact_strings(
+                evidence_contract.get("observed_required_for", [])
+            ),
+        }
+    else:
+        compact_evidence = {}
+    result: dict[str, Any] = {
+        "schema_version": str(handoff.get("schema_version", "")),
+        "selected_executor_profile": str(handoff.get("selected_executor_profile", "")),
+        "recommended_workflow": str(handoff.get("recommended_workflow", "")),
+        "recommended_harness": str(handoff.get("recommended_harness", "")),
+        "execution_brief": compact_brief,
+        "evidence_contract": compact_evidence,
+    }
+    if context_pack is not None:
+        result["context_pack"] = context_pack
+    return result
+
+
 def _executor_progress_show_state(target_dir: Path, binding: dict[str, Any]) -> str:
     delegation = read_json_object(target_dir / "delegation.json") or {}
     if bool(delegation.get("observed")) and str(delegation.get("result", "")) in {
@@ -705,6 +934,7 @@ def _executor_progress_show_state(target_dir: Path, binding: dict[str, Any]) -> 
 
 def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str, Any]:
     shown = show_run(paths, run_id)
+    run_dir = paths.runtime_runs_dir / run_id
     run = _object_or_empty(shown.get("run"))
     coding = _object_or_empty(shown.get("coding_delegation"))
     delegation = _object_or_empty(shown.get("delegation"))
@@ -721,6 +951,9 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
     )
     handoff = _object_or_empty(coding.get("executor_handoff"))
     review = _object_or_empty(handoff.get("review"))
+    declared_contract = _handoff_contract_from_record(coding)
+    contract_receipt = shown.get("handoff_contract_receipt")
+    pinned_contract_digest = coding.get(HANDOFF_CONTRACT_DIGEST_KEY)
 
     prepared = run.get("artifact_kind") == "prepared_coding_delegation" and bool(coding)
     action = str(coding.get("action", "unknown"))
@@ -748,6 +981,15 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
     verification_observed = bool(wrapper.get("verification_observed", False)) or bool(
         lifecycle.get("verification_observed", False)
     )
+    if declared_contract is not None:
+        contract_observed = (
+            isinstance(pinned_contract_digest, str)
+            and pinned_contract_digest == contract_digest(declared_contract)
+            and contract_verification_observed(declared_contract, contract_receipt)
+        )
+        verification_observed = verification_observed and contract_observed
+        lifecycle = dict(lifecycle)
+        lifecycle["verification_observed"] = verification_observed
     completion_status = str(wrapper.get("completion_status") or "unknown")
     verification_status = _verification_status_summary(
         observed=verification_observed,
@@ -782,7 +1024,18 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         ci_status=ci_status,
         merge_status=merge_status,
     )
-
+    prepared_status: dict[str, Any] = {
+        "available": prepared,
+        "action": action,
+        "status": coding.get("status", run.get("observation_status", "unknown")),
+        "executor_target": executor_target,
+        "workflow": coding.get("recommended_workflow", run.get("skill", "unknown")),
+        "harness": coding.get("recommended_harness", run.get("harness", "unknown")),
+        "handoff_available": handoff_available,
+        "handoff_schema_version": handoff.get("schema_version"),
+    }
+    compact_context_pack = _compact_handoff_context_pack(handoff.get("context_pack"))
+    prepared_handoff = _compact_prepared_handoff(handoff, compact_context_pack)
     next_action = _delegated_status_next_action(
         prepared=prepared,
         action=action,
@@ -813,17 +1066,15 @@ def summarize_delegated_coding_status(paths: OmjPaths, run_id: str) -> dict[str,
         "run_id": run_id,
         "source": coding.get("source", "generic"),
         "source_metadata": coding.get("source_metadata", {}),
-        "prepared": {
-            "available": prepared,
-            "action": action,
-            "status": coding.get("status", run.get("observation_status", "unknown")),
-            "executor_target": executor_target,
-            "workflow": coding.get("recommended_workflow", run.get("skill", "unknown")),
-            "harness": coding.get("recommended_harness", run.get("harness", "unknown")),
-            "handoff_available": handoff_available,
-            "handoff_schema_version": handoff.get("schema_version"),
-        },
-        "handoff_contract": _handoff_contract_summary(handoff),
+        "prepared": prepared_status,
+        "prepared_handoff": prepared_handoff,
+        "handoff_contract": handoff_contract_receipt_status_summary(
+            declared_contract,
+            contract_receipt,
+            pinned_digest=pinned_contract_digest
+            if declared_contract is not None
+            else None,
+        ),
         "harness_quality": harness_quality,
         "harness_progress": harness_progress,
         "execution": {
@@ -1178,107 +1429,6 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item)]
-
-
-def _handoff_contract_summary(handoff: dict[str, Any]) -> dict[str, Any]:
-    if not handoff:
-        return {}
-    summary: dict[str, Any] = {
-        "schema_version": handoff.get("schema_version", ""),
-        "selected_executor_profile": handoff.get(
-            "selected_executor_profile", handoff.get("executor_target", "")
-        ),
-        "execution_brief": _object_or_empty(handoff.get("execution_brief")),
-        "runtime_brief": _object_or_empty(handoff.get("runtime_brief")),
-        "isolation_plan": _isolation_plan_summary(
-            _object_or_empty(handoff.get("isolation_plan"))
-        ),
-        "report_contract": _object_or_empty(handoff.get("report_contract")),
-        "evidence_contract": _object_or_empty(handoff.get("evidence_contract")),
-        "acceptance_criteria": _string_list(handoff.get("acceptance_criteria")),
-        "verification": _string_list(handoff.get("verification")),
-    }
-    context_pack = _object_or_empty(handoff.get("context_pack"))
-    if context_pack:
-        summary["context_pack"] = _context_pack_summary(context_pack)
-    context_pack_blocked = _object_or_empty(handoff.get("context_pack_blocked"))
-    if context_pack_blocked:
-        summary["context_pack_blocked"] = _context_pack_blocked_summary(
-            context_pack_blocked
-        )
-    memory_recall_pack = _object_or_empty(handoff.get("memory_recall_pack"))
-    if memory_recall_pack:
-        summary["memory_recall_pack"] = _memory_recall_pack_summary(memory_recall_pack)
-    return summary
-
-
-def _context_pack_summary(context_pack: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "schema_version": context_pack.get("schema_version", ""),
-        "executor_target": context_pack.get("executor_target", ""),
-        "session_id": context_pack.get("session_id", ""),
-        "source_ref_count": len(_list_or_empty(context_pack.get("source_refs"))),
-        "included_context_count": len(
-            _list_or_empty(context_pack.get("included_context"))
-        ),
-        "excluded_context_count": len(
-            _list_or_empty(context_pack.get("excluded_context"))
-        ),
-        "blocked_by_conflicts_count": len(
-            _list_or_empty(context_pack.get("blocked_by_conflicts"))
-        ),
-        "redaction_policy": context_pack.get("redaction_policy", ""),
-        "claim_boundary": context_pack.get("claim_boundary", ""),
-    }
-
-
-def _isolation_plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
-    if not plan:
-        return {}
-    return {
-        "schema_version": plan.get("schema_version", ""),
-        "status": plan.get("status", ""),
-        "strategy": plan.get("strategy", ""),
-        "risk_level": plan.get("risk_level", ""),
-        "workspace_policy": plan.get("workspace_policy", ""),
-        "required_before": [
-            str(item) for item in plan.get("required_before", []) if str(item)
-        ]
-        if isinstance(plan.get("required_before"), list)
-        else [],
-        "wrapper_actions": [
-            str(item) for item in plan.get("wrapper_actions", []) if str(item)
-        ]
-        if isinstance(plan.get("wrapper_actions"), list)
-        else [],
-        "claim_boundary": plan.get("claim_boundary", ""),
-    }
-
-
-def _context_pack_blocked_summary(
-    context_pack_blocked: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "schema_version": context_pack_blocked.get("schema_version", ""),
-        "blocked_by_conflicts_count": len(
-            _list_or_empty(context_pack_blocked.get("blocked_by_conflicts"))
-        ),
-        "claim_boundary": context_pack_blocked.get("claim_boundary", ""),
-    }
-
-
-def _memory_recall_pack_summary(memory_recall_pack: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "schema_version": memory_recall_pack.get("schema_version", ""),
-        "executor_target": memory_recall_pack.get("executor_target", ""),
-        "session_id": memory_recall_pack.get("session_id", ""),
-        "record_count": len(_list_or_empty(memory_recall_pack.get("included_records"))),
-        "excluded_count": len(
-            _list_or_empty(memory_recall_pack.get("excluded_records"))
-        ),
-        "redaction_policy": memory_recall_pack.get("redaction_policy", ""),
-        "claim_boundary": memory_recall_pack.get("claim_boundary", ""),
-    }
 
 
 def _list_or_empty(value: Any) -> list[dict[str, Any]]:

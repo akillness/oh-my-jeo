@@ -41,7 +41,7 @@ CAPABILITY_SECTION_ALIASES = {
     "evidence": "evidence_boundaries",
 }
 
-CAPABILITY_SECTION_CHOICES = (*CAPABILITY_SECTIONS, *CAPABILITY_SECTION_ALIASES.keys())
+CAPABILITY_SECTION_CHOICES = (*CAPABILITY_SECTIONS, "prepared", "prepared_skills", "prepared-guidance", *CAPABILITY_SECTION_ALIASES.keys())
 
 PREPARED_NOT_OBSERVED = (
     "Prepared OMJ capability, handoff, topology, or routing metadata is not execution, "

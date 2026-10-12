@@ -829,7 +829,10 @@ _DEFINITIONS = [
             "Do not enter a finish-until-done loop until scope, acceptance criteria, and verification commands are concrete.",
             "For coding edits, prepare and track selected runtime evidence instead of implying unobserved work happened.",
             "Report completion only from observed execution and verification evidence.",
-            "Ruling: decision, reason, reversible, in-scope, cost if wrong — initial independent review, then at most two re-reviews from a fresh reviewer.",
+        ),
+        final_checklist=(
+            "Ruling: decision, reason, reversible, in-scope, cost if wrong.",
+            "Load `references/loop-design-review.md` for machine-decidable finish line, independent judge, and bounded retries.",
         ),
     ),
     SkillDefinition(
@@ -1189,6 +1192,7 @@ _DEFINITIONS = [
             "Require disjoint lane ownership before preparing multiple coding runtime handoffs.",
             "Attach acceptance criteria, verification commands, and review expectations to each lane.",
             "Keep dispatch, execution, review, CI, and merge status evidence separate.",
+            "Load `references/execution-rulings.md`, `references/dependency-topology.md`, `references/service-contract.md`, and `references/tdd-red-green.md`.",
         ),
         why_this_exists="`ultrawork` exists to split an accepted implementation plan into independent lanes without letting parallelism blur ownership, verification, worker protocol, worktree isolation, or observed runtime evidence.",
         do_not_use_when=(
@@ -2570,7 +2574,10 @@ _DEFINITIONS = [
             "Generate hostile scenarios from changed behavior and known risk areas.",
             "Report pass/fail evidence separately from proposed fixes.",
             "Delegate code mutations discovered by QA to the selected coding executor.",
-            "Execute the same reproduction command after each fix attempt; on the third failed attempt, escalate to architecture or a user-owned decision — no fourth fix without that escalation.",
+            "Run same reproduction command after each fix; third failed attempt: escalate; no fourth fix.",
+        ),
+        final_checklist=(
+            "Load `references/hypothesis-and-race-method.md`.",
         ),
     ),
     SkillDefinition(
@@ -2707,7 +2714,11 @@ _DEFINITIONS = [
             "Observed repo facts and source/web evidence gaps are named.",
             "At least two options or one chosen option plus rejected alternatives are recorded.",
             "Risks, acceptance criteria, and verification commands are testable or explicitly blocked.",
-            "Record consumer current state and target state, Success criteria Criterion | Task | Verification scenario mapping, and sizing bands. Target-state coverage names every required consumer behavior and uncovered gap.",
+            "Record consumer current state and target state; map Success criteria Criterion | Task | Verification scenario and sizing bands. Target-state coverage includes each behavior unless the user excluded it; record gaps.",
+            "name each consumer of the result, their current workflow on this surface, and the state in which that workflow keeps working with no new friction or loss.",
+            "For every difference between current and target, each with why it matters; use an evidence-gap record below instead when unobserved.",
+            "Never shrink scope on your own; plan an MVP or a first phase only when the user requested one.",
+            "Size each task as one band, never as hours or days: `XS` (one small edit), `S` (one file and its test), `M` (several files in one module), `L` (several modules or one contract change), `XL` (crosses subsystems; split it into smaller tasks).",
             "Review Focus has at most five unmapped failure cases with an owning test or task, or explicitly states none.",
             "The plan stays unaccepted and awaiting with no handoff until an actual user answer accepts it. After acceptance, mark any prepared implementation handoff prepared_not_observed until selected-owner execution evidence is observed.",
         ),
@@ -3325,6 +3336,7 @@ _FEATURE_SURFACE_SKILLS = (
             "The session/turn range, expected behavior, observed behavior, and one observable are bounded before reads.",
             "Forensics are read-only, capped, source-role and authorship aware, and partial counts are labelled rather than inferred.",
             "Exports are prepared only; exact text of third-party content is shown and separately approved before any send.",
+            "Load `references/session-forensics.md` for read-only source-role, exact-text approval, and leak-aware export.",
         ),
         extra_recovery_notes=(
             "If the requested range or observable is missing, ask for that boundary instead of reading an unbounded session.",

@@ -39,9 +39,8 @@ Bad example:
 
 ## Completion Checklist
 
-- The selected coding or runtime owner is named before any implementation claim.
-- Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
-- The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+- Ruling: decision, reason, reversible, in-scope, cost if wrong.
+- Load `references/loop-design-review.md` for machine-decidable finish line, independent judge, and bounded retries.
 
 ## Recovery Notes
 
@@ -78,7 +77,6 @@ Quality bar:
 - Do not enter a finish-until-done loop until scope, acceptance criteria, and verification commands are concrete.
 - For coding edits, prepare and track selected runtime evidence instead of implying unobserved work happened.
 - Report completion only from observed execution and verification evidence.
-- Ruling: decision, reason, reversible, in-scope, cost if wrong — initial independent review, then at most two re-reviews from a fresh reviewer.
 
 Handoff policy:
 

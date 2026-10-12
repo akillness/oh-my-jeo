@@ -19,6 +19,20 @@ def skill_capabilities() -> list[dict[str, object]]:
     ]
 
 
+def prepared_skill_index() -> dict[str, object]:
+    """Return compact prepared metadata without loading duplicate capability cards."""
+    from ..skills.prepared import prepared_guidance_index
+
+    return prepared_guidance_index()
+
+
+def prepared_skill_inspect(canonical_id: str) -> dict[str, object]:
+    """Inspect one prepared member on demand, preserving prepared/not-observed state."""
+    from ..skills.prepared import prepared_guidance_member
+
+    return prepared_guidance_member(canonical_id)
+
+
 def _skill_capability(
     definition: SkillDefinition,
     awareness: dict[str, object],

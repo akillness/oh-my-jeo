@@ -81,6 +81,7 @@ Quality bar:
 - Require disjoint lane ownership before preparing multiple coding runtime handoffs.
 - Attach acceptance criteria, verification commands, and review expectations to each lane.
 - Keep dispatch, execution, review, CI, and merge status evidence separate.
+- Load `references/execution-rulings.md`, `references/dependency-topology.md`, `references/service-contract.md`, and `references/tdd-red-green.md`.
 
 Handoff policy:
 

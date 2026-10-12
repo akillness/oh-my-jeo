@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 
+from ..codegraph import build_handoff_context, codegraph_artifact_path
+from ..coding.commit_planning import (
+    MAX_PLAN_FILES,
+    CommitPlanError,
+    build_commit_plan,
+    parse_status_porcelain_z,
+)
 from ..coding_delegation import (
     CODING_EXECUTOR_TARGETS,
     build_coding_delegation_payload,
@@ -39,6 +48,7 @@ from .common import (
     _chat_input_and_metadata,
     _explicit_source_metadata,
     _paths,
+    _postcondition_exit_statuses,
     _print_json,
     _resolved_executor,
 )
@@ -90,6 +100,10 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
         memory_recall_pack = memory_recall_pack_for_handoff(
             paths, message, executor_target=executor_target
         )
+        handoff_contract = _handoff_contract(args)
+        codegraph_context, graph_note = _persisted_graph_context(
+            getattr(args, "graph_repo", None), message
+        )
         payload = build_coding_delegation_payload(
             message,
             source=args.source,
@@ -100,7 +114,11 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
             context_pack=context_pack,
             memory_recall_pack=memory_recall_pack,
             plan_artifact=plan_artifact,
+            handoff_contract=handoff_contract,
+            codegraph_context=codegraph_context,
         )
+        if graph_note is not None:
+            payload["codegraph_context_not_attached"] = graph_note
         if plan_artifact:
             _apply_plan_handoff_source(payload)
         runtime_skip_reason = ""
@@ -175,6 +193,51 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise OmjError(str(exc)) from exc
     _print_json(payload)
+    return 0
+
+
+def cmd_coding_commit_plan(args: argparse.Namespace) -> int:
+    max_status_bytes = MAX_PLAN_FILES * 4096
+    try:
+        if args.status_file == "-":
+            stream = getattr(sys.stdin, "buffer", sys.stdin)
+            raw = stream.read(max_status_bytes + 1)
+            if isinstance(raw, str):
+                raw = raw.encode("utf-8")
+        else:
+            with Path(args.status_file).expanduser().open("rb") as handle:
+                raw = handle.read(max_status_bytes + 1)
+        if len(raw) > max_status_bytes:
+            raise CommitPlanError(
+                f"status metadata exceeds bounded size of {max_status_bytes} bytes"
+            )
+        files = parse_status_porcelain_z(raw.decode("utf-8"))
+        plan = build_commit_plan(files)
+    except (CommitPlanError, OSError, UnicodeError) as exc:
+        raise OmjError(str(exc)) from exc
+
+    if args.json:
+        _print_json(plan)
+        return 0
+
+    print("OMJ commit plan")
+    print("Mode: metadata-only; observed evidence: no")
+    print(f"Changed files: {plan['changed_file_count']}")
+    print(f"Commits: {plan['commit_count']}")
+    print("")
+    for commit in plan["commits"]:
+        print(f"{commit['order']}. {commit['title']} [{commit['category']}]")
+        for path in commit["files"]:
+            print(f"   - {path}")
+        renames = commit.get("renames")
+        if isinstance(renames, dict):
+            print("   Renames:")
+            for new_path, old_path in sorted(renames.items()):
+                print(f"   - {new_path} <- {old_path}")
+        print(f"   Rationale: {commit['rationale']}")
+        print("")
+    print(f"Boundary: {plan['claim_boundary']}")
+    print("For machine-readable output, rerun with `--json`.")
     return 0
 
 
@@ -387,6 +450,70 @@ def _context_pack(args: argparse.Namespace) -> dict[str, object] | None:
     return read_handoff_context_pack_file(path)
 
 
+_MAX_HANDOFF_CONTRACT_BYTES = 256 * 1024
+
+
+def _handoff_contract(args: argparse.Namespace) -> dict[str, object] | None:
+    value = getattr(args, "handoff_contract", None)
+    if not value:
+        return None
+    raw = str(value)
+    if raw.lstrip().startswith("{"):
+        if len(raw.encode("utf-8")) > _MAX_HANDOFF_CONTRACT_BYTES:
+            raise ValueError(
+                f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+            )
+        contract = json.loads(raw)
+    else:
+        source = Path(raw).expanduser()
+        fd = os.open(source, os.O_RDONLY | os.O_NONBLOCK)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("handoff contract must be a regular file")
+            if info.st_size > _MAX_HANDOFF_CONTRACT_BYTES:
+                raise ValueError(
+                    f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+                )
+            raw_bytes = os.read(fd, _MAX_HANDOFF_CONTRACT_BYTES + 1)
+        finally:
+            os.close(fd)
+        if len(raw_bytes) > _MAX_HANDOFF_CONTRACT_BYTES:
+            raise ValueError(
+                f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+            )
+        raw = raw_bytes.decode("utf-8")
+        contract = json.loads(raw)
+    if not isinstance(contract, dict):
+        raise ValueError("handoff contract must be a JSON object")
+    return contract
+
+
+def _persisted_graph_context(
+    repo: str | None, task: str
+) -> tuple[dict[str, object] | None, dict[str, object] | None]:
+    if not repo:
+        return None, None
+    artifact_path = codegraph_artifact_path(repo)
+    if not artifact_path.exists():
+        return None, None
+    try:
+        graph = json.loads(artifact_path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(graph, dict)
+            or graph.get("schema_version") != "omj_codegraph/v1"
+        ):
+            raise ValueError("persisted codegraph artifact must use omj_codegraph/v1")
+        return build_handoff_context(graph, task=task), None
+    except (OSError, json.JSONDecodeError, ValueError, KeyError, TypeError) as exc:
+        return None, {
+            "schema_version": "omj_codegraph_context/v1",
+            "status": "not_attached",
+            "reason": f"malformed_persisted_graph: {exc}",
+            "artifact_path": str(artifact_path),
+        }
+
+
 def cmd_coding_lifecycle_start(args: argparse.Namespace) -> int:
     if not args.record:
         raise OmjError("coding lifecycle start requires --record")
@@ -451,6 +578,7 @@ def cmd_coding_lifecycle_verify(args: argparse.Namespace) -> int:
                 args.run_id,
                 completion_status=args.completion_status,
                 gaps=args.gap or [],
+                postcondition_exits=_postcondition_exit_statuses(args),
             )
         )
     except FileNotFoundError as exc:
@@ -488,6 +616,19 @@ def _add_coding_commands(sub) -> None:
         "coding", help="Prepare executor-neutral or tracked coding handoff artifacts."
     )
     coding_sub = coding.add_subparsers(dest="coding_command", required=True)
+
+    commit_plan = coding_sub.add_parser(
+        "commit-plan", help="Prepare a deterministic metadata-only commit plan."
+    )
+    commit_plan.add_argument(
+        "--status-file",
+        required=True,
+        help="Read git status --porcelain=v1 -z metadata from PATH, or '-' for stdin.",
+    )
+    commit_plan.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON."
+    )
+    commit_plan.set_defaults(func=cmd_coding_commit_plan)
 
     delegate = coding_sub.add_parser("delegate")
     delegate.add_argument(
@@ -563,6 +704,16 @@ def _add_coding_commands(sub) -> None:
     )
     delegate.add_argument(
         "--user-ref", default="", help="Optional user reference to store as metadata."
+    )
+    delegate.add_argument(
+        "--handoff-contract",
+        default=None,
+        help="Optional handoff_contract/v1 JSON object or local JSON path to attach to the prepared handoff.",
+    )
+    delegate.add_argument(
+        "--graph-repo",
+        default=None,
+        help="Optional repository whose persisted .omj/codegraph/codegraph.json is attached as bounded context; never builds a graph.",
     )
     delegate.set_defaults(func=cmd_coding_delegate)
 
@@ -652,6 +803,13 @@ def _add_coding_commands(sub) -> None:
         default="completed",
     )
     lifecycle_verify.add_argument("--gap", action="append")
+    lifecycle_verify.add_argument(
+        "--postcondition-exit",
+        action="append",
+        default=None,
+        metavar="ID=STATUS",
+        help="Observed integer exit status for a declared handoff postcondition; repeatable.",
+    )
     lifecycle_verify.set_defaults(func=cmd_coding_lifecycle_verify)
 
     lifecycle_report = lifecycle_sub.add_parser("report")

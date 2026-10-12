@@ -83,3 +83,4 @@ packages = [
 [tool.setuptools.package-data]
 "omj.plugin_bundle.omj" = ["plugin.yaml", "config.yaml"]
 "omj.plugin_bundle.omj.references" = ["*.md"]
+"omj.skills" = ["prepared_sources.json"]

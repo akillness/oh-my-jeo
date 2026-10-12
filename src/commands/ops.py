@@ -1,16 +1,8 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
-from ..installer import OmjError
-from ..operator_productivity import (
-    build_agent_operator_productivity_card,
-    list_agent_operator_productivity_cards,
-    show_agent_operator_productivity_card,
-    summarize_agent_operator_productivity_card,
-    validate_agent_operator_productivity_store,
-    write_agent_operator_productivity_card,
-)
 from ..hermes_ops import (
     build_scheduled_ops_blueprint,
     list_hermes_ops_blueprints,
@@ -19,6 +11,13 @@ from ..hermes_ops import (
     validate_hermes_ops_store,
     write_hermes_ops_blueprint,
 )
+from ..install.agent_rules import (
+    ExternalRuleImportError,
+    apply_rule_import,
+    plan_rule_import,
+    public_plan,
+)
+from ..installer import OmjError
 from ..operations import (
     ARTIFACT_STATUSES,
     KINDS_BY_SURFACE,
@@ -31,6 +30,23 @@ from ..operations import (
     validate_operations_store,
     write_operation_artifact,
 )
+from ..operator_productivity import (
+    build_agent_operator_productivity_card,
+    list_agent_operator_productivity_cards,
+    show_agent_operator_productivity_card,
+    summarize_agent_operator_productivity_card,
+    validate_agent_operator_productivity_store,
+    write_agent_operator_productivity_card,
+)
+from ..quality.agent_debug import (
+    OBSERVABLES,
+    build_agent_debug_export,
+    build_agent_debug_incident,
+    build_agent_debug_report,
+    parse_turn_range,
+    read_receipt,
+)
+from ..quality.session_file_activity import build_session_file_activity
 from ..research_department import (
     build_research_department_plan,
     list_research_department_plans,
@@ -39,8 +55,15 @@ from ..research_department import (
     validate_research_department_store,
     write_research_department_plan,
 )
+from ..workflows.permission_rehearsal import (
+    PERMISSION_REHEARSAL_PLAN_SCHEMA_VERSION,
+    read_planned_calls,
+    rehearse_planned_calls,
+)
+from ..workflows.plugin_hook_contract import observe_host_version
+from ..workflows.plugin_risk_audit import audit_plugin_risk
+from ..workflows.research_source_recovery import plan_source_recovery
 from .common import _paths, _print_json
-
 
 DEFAULT_OPS_LIST_LIMIT = 20
 DEFAULT_OPS_EXPORT_LIMIT = 20
@@ -442,10 +465,191 @@ def _add_artifact_args(parser: argparse.ArgumentParser, *, surface: str, default
     observation.add_argument("--not-observed", action="store_true", help="Mark the artifact as explicitly not observed.")
 
 
+def cmd_ops_permission_rehearse(args: argparse.Namespace) -> int:
+    paths = _paths(args)
+    try:
+        planned = read_planned_calls(Path(args.plan).expanduser())
+        payload = rehearse_planned_calls(planned, omj_home=paths.omj_home, hermes_home=paths.hermes_home)
+    except (OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(payload)
+    summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+    rules = payload.get("rules", {}) if isinstance(payload, dict) else {}
+    if isinstance(summary, dict) and summary.get("refused"):
+        return 1
+    if isinstance(rules, dict) and rules.get("defect_count"):
+        return 3
+    return 0
+
+
+def cmd_ops_plugin_risk_audit(args: argparse.Namespace) -> int:
+    try:
+        host_version = observe_host_version(declared_version=args.hermes_version, install_dir=Path(args.hermes_install) if args.hermes_install else None)
+        payload = audit_plugin_risk(Path(args.path), host_version=host_version)
+    except (OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(payload)
+    return 0
+
+def cmd_ops_source_recovery(args: argparse.Namespace) -> int:
+    try:
+        payload = plan_source_recovery(
+            canonical_url=args.url,
+            failure_class=args.failure_class,
+            capability_available=args.capability_available,
+            retrieval_budget_remaining=args.budget,
+            recovery_attempts_spent=args.attempts,
+            source_requirement=args.source_requirement,
+            freshness_constraint=args.freshness_constraint,
+        )
+    except ValueError as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(payload)
+    return 0
+
+def cmd_ops_incident_capsule(args: argparse.Namespace) -> int:
+    paths = _paths(args)
+    try:
+        report = build_agent_debug_report(
+            paths.hermes_home,
+            args.hermes_session,
+            session_record=Path(args.session_record).expanduser(),
+            turns=parse_turn_range(args.turns),
+            max_rows=args.max_rows,
+            max_row_bytes=args.max_row_bytes,
+        )
+        receipts = tuple(read_receipt(path) for path in (args.receipt or ()))
+        incident = build_agent_debug_incident(
+            report,
+            observable=args.observable,
+            receipts=receipts,
+        )
+        export = build_agent_debug_export(
+            {"report": report, "incident": incident},
+            hermes_home=paths.hermes_home,
+            session_record=Path(args.session_record).expanduser(),
+        )
+    except (OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(
+        {
+            "schema_version": "omj_incident_capsule/v1",
+            "report": report,
+            "incident": incident,
+            "export": export,
+            "metadata": {
+                "execution_status": "prepared",
+                "historical_execution_observed": False,
+                "recovery_execution_observed": False,
+            },
+        }
+    )
+    return 0
+
+
+def cmd_ops_file_lineage(args: argparse.Namespace) -> int:
+    paths = _paths(args)
+    try:
+        payload = build_session_file_activity(
+            paths.hermes_home,
+            args.hermes_session,
+            session_record=Path(args.session_record).expanduser(),
+            workspace=Path(args.workspace).expanduser() if args.workspace else None,
+            max_files=args.max_files,
+            focus=args.focus,
+            max_rows=args.max_rows,
+            max_row_bytes=args.max_row_bytes,
+        )
+    except (OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    payload["metadata"] = {
+        "execution_status": "prepared",
+        "historical_execution_observed": False,
+        "file_contents_read": False,
+    }
+    _print_json(payload)
+    return 0
+
+
+def cmd_rules_import(args: argparse.Namespace) -> int:
+    paths = _paths(args)
+    repo_root = Path(args.repo_root).expanduser()
+    skills_dir = Path(args.skills_dir).expanduser() if args.skills_dir else paths.skills_dir
+    try:
+        plan = plan_rule_import(
+            repo_root,
+            skills_dir=skills_dir,
+            omj_home=paths.omj_home,
+            only_sources=tuple(args.source or ()),
+        )
+        payload = (
+            apply_rule_import(plan, skills_dir=skills_dir, omj_home=paths.omj_home)
+            if args.apply
+            else public_plan(plan)
+        )
+    except (ExternalRuleImportError, OSError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
+    payload["metadata"] = {
+        "mode": "apply" if args.apply else "preview",
+        "preview_default": True,
+        "native_hooks_executed": False,
+        "network_used": False,
+        "source_ownership": "source-owned",
+    }
+    _print_json(payload)
+    return 0
+
 def _add_ops_commands(sub) -> None:
     ops = sub.add_parser("ops", help="Create, inspect, validate, and export local operations artifacts.")
     ops_sub = ops.add_subparsers(dest="ops_command", required=True)
 
+
+    recovery = ops_sub.add_parser("source-recovery", help="Plan one bounded research-source recovery handoff without retrieval.")
+    recovery.add_argument("--url", required=True, help="Canonical source URL.")
+    recovery.add_argument("--failure-class", default="", help="Observed failure class, or empty for direct citation.")
+    recovery.add_argument("--capability-available", action="store_true", help="State that the recovery capability is available.")
+    recovery.add_argument("--budget", type=int, default=0, help="Remaining retrieval budget.")
+    recovery.add_argument("--attempts", type=int, default=0, help="Recovery attempts already spent.")
+    recovery.add_argument("--source-requirement", default="")
+    recovery.add_argument("--freshness-constraint", default="")
+    recovery.set_defaults(func=cmd_ops_source_recovery)
+    rehearse = ops_sub.add_parser("permission-rehearse", help="Rehearse planned tool calls against local rules without execution.")
+    rehearse.add_argument("--plan", required=True, help=f"Plan file ({PERMISSION_REHEARSAL_PLAN_SCHEMA_VERSION}).")
+    rehearse.set_defaults(func=cmd_ops_permission_rehearse)
+
+    audit = ops_sub.add_parser("plugin-risk-audit", help="Statically audit one explicit local plugin directory.")
+    audit.add_argument("--path", required=True, help="Explicit local plugin root directory.")
+    host = audit.add_mutually_exclusive_group()
+    host.add_argument("--hermes-version", help="Hermes version stated by the operator.")
+    host.add_argument("--hermes-install", help="Local Hermes installation directory to read version from.")
+    audit.set_defaults(func=cmd_ops_plugin_risk_audit)
+
+    incident = ops_sub.add_parser("incident-capsule", help="Build a cited incident capsule from one supplied local session record.")
+    incident.add_argument("--session-record", required=True, help="Operator-supplied Hermes JSONL session record.")
+    incident.add_argument("--hermes-session", default=None, help="Exact Hermes session id, unique prefix, or latest.")
+    incident.add_argument("--observable", choices=OBSERVABLES, default="unspecified")
+    incident.add_argument("--turns", default=None, help="User-turn range N, N:M, or N:.")
+    incident.add_argument("--max-rows", type=int, default=20000)
+    incident.add_argument("--max-row-bytes", type=int, default=262144)
+    incident.add_argument("--receipt", action="append", default=None, help="Operator-supplied local receipt JSON (repeatable).")
+    incident.set_defaults(func=cmd_ops_incident_capsule)
+
+    lineage = ops_sub.add_parser("file-lineage", help="Project cited file-tool metadata from one supplied local session record.")
+    lineage.add_argument("--session-record", required=True, help="Operator-supplied Hermes JSONL session record.")
+    lineage.add_argument("--hermes-session", required=True, help="Exact Hermes session id, unique prefix, or latest.")
+    lineage.add_argument("--workspace", default=None, help="Optional explicit workspace root for relative paths.")
+    lineage.add_argument("--max-files", type=int, default=100)
+    lineage.add_argument("--max-rows", type=int, default=20000)
+    lineage.add_argument("--max-row-bytes", type=int, default=262144)
+    lineage.add_argument("--focus", action="append", default=None, help="Workspace-relative path prefix (repeatable).")
+    lineage.set_defaults(func=cmd_ops_file_lineage)
+
+    rules_import = sub.add_parser("rules-import", help="Preview or apply external agent rules into managed imported skills.")
+    rules_import.add_argument("--repo-root", required=True, help="Explicit local source repository root.")
+    rules_import.add_argument("--source", action="append", default=None, help="Limit to a discovered source path (repeatable).")
+    rules_import.add_argument("--skills-dir", default=None, help="Managed OMJ skills directory override.")
+    rules_import.add_argument("--apply", action="store_true", help="Apply the prepared plan; preview is the default.")
+    rules_import.set_defaults(func=cmd_rules_import)
     rhythm = ops_sub.add_parser("rhythm", help="Create an operating rhythm artifact such as a meeting or retro record.")
     _add_artifact_args(rhythm, surface="operating-rhythm", default_kind="meeting")
 

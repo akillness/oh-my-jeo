@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
 import sys
 from pathlib import Path
+from typing import Any
 
 from ..codex_progress import (
     build_codex_prompt_handling_contract,
@@ -65,6 +68,7 @@ from .common import (
     _chat_message,
     _explicit_source_metadata,
     _paths,
+    _postcondition_exit_statuses,
     _print_json,
     _resolved_executor,
 )
@@ -199,6 +203,50 @@ def cmd_chat_session_decision(args: argparse.Namespace) -> int:
     return 0
 
 
+_MAX_HANDOFF_CONTRACT_BYTES = 256 * 1024
+
+
+def _handoff_contract_from_args(args: argparse.Namespace) -> dict[str, object] | None:
+    path = getattr(args, "handoff_contract", None)
+    if not path:
+        return None
+    source = Path(path).expanduser()
+    try:
+        fd = os.open(source, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as exc:
+        raise OmjError(f"handoff contract could not be read: {exc}") from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise OmjError("handoff contract must be a regular file")
+        if info.st_size > _MAX_HANDOFF_CONTRACT_BYTES:
+            raise OmjError(
+                f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+            )
+        raw = os.read(fd, _MAX_HANDOFF_CONTRACT_BYTES + 1)
+    except OmjError:
+        raise
+    except OSError as exc:
+        raise OmjError(f"handoff contract could not be read: {exc}") from exc
+    finally:
+        os.close(fd)
+    if len(raw) > _MAX_HANDOFF_CONTRACT_BYTES:
+        raise OmjError(
+            f"handoff contract exceeds maximum size of {_MAX_HANDOFF_CONTRACT_BYTES} bytes"
+        )
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise OmjError("handoff contract must be valid UTF-8 JSON") from exc
+    try:
+        value: Any = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise OmjError(f"handoff contract could not be read: {exc}") from exc
+    if not isinstance(value, dict):
+        raise OmjError("handoff contract must be a JSON object")
+    return value
+
+
 def cmd_chat_session_prepare_handoff(args: argparse.Namespace) -> int:
     try:
         event_or_message, source_metadata = _chat_input_and_metadata(args)
@@ -211,6 +259,7 @@ def cmd_chat_session_prepare_handoff(args: argparse.Namespace) -> int:
             source_metadata=source_metadata,
             executor_target=args.executor,
             context_pack=_context_pack(args),
+            handoff_contract=_handoff_contract_from_args(args),
         )
     except FileNotFoundError as exc:
         raise OmjError(f"wrapper session not found: {args.session_id}") from exc
@@ -336,6 +385,8 @@ def cmd_chat_session_status(args: argparse.Namespace) -> int:
         _print_json(build_wrapper_session_status(_paths(args), args.session_id))
     except FileNotFoundError as exc:
         raise OmjError(f"wrapper session not found: {args.session_id}") from exc
+    except (OSError, ExecutorSessionError, WrapperSessionError, ValueError) as exc:
+        raise OmjError(str(exc)) from exc
     return 0
 
 
@@ -395,6 +446,7 @@ def cmd_chat_session_record_executor(args: argparse.Namespace) -> int:
                 evidence_refs=args.evidence_ref or [],
                 summary=args.summary or "",
                 codex_progress_summary=codex_progress,
+                postcondition_exit_statuses=_postcondition_exit_statuses(args),
             )
         )
     except FileNotFoundError as exc:
@@ -1008,6 +1060,11 @@ def _add_chat_commands(sub) -> None:
         default=None,
         help="Optional handoff_context_pack/v1 JSON to attach to the prepared executor prompt when conflict-free.",
     )
+    session_prepare.add_argument(
+        "--handoff-contract",
+        default=None,
+        help="Optional handoff_contract/v1 JSON file path declaring typed inputs/postconditions/forbidden actions to attach to the prepared handoff.",
+    )
     session_prepare.set_defaults(func=cmd_chat_session_prepare_handoff)
 
     session_status = session_sub.add_parser("status")
@@ -1051,6 +1108,13 @@ def _add_chat_commands(sub) -> None:
         "--codex-log-ref",
         default="",
         help="Evidence reference for the observed Codex log source.",
+    )
+    session_record_executor.add_argument(
+        "--postcondition-exit",
+        action="append",
+        default=None,
+        metavar="ID=STATUS",
+        help="Observed integer exit status for a declared handoff postcondition; repeatable.",
     )
     session_record_executor.set_defaults(func=cmd_chat_session_record_executor)
 

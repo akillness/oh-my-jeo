@@ -3,8 +3,7 @@ from __future__ import annotations
 import json
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any
-
+from typing import Any, Mapping
 from ..context_safety import (
     MAX_SUMMARY_CHARS,
     compact_context_refs,
@@ -32,10 +31,19 @@ from ..local_store import (
 )
 from ..paths import OmjPaths
 from ..runtime.artifacts import (
+    HANDOFF_CONTRACT_RECEIPT_FILENAME,
+    handoff_contract_receipt_status_summary,
+    read_handoff_contract_receipt_at,
     read_runtime_observations_result,
     runtime_observations_for_target,
     summarize_runtime_observation_status,
+    write_handoff_contract_receipt_at,
     write_runtime_observation,
+)
+from ..coding.handoff_contract import (
+    HandoffContractError,
+    build_handoff_contract,
+    build_handoff_contract_receipt,
 )
 from ..runtime.records import build_event_record
 from .lifecycle import (
@@ -195,6 +203,14 @@ def build_executor_session_status(
         if latest_summary:
             status["status_lines"].append(f"executor-progress: {latest_summary}")
             status["display_status_lines"].append(latest_summary)
+    contract = _executor_session_handoff_contract(session)
+    if contract is not None:
+        receipt = read_handoff_contract_receipt_at(
+            _session_dir(paths, session_id) / HANDOFF_CONTRACT_RECEIPT_FILENAME
+        )
+        status["handoff_contract_receipt"] = handoff_contract_receipt_status_summary(
+            contract, receipt
+        )
     if record_found and record.get("schema_version") == EXECUTOR_SESSION_SCHEMA_VERSION:
         status["record"] = record
     if record_error:
@@ -424,6 +440,7 @@ def open_executor_session(
             "open-executor --external-session-ref requires --observed"
         )
     session = _existing_session(paths, session_id)
+    snapshot_executor_session_handoff(paths, session_id)
     _require_prepared_handoff(session)
     _require_no_observed_result(paths, session)
     patch = {
@@ -489,6 +506,7 @@ def attach_executor_session(
     if not external_session_ref.strip():
         raise ExecutorSessionError("attach-executor requires --external-session-ref")
     session = _existing_session(paths, session_id)
+    snapshot_executor_session_handoff(paths, session_id)
     _require_prepared_handoff(session)
     _require_no_observed_result(paths, session)
     patch = {
@@ -539,6 +557,153 @@ def attach_executor_session(
     }
 
 
+def _validated_executor_session_contract(contract: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(contract, Mapping):
+        raise ExecutorSessionError("declared handoff contract must be a JSON object")
+    try:
+        serialized = dict(contract)
+    except (TypeError, KeyError, ValueError) as exc:
+        raise ExecutorSessionError(
+            "declared handoff contract failed canonical validation"
+        ) from exc
+    required = {
+        "schema_version",
+        "status",
+        "inputs",
+        "postconditions",
+        "forbidden_actions",
+        "claim_boundary",
+    }
+    if not required.issubset(serialized) or set(serialized) - required - {
+        "output_shape"
+    }:
+        raise ExecutorSessionError(
+            "declared handoff contract has unsupported or missing fields"
+        )
+    inputs = serialized["inputs"]
+    postconditions = serialized["postconditions"]
+    forbidden_actions = serialized["forbidden_actions"]
+    if not isinstance(inputs, list):
+        raise ExecutorSessionError("declared handoff contract inputs must be a list")
+    if not isinstance(postconditions, list):
+        raise ExecutorSessionError(
+            "declared handoff contract postconditions must be a list"
+        )
+    if not isinstance(forbidden_actions, list):
+        raise ExecutorSessionError(
+            "declared handoff contract forbidden_actions must be a list"
+        )
+    for index, entry in enumerate(inputs):
+        if not isinstance(entry, Mapping):
+            raise ExecutorSessionError(
+                f"declared handoff contract input at index {index} must be an object"
+            )
+    for index, entry in enumerate(postconditions):
+        if not isinstance(entry, Mapping):
+            raise ExecutorSessionError(
+                f"declared handoff contract postcondition at index {index} must be an object"
+            )
+    for index, entry in enumerate(forbidden_actions):
+        if not isinstance(entry, str):
+            raise ExecutorSessionError(
+                f"declared handoff contract forbidden_actions entry at index {index} must be a string"
+            )
+    try:
+        declaration = {
+            "inputs": [
+                dict(entry) for entry in inputs if entry.get("name") != "message"
+            ],
+            "postconditions": [
+                {"id": entry.get("id"), "command": entry.get("command")}
+                for entry in postconditions
+            ],
+            "forbidden_actions": list(forbidden_actions),
+        }
+        if "output_shape" in serialized:
+            declaration["output_shape"] = serialized["output_shape"]
+        normalized = build_handoff_contract(declaration)
+    except HandoffContractError as exc:
+        raise ExecutorSessionError(
+            f"declared handoff contract failed canonical validation: {exc}"
+        ) from exc
+    except (TypeError, KeyError, ValueError) as exc:
+        raise ExecutorSessionError(
+            "declared handoff contract failed canonical validation"
+        ) from exc
+    if normalized != serialized:
+        raise ExecutorSessionError(
+            "declared handoff contract failed canonical validation"
+        )
+    return serialized
+
+
+def _executor_session_handoff_contract(
+    session: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    direct = session.get("handoff_contract")
+    if isinstance(direct, dict) and direct:
+        return _validated_executor_session_contract(direct)
+    for handoff_key in ("executor_handoff", "prompt_handoff", "runtime_handoff"):
+        handoff = session.get(handoff_key)
+        if not isinstance(handoff, Mapping):
+            continue
+        contract = handoff.get("handoff_contract")
+        if isinstance(contract, dict) and contract:
+            return _validated_executor_session_contract(contract)
+    return None
+
+
+def snapshot_executor_session_handoff(
+    paths: OmjPaths, session_id: str
+) -> dict[str, Any] | None:
+    """Persist the original typed handoff declaration beside executor metadata."""
+    session = _existing_session(paths, session_id)
+    contract = _executor_session_handoff_contract(session)
+    if contract is None:
+        return None
+    snapshot_path = _session_dir(paths, session_id) / "handoff_contract.json"
+    if not snapshot_path.exists():
+        atomic_write_json(snapshot_path, contract, private=True)
+    return contract
+
+
+def _record_executor_session_receipt(
+    paths: OmjPaths,
+    session: Mapping[str, Any],
+    postcondition_exit_statuses: Mapping[str, object] | None,
+) -> dict[str, Any] | None:
+    contract = _executor_session_handoff_contract(session)
+    if contract is None:
+        if postcondition_exit_statuses is not None:
+            raise ExecutorSessionError(
+                "postcondition exit statuses require a declared handoff contract"
+            )
+        return None
+    session_id = str(session.get("session_id", ""))
+    session_dir = _session_dir(paths, session_id)
+    snapshot_path = session_dir / "handoff_contract.json"
+    if not snapshot_path.exists():
+        raise ExecutorSessionError(
+            "handoff contract snapshot is missing; prepare or open the executor session first"
+        )
+    snapshot = _validated_executor_session_contract(read_json_object(snapshot_path))
+    if snapshot != contract:
+        raise ExecutorSessionError(
+            "declared handoff contract changed after preparation"
+        )
+    try:
+        receipt = build_handoff_contract_receipt(
+            snapshot, postcondition_exit_statuses or {}
+        )
+    except HandoffContractError as exc:
+        raise ExecutorSessionError(
+            f"invalid postcondition exit status evidence: {exc}"
+        ) from exc
+    return write_handoff_contract_receipt_at(
+        session_dir / HANDOFF_CONTRACT_RECEIPT_FILENAME, receipt
+    )
+
+
 def record_executor_session_result(
     paths: OmjPaths,
     session_id: str,
@@ -547,6 +712,7 @@ def record_executor_session_result(
     evidence_refs: list[str] | tuple[str, ...] | None = None,
     summary: str = "",
     codex_progress_summary: dict[str, object] | None = None,
+    postcondition_exit_statuses: dict[str, int] | None = None,
 ) -> dict[str, object]:
     if result not in {"completed", "blocked", "failed"}:
         raise ExecutorSessionError(
@@ -567,6 +733,12 @@ def record_executor_session_result(
             "cannot record executor result before an executor session is opened or attached"
         )
     refs = list(evidence_refs or [])
+    if not str(session.get("current_run_id", "")):
+        _record_executor_session_receipt(paths, session, postcondition_exit_statuses)
+    elif postcondition_exit_statuses is not None:
+        raise ExecutorSessionError(
+            "Codex lifecycle owns receipts for linked runtime runs"
+        )
     if str(session.get("current_run_id", "")):
         _record_codex_result_if_needed(
             paths, session, result=result, evidence_refs=refs

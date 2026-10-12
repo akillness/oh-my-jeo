@@ -267,6 +267,11 @@ Executor readiness:
 def router_reference_templates() -> list[SkillReferenceTemplate]:
     return list(_router_reference_templates_cached())
 
+def prepared_guidance_reference_templates() -> list[SkillReferenceTemplate]:
+    """Render prepared contract documents and embedded method references on demand."""
+    from .prepared import prepared_guidance_reference_templates as _prepared_templates
+
+    return list(_prepared_templates())
 
 @lru_cache(maxsize=1)
 def _router_reference_templates_cached() -> tuple[SkillReferenceTemplate, ...]:

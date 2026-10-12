@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from ..coding.handoff_contract import (
+    HandoffContractError,
+    build_handoff_contract_receipt,
+    contract_digest,
+    contract_verification_observed,
+)
 from ..context_safety import build_coding_progress_reporting_policy
 from ..coding_delegation import (
     build_coding_delegation_payload,
@@ -21,10 +27,14 @@ from ..memory import memory_recall_pack_for_handoff
 from ..runtime.artifacts import (
     append_event,
     create_prepared_coding_delegation_run,
+    read_handoff_contract_receipt,
+    stored_handoff_contract,
+    stored_handoff_contract_digest,
     summarize_delegated_coding_status,
     validate_runtime,
     write_coding_delegation,
     write_delegation,
+    write_handoff_contract_receipt,
     write_wrapper_contract,
 )
 from ..runtime.records import OBSERVED_RESULTS
@@ -47,6 +57,7 @@ def start_codex_delegation_lifecycle(
     include_message: bool = False,
     context_pack: dict[str, object] | None = None,
     memory_recall_pack: dict[str, object] | None = None,
+    handoff_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     if memory_recall_pack is None:
         memory_recall_pack = memory_recall_pack_for_handoff(
@@ -61,6 +72,7 @@ def start_codex_delegation_lifecycle(
         executor_target="codex",
         context_pack=context_pack,
         memory_recall_pack=memory_recall_pack,
+        handoff_contract=handoff_contract,
     )
     delegation = payload.get("delegation")
     if not isinstance(delegation, dict):
@@ -174,6 +186,7 @@ def record_codex_verification(
     *,
     completion_status: str = "completed",
     gaps: list[str] | tuple[str, ...] | None = None,
+    postcondition_exits: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     run_dir = _existing_run_dir(paths, run_id)
     status = summarize_delegated_coding_status(paths, run_id)
@@ -186,8 +199,21 @@ def record_codex_verification(
         raise CodingLifecycleError(
             "cannot record successful verification for blocked or failed executor result"
         )
+    contract = stored_handoff_contract(run_dir)
+    if contract is None:
+        if postcondition_exits is not None:
+            raise CodingLifecycleError(
+                "--postcondition-exit requires the run to carry a declared handoff_contract declaration"
+            )
+        contract_observed = True
+    else:
+        contract_observed = _record_handoff_contract_evidence(
+            run_dir, contract, postcondition_exits
+        )
     unobserved_gaps = list(gaps or [])
-    verification_observed = completion_status == "completed" and not unobserved_gaps
+    verification_observed = (
+        completion_status == "completed" and not unobserved_gaps and contract_observed
+    )
     wrapper = write_wrapper_contract(
         run_dir,
         {
@@ -203,6 +229,31 @@ def record_codex_verification(
         "wrapper": wrapper,
         "status": report_codex_delegation_lifecycle(paths, run_id),
     }
+
+
+def _record_handoff_contract_evidence(
+    run_dir: Path,
+    contract: dict[str, Any],
+    postcondition_exits: Mapping[str, int] | None,
+) -> bool:
+    """Build/persist a receipt from new evidence (if the pinned contract still matches), then
+    report whether the run's handoff contract is observed and passed.
+
+    The contract digest was pinned in coding_delegation.json when it was first persisted,
+    before any later edit of that file was possible; a live contract that no longer matches
+    its own pin has changed since dispatch and cannot be verified, so no receipt is written
+    for it (a changed contract must never claim completion from stale or self-tampered evidence).
+    """
+    if postcondition_exits is not None:
+        try:
+            receipt = build_handoff_contract_receipt(contract, postcondition_exits)
+        except HandoffContractError as exc:
+            raise CodingLifecycleError(str(exc)) from exc
+        if stored_handoff_contract_digest(run_dir) == contract_digest(contract):
+            write_handoff_contract_receipt(run_dir, receipt)
+    return contract_verification_observed(
+        contract, read_handoff_contract_receipt(run_dir)
+    )
 
 
 def report_codex_delegation_lifecycle(

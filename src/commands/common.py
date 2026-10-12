@@ -23,6 +23,23 @@ def _print_json(data: object) -> None:
     print(json.dumps(data, indent=2, sort_keys=True))
 
 
+def _postcondition_exit_statuses(args: argparse.Namespace) -> dict[str, int] | None:
+    entries = getattr(args, "postcondition_exit", None)
+    if not entries:
+        return None
+    statuses: dict[str, int] = {}
+    for raw in entries:
+        name, separator, value = str(raw).partition("=")
+        if not separator or not name:
+            raise OmjError("--postcondition-exit must use ID=STATUS")
+        try:
+            status = int(value)
+        except ValueError as exc:
+            raise OmjError("--postcondition-exit STATUS must be an integer") from exc
+        statuses[name] = status
+    return statuses
+
+
 def _wants_json(args: argparse.Namespace) -> bool:
     output = os.environ.get("OMJ_OUTPUT", "").strip().lower()
     return bool(getattr(args, "json", False)) or output == "json"

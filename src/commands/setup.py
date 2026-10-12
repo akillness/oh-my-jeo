@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import json
 from pathlib import Path
 import re
 import shutil
@@ -21,7 +22,7 @@ from ..version import __version__
 from ..command_path import COMMAND_PATH_MISSING_NEXT_ACTION, inspect_omj_command_path
 from ..capabilities.registry import capability_summary
 from ..capabilities.skills import skill_capabilities
-from ..config_adapter import ensure_external_dir, external_dirs, read_config, remove_external_dir, write_config
+from ..config_adapter import ConfigChange, ensure_external_dir, ensure_omj_home_binding, external_dirs, read_config, remove_external_dir, write_config
 from ..doctor import DEFAULT_DOCTOR_NEXT_ACTION, doctor_ok, recommended_next_action, run_doctor
 from ..executors import CODING_EXECUTOR_TARGETS
 from ..hashutil import sha256_file
@@ -62,6 +63,14 @@ from ..team_profiles import (
     list_team_profile_packs,
     operating_model_ids,
 )
+
+from ..profiles.transport import (
+    SetupProfilePackError,
+    apply_setup_profile_pack,
+    build_setup_profile_pack,
+    read_setup_profile_pack,
+)
+
 from .common import _paths, _print_json, _wants_json
 from .language import LANGUAGE_CODES, language_from_env, language_options, normalize_language, tr
 
@@ -162,6 +171,19 @@ def _install_result(args: argparse.Namespace) -> dict[str, object]:
 
 
 def cmd_update(args: argparse.Namespace) -> int:
+    # Carry forward an existing managed plugin after an offline package update.
+    # Unmanaged or absent directories retain the normal install boundary.
+    if bool(getattr(args, "command_package_updated", False)):
+        paths = _paths(args)
+        if paths.hermes_plugin_dir.exists():
+            try:
+                install_plugin_bundle(
+                    paths,
+                    force=bool(getattr(args, "force", False)),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                )
+            except PluginPackError as exc:
+                raise OmjError(_friendly_plugin_error(paths, str(exc))) from exc
     self_update = _command_package_self_update_plan(args)
     if self_update.get("should_update"):
         return _run_command_package_self_update(args, self_update)
@@ -776,9 +798,17 @@ def _apply_result(args: argparse.Namespace) -> dict[str, object]:
     paths = _paths(args)
     current = read_config(paths.hermes_config_path)
     try:
-        change = ensure_external_dir(current, paths.skills_dir)
+        external_change = ensure_external_dir(current, paths.skills_dir)
+        binding_change = ensure_omj_home_binding(external_change.text, paths.omj_home)
     except ValueError as exc:
         raise OmjError(str(exc)) from exc
+    messages = [change.message for change in (external_change, binding_change) if change.changed and change.message]
+    primary_message = binding_change.message if binding_change.changed else external_change.message
+    change = ConfigChange(
+        external_change.changed or binding_change.changed,
+        primary_message,
+        binding_change.text,
+    )
     if not args.dry_run and change.changed:
         write_config(paths.hermes_config_path, change.text)
     if not args.dry_run:
@@ -788,9 +818,18 @@ def _apply_result(args: argparse.Namespace) -> dict[str, object]:
                 "hermes_config_path": str(paths.hermes_config_path),
                 "last_applied_skills_dir": str(paths.skills_dir),
                 "external_dir_registered": str(paths.skills_dir) in read_config(paths.hermes_config_path),
+                "omj_home_binding": str(paths.omj_home),
             },
         )
-    return {"changed": change.changed, "message": change.message, "config": str(paths.hermes_config_path), "skills_dir": str(paths.skills_dir), "dry_run": args.dry_run}
+    return {
+        "changed": change.changed,
+        "message": change.message,
+        "messages": messages or [change.message],
+        "config": str(paths.hermes_config_path),
+        "skills_dir": str(paths.skills_dir),
+        "omj_home": str(paths.omj_home),
+        "dry_run": args.dry_run,
+    }
 
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
@@ -1026,8 +1065,12 @@ def cmd_setup(args: argparse.Namespace) -> int:
         progress.skip(tr(language, "skip_by_flag", flag="--skip-apply"))
     else:
         steps["apply"] = _apply_result(args)
-        apply_message = steps["apply"].get("message", "configured") if isinstance(steps["apply"], dict) else "configured"
-        progress.done(_config_change_label(language, str(apply_message)))
+        apply_result = steps["apply"] if isinstance(steps["apply"], dict) else {}
+        apply_messages = apply_result.get("messages", [apply_result.get("message", "configured")])
+        if not isinstance(apply_messages, list):
+            apply_messages = [apply_result.get("message", "configured")]
+        labels = [_config_change_label(language, str(message)) for message in apply_messages if str(message).strip()]
+        progress.done("; ".join(labels) or _config_change_label(language, "configured"))
     step_index += 1
 
     progress.step(step_index, total_steps, tr(language, "step_plugin"), detail=str(paths.hermes_plugin_dir))
@@ -2615,6 +2658,45 @@ def cmd_profile_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_setup_profile_export(args: argparse.Namespace) -> int:
+    """Build a redacted setup-profile pack; write only when --output is explicit."""
+    paths = _paths(args)
+    try:
+        pack = build_setup_profile_pack(paths)
+    except SetupProfilePackError as exc:
+        raise OmjError(str(exc)) from exc
+    output = getattr(args, "output", None)
+    if output:
+        target = Path(output).expanduser()
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(pack, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        except OSError as exc:
+            raise OmjError(f"cannot write setup profile pack: {exc}") from exc
+    _print_json({"pack": pack, "written": bool(output), "output": str(Path(output).expanduser()) if output else None})
+    return 0
+
+
+def cmd_setup_profile_import(args: argparse.Namespace) -> int:
+    """Preview a pack by default; --apply is the only mutating path."""
+    source = getattr(args, "from_pack", None)
+    if not source:
+        raise OmjError("setup-profile import requires --from")
+    try:
+        pack = read_setup_profile_pack(source)
+        result = apply_setup_profile_pack(
+            _paths(args),
+            pack,
+            dry_run=not bool(getattr(args, "apply", False)),
+            with_mcp=bool(getattr(args, "with_mcp", False)),
+            mcp_config_path=getattr(args, "mcp_config_path", None),
+        )
+    except SetupProfilePackError as exc:
+        raise OmjError(str(exc)) from exc
+    _print_json(result)
+    return 0
+
+
 def cmd_recommend(args: argparse.Namespace) -> int:
     if args.limit < 1:
         raise OmjError("recommend --limit must be at least 1")
@@ -2855,3 +2937,24 @@ def _add_top_level_commands(sub) -> None:
     profile_inspect.add_argument("id")
     profile_inspect.add_argument("--json", action="store_true", help="Print the full machine-readable profile pack payload.")
     profile_inspect.set_defaults(func=cmd_profile_inspect)
+
+    setup_profile = sub.add_parser("setup-profile", help="Export or import a redacted setup-profile pack.")
+    setup_profile_sub = setup_profile.add_subparsers(dest="setup_profile_command", required=True)
+    profile_export = setup_profile_sub.add_parser("export", help="Build a redacted pack; no file is written unless --output is set.")
+    profile_export.add_argument("--output", default=None, help="Optional local JSON path to write the exported pack.")
+    profile_export.add_argument("--json", action="store_true", help="Print machine-readable output (default).")
+    profile_export.set_defaults(func=cmd_setup_profile_export)
+    profile_import = setup_profile_sub.add_parser("import", help="Preview a pack, or apply it explicitly with --apply.")
+    profile_import.add_argument("--from", dest="from_pack", required=True, help="Path to a setup-profile pack JSON file.")
+    profile_import.add_argument("--apply", action="store_true", help="Write supported fields through the existing setup-profile writer.")
+    profile_import.add_argument("--with-mcp", action="store_true", help="Annotate the host MCP handoff row; never writes host config.")
+    profile_import.add_argument("--mcp-config-path", default=None, help="Optional host MCP config path for explicit handoff metadata.")
+    profile_import.add_argument("--json", action="store_true", help="Print machine-readable output (default).")
+    profile_import.set_defaults(func=cmd_setup_profile_import)
+    profile_apply = setup_profile_sub.add_parser("apply", help="Apply a pack through the existing setup-profile writer.")
+    profile_apply.add_argument("--from", dest="from_pack", required=True, help="Path to a setup-profile pack JSON file.")
+    profile_apply.add_argument("--apply", action="store_true", help="Explicitly confirm the write (required for mutation).")
+    profile_apply.add_argument("--with-mcp", action="store_true", help="Annotate the host MCP handoff row; never writes host config.")
+    profile_apply.add_argument("--mcp-config-path", default=None, help="Optional host MCP config path for explicit handoff metadata.")
+    profile_apply.add_argument("--json", action="store_true", help="Print machine-readable output (default).")
+    profile_apply.set_defaults(func=cmd_setup_profile_import)

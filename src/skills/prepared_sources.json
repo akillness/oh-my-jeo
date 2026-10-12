@@ -1,0 +1,2473 @@
+{
+  "schema_version": "prepared_guidance_source_manifest/v1",
+  "source_repository": "rlaope/oh-my-hermes",
+  "source_commit": "117f67a2347b82ea527ca1d7f8c0e8d609ec8c4c",
+  "counts": {
+    "members": 98,
+    "families": 60,
+    "method_references": 97,
+    "source_contracts": 41,
+    "unique_source_paths": 138
+  },
+  "members": {
+    "accessibility-audit": {
+      "family_id": "accessibility",
+      "source_path": "skills/omh-accessibility-audit/SKILL.md",
+      "source_sha256": "90c554f1ed3cd2522c4c678f39de9a4aac8080c41c9ba9ffb0a3e1d712b3dca3",
+      "references": [
+        {
+          "relative_path": "omh-accessibility-audit/references/a11y-rules.md",
+          "source_path": "skills/omh-accessibility-audit/references/a11y-rules.md",
+          "source_sha256": "cd7e0404576923cfd3bcec9e055b1de7a78f3fc55971fd033598aac1043e4469"
+        }
+      ],
+      "expected_outputs": [
+        "accessibility_audit_plan/v1",
+        "wcag_success_criteria_matrix/v1",
+        "semantic_structure_review/v1",
+        "focus_and_keyboard_trace/v1 when observed",
+        "screen_reader_announcement_map/v1 when observed",
+        "target_size_and_pointer_review/v1",
+        "contrast_and_reflow_review/v1",
+        "accessibility_remediation_handoff/v1 when needed",
+        "accessibility_audit_verdict/v1"
+      ],
+      "acceptance_criteria": [
+        "The platform, target surfaces, critical tasks, WCAG level, supplied evidence, and missing observations are explicit.",
+        "The wcag_success_criteria_matrix/v1 separates PASS/HOLD/BLOCK and maps each issue to user impact.",
+        "Semantic structure, focus/keyboard, screen-reader announcements, target size/pointer, contrast/reflow, and form/status behavior are separate checks.",
+        "PASS is unavailable unless evidence is fresh after the latest UI edit and covers critical tasks.",
+        "Remediation, frontend implementation, visual QA, browser proof, CI, release, and merge remain separate observed states."
+      ]
+    },
+    "achievements": {
+      "family_id": "achievements",
+      "source_path": "skills/omh-achievements/SKILL.md",
+      "source_sha256": "b815d39bc264004faca4cc7684dc58af435a7a2b106aa0cfe47ae4e33200cfab",
+      "references": [],
+      "expected_outputs": [
+        "hermes_achievements_observation/v1 summary or badge list",
+        "recent unlocks and progress hints",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "The run or workflow scope, metric window, failure modes, and cost/latency boundary are named.",
+        "Local telemetry, provider truth, billing truth, and completion evidence are separate states.",
+        "Warnings name the next measurement or operator review action."
+      ]
+    },
+    "adversarial-consensus": {
+      "family_id": "adversarial-decision",
+      "source_path": "skills/omh-adversarial-consensus/SKILL.md",
+      "source_sha256": "c531e927bf354b3c1f16dacd4124879162a592b2b4827c27fbc3fb3b2884fb8c",
+      "references": [
+        {
+          "relative_path": "omh-adversarial-consensus/references/consensus-protocol.md",
+          "source_path": "skills/omh-adversarial-consensus/references/consensus-protocol.md",
+          "source_sha256": "e2337062d98214abc440d3909d7c076db284c817dc45c9b67a292003a6b51a89"
+        }
+      ],
+      "expected_outputs": [
+        "per-perspective independent findings",
+        "cross-attack objections attributed to their author",
+        "defend, refine, or concede verdict per objection",
+        "distilled bundle in the fixed buckets Hard Constraints, Decisions, Risks, Open Questions",
+        "mandatory planner handoff naming the follow-on planning workflow"
+      ],
+      "acceptance_criteria": [
+        "The roster is named with 3-5 distinct angles, and no two seats argue the same one.",
+        "Round-one findings were produced blind, and any perspective that could not be kept blind is named as a broken-independence caveat instead of being presented as independent.",
+        "Every cross-attack objection targets another perspective's finding, and no perspective defended itself in that round.",
+        "Every objection carries exactly one verdict — defended, refined, or conceded — and conceded findings are struck, not softened.",
+        "The bundle contains only Hard Constraints, Decisions, Risks, Open Questions, every line traces to a surviving finding, and nothing new was added at distillation.",
+        "The closing message states that the bundle is input, names the follow-on planning workflow, and claims no plan, acceptance, implementation, or verification evidence."
+      ]
+    },
+    "agent-debug": {
+      "family_id": "agent-failure-and-eval",
+      "source_path": "skills/omh-agent-debug/SKILL.md",
+      "source_sha256": "bcab2434ebcf01f32d34a9493a154f233bbcd53b6f39418c2be9a4b8fec4fe08",
+      "references": [
+        {
+          "relative_path": "omh-agent-debug/references/session-forensics.md",
+          "source_path": "skills/omh-agent-debug/references/session-forensics.md",
+          "source_sha256": "1939a38a8e75e141eb7fd2ffcce8349f11f7ebcd1e678b85bf461be62b33195d"
+        }
+      ],
+      "expected_outputs": [
+        "agent_debug_report/v1",
+        "agent_failure_capture/v1",
+        "agent_failure_pattern_hypothesis/v1",
+        "contained_recovery_action/v1"
+      ],
+      "acceptance_criteria": [
+        "Failure state, intended goal, recent tool sequence, and context pressure are captured.",
+        "Diagnosis distinguishes repeated command/tool loops, context drift, environment mismatch, service errors, and wrong-hypothesis tests.",
+        "Recovery action is contained, reversible, and does not claim implementation, verification, CI, merge, or future-loop fixes."
+      ]
+    },
+    "agent-evaluation": {
+      "family_id": "agent-failure-and-eval",
+      "source_path": "skills/omh-agent-evaluation/SKILL.md",
+      "source_sha256": "36d9cde2944e8f413458f84b99d68f66d37a563833e35514c08676547f5994ea",
+      "references": [
+        {
+          "relative_path": "omh-agent-evaluation/references/self-evaluation-loops.md",
+          "source_path": "skills/omh-agent-evaluation/references/self-evaluation-loops.md",
+          "source_sha256": "9ec52b0a0ffb20856a0548b09ad9e920d3efeb8c792fd50047b2d8798e8fe9d3"
+        }
+      ],
+      "expected_outputs": [
+        "paired_run_decision/v1",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "Confirm the workflow target, evidence boundary, and stop condition are named.",
+        "Report which outputs are prepared, observed, blocked, or missing.",
+        "Name the smallest next verification or handoff instead of claiming completion from narration."
+      ]
+    },
+    "agent-instructions": {
+      "family_id": "instruction-maintenance",
+      "source_path": "skills/omh-agent-instructions/SKILL.md",
+      "source_sha256": "acdb8eb6a411cc1e4b0345151fda6d70f443fb0ccf170d037c18b960aeb91fe9",
+      "references": [
+        {
+          "relative_path": "omh-agent-instructions/references/instruction-file-method.md",
+          "source_path": "skills/omh-agent-instructions/references/instruction-file-method.md",
+          "source_sha256": "cc8f82b67198fa905f1336ea0fb8b50a2451b290ca4678efc41cc2c195828446"
+        }
+      ],
+      "expected_outputs": [
+        "instruction_file_inventory/v1",
+        "command_verification_record/v1",
+        "instruction_region_update/v1",
+        "drift_refusal_note/v1 when a requested line would record a count or a line number"
+      ],
+      "acceptance_criteria": [
+        "Every instruction file and its reader are listed.",
+        "Every command is marked verified with an observed run, or unverified.",
+        "Only the marked region changed, and hand-written text is byte-for-byte.",
+        "No count, line number, or value the code already states was written.",
+        "Every generated file names its source, its regenerate command, and its gate."
+      ]
+    },
+    "app-debugging": {
+      "family_id": "application-and-native-debug",
+      "source_path": "skills/omh-app-debugging/SKILL.md",
+      "source_sha256": "e60fe09f8b5bceff2ff7bf6344a85d6a289d9bb683b1f301294f587521099a47",
+      "references": [
+        {
+          "relative_path": "omh-app-debugging/references/hypothesis-and-race-method.md",
+          "source_path": "skills/omh-app-debugging/references/hypothesis-and-race-method.md",
+          "source_sha256": "d9f5490c1ca4bdb421d901f72e4a2839706ff75d842811060d441686135ef9de"
+        }
+      ],
+      "expected_outputs": [
+        "reproduction_record/v1",
+        "competing_hypotheses/v1 with at least three hypotheses on distinct axes",
+        "discriminating_observation_plan/v1",
+        "root_cause_record/v1",
+        "fix_handoff/v1 blocked until reproduction_record/v1 reads observed",
+        "observed_fix_verification/v1 when observed"
+      ],
+      "acceptance_criteria": [
+        "The reproduction names its command, observed output, expected output, and hit rate, and reads observed before any fix is prepared.",
+        "At least three hypotheses on distinct axes were written before the first observation was chosen.",
+        "Each observation records which hypotheses its result eliminated.",
+        "The root cause cites the demonstrating observation and the observation that ruled out each rival.",
+        "The fix handoff carries the reproduction as a regression test that fails before and passes after."
+      ]
+    },
+    "apple-design": {
+      "family_id": "design-direction",
+      "source_path": "skills/omh-apple-design/SKILL.md",
+      "source_sha256": "fdfaa6a6664154ff8e838951ca7232748b1db86ced8cf84ee66ed3e0aec10cb8",
+      "references": [
+        {
+          "relative_path": "omh-apple-design/references/materials-and-accessibility.md",
+          "source_path": "skills/omh-apple-design/references/materials-and-accessibility.md",
+          "source_sha256": "09588fbd807e527ed354fc317fc0fc3c654006878da42eb59461e45fb1ad9c26"
+        },
+        {
+          "relative_path": "omh-apple-design/references/platform-foundations.md",
+          "source_path": "skills/omh-apple-design/references/platform-foundations.md",
+          "source_sha256": "4984a8f9f3eb0b1876be5b4f4bc024b002c8738be53ccaa1dc29467d3aaeffa0"
+        },
+        {
+          "relative_path": "omh-apple-design/references/product-visual-production.md",
+          "source_path": "skills/omh-apple-design/references/product-visual-production.md",
+          "source_sha256": "835383a0c276a0e5150a9a7ba633bcb798d265eb5fcd96ab082dc5c513ccf5cd"
+        },
+        {
+          "relative_path": "omh-apple-design/references/review-playbook.md",
+          "source_path": "skills/omh-apple-design/references/review-playbook.md",
+          "source_sha256": "c021e7c05152b68d746dcea05942fd0215630551a2a419fb9fa6a809f0b6f604"
+        },
+        {
+          "relative_path": "omh-apple-design/references/web-production-libraries.md",
+          "source_path": "skills/omh-apple-design/references/web-production-libraries.md",
+          "source_sha256": "81ac6fd49dc78ea629cc949d9d0aed99eea969629d3606866882988f5ec5e99e"
+        }
+      ],
+      "expected_outputs": [
+        "apple_design_brief/v1",
+        "apple_visual_direction/v1",
+        "apple_design_finding/v1 with severity, location/evidence, impact, source/applicability, fix, owner, and missing checks",
+        "two to four design directions before visual work when direction is open",
+        "composed remediation route to frontend, design-quality-gate, accessibility-audit, visual-qa, or award-bar-score"
+      ],
+      "acceptance_criteria": [
+        "Target, convention, state, and evidence are explicit.",
+        "Each direction or finding names evidence, source applicability, owner, and missing verification; product visuals name original art direction.",
+        "Implementation remains with the selected coding owner; accessibility and visual completion remain not_observed until their existing lanes record evidence."
+      ]
+    },
+    "application-threat-model": {
+      "family_id": "application-security",
+      "source_path": "skills/omh-application-threat-model/SKILL.md",
+      "source_sha256": "8a83d2a32f275d5cc4919977bbe2affbc29b5e6df7bdde087799ff2b2f6bde29",
+      "references": [
+        {
+          "relative_path": "omh-application-threat-model/references/threat-model-method.md",
+          "source_path": "skills/omh-application-threat-model/references/threat-model-method.md",
+          "source_sha256": "ed3819fecf9c8d7208a49fbbebc5863dcc9df009a663e0d012431bc3296e5e8e"
+        }
+      ],
+      "expected_outputs": [
+        "application_threat_model/v1",
+        "asset register: data class plus the one loss that makes each asset worth defending",
+        "trust boundaries: what crosses, what authenticates the crossing, what the receiver assumes unchecked",
+        "attack scenarios: entry point, path, precondition, impact",
+        "one decision per scenario (mitigate, transfer, accept, eliminate) with an owner",
+        "per-control security test naming the observable that fails without it, plus residual risk"
+      ],
+      "acceptance_criteria": [
+        "Every asset carries a data class and one named loss; every boundary names what crosses it and what authenticates the crossing.",
+        "Every scenario resolves to mitigate, transfer, accept, or eliminate, with an owner.",
+        "Every mitigating control carries a security test and the observable that fails without it.",
+        "Controls read deployed, planned, or `unverified`; none is inferred from the architecture description.",
+        "Residual risk is listed, and the model is not offered as a scan, a penetration test, or an attestation."
+      ]
+    },
+    "award-bar-score": {
+      "family_id": "design-direction",
+      "source_path": "skills/omh-award-bar-score/SKILL.md",
+      "source_sha256": "b8d1ad604145a81d879ffc32b671f0df1f12f8fb58852932cffb44f350da54e6",
+      "references": [
+        {
+          "relative_path": "omh-award-bar-score/references/award-judging-model.md",
+          "source_path": "skills/omh-award-bar-score/references/award-judging-model.md",
+          "source_sha256": "3eb04c94402da5efaa2d3bc18bb66acd1121b234a8b82a47a878c5d01725be50"
+        }
+      ],
+      "expected_outputs": [
+        "award_bar_score/v1",
+        "per-axis scores with named evidence for UI, UX, and innovation",
+        "the weighted total and its distance from the published threshold",
+        "the binding constraint: the axis whose gain moves the total most",
+        "tradeoff_ledger/v1 when an innovation move costs accessibility or performance budget",
+        "downstream route: frontend, accessibility-audit, visual-qa, or design-quality-gate"
+      ],
+      "acceptance_criteria": [
+        "Each of UI, UX, and innovation carries its own score and the rendered evidence it was read from.",
+        "The weighted total is computed from the stated weights and compared against the published threshold.",
+        "The binding constraint names one axis and what moving it requires.",
+        "Any innovation move that costs accessibility or performance budget is recorded as a tradeoff the user chooses.",
+        "No award, jury, placement, or selection outcome is claimed."
+      ]
+    },
+    "backend": {
+      "family_id": "backend-and-relational-db",
+      "source_path": "skills/omh-backend/SKILL.md",
+      "source_sha256": "1579e0f0651b81b79bfac370ebdf9be910cddfa5460431244f144a767c191a42",
+      "references": [
+        {
+          "relative_path": "omh-backend/references/consumer-impact.md",
+          "source_path": "skills/omh-backend/references/consumer-impact.md",
+          "source_sha256": "843ec98391847e3de4e28057ab4aeb95d24a4d8e593b1c812e630723a4f006b9"
+        },
+        {
+          "relative_path": "omh-backend/references/schema-migration.md",
+          "source_path": "skills/omh-backend/references/schema-migration.md",
+          "source_sha256": "e20aebd284f51d18962e28959b2e35702c9662e4d3d13fb1854c60f1279a6054"
+        },
+        {
+          "relative_path": "omh-backend/references/service-contract.md",
+          "source_path": "skills/omh-backend/references/service-contract.md",
+          "source_sha256": "25d8cc97c4629504df5a392d66cc9ba1595d9246b1760b0ff0cb4cd4a1398e30"
+        }
+      ],
+      "expected_outputs": [
+        "backend_service_contract/v1",
+        "auth_boundary_map/v1",
+        "error_path_table/v1",
+        "response_shape_contract/v1",
+        "schema_migration_plan/v1 when the change touches storage",
+        "consumer_impact_and_sunset/v1 when an existing contract changes",
+        "backend_implementation_handoff/v1",
+        "observed_integration_evidence/v1 when observed"
+      ],
+      "acceptance_criteria": [
+        "The surface, its callers, and each caller's trust level are named.",
+        "The auth_boundary_map/v1 states where trust changes and which check enforces it on every path.",
+        "The error_path_table/v1 covers each failure mode with status, body shape, retryability, and redaction rule.",
+        "The response_shape_contract/v1 is consistent across endpoints rather than per-endpoint improvisation.",
+        "Storage changes carry an expand/backfill/switch/contract order with a rollback point per step.",
+        "A change to an existing contract carries its consumer list or an explicit `consumers_not_enumerable`, plus the compatibility window, migration path, and sunset date.",
+        "The handoff names the executor, the stack, and the per-stack reference to load first.",
+        "Implementation, migrations, integration runs, and deployment stay observed-only."
+      ]
+    },
+    "browser-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-browser/SKILL.md",
+      "source_sha256": "8529cab9578cb9309b6a3d2146ac727ff42bcf8039ddd400a1896e7d6f31d8e2",
+      "references": [],
+      "expected_outputs": [
+        "browser_task_card/v1",
+        "browser_interaction_scope/v1",
+        "browser_auth_boundary/v1",
+        "browser_observation_manifest/v1 when observed",
+        "browser_confirmation_gate/v1 when destructive",
+        "browser_adapter_capabilities/v1 when acquired",
+        "browser_session_lease/v1 when acquired",
+        "browser_page_state/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Specify URL, allowed/prohibited actions, auth boundary, stop condition.",
+        "Gate credentials/login/payment/purchase/destruction/scraping/export; observed traces only.",
+        "Host request admission (not enablement/adapter presence) gates schemas/context/callbacks/writes. Refuse foreign/stale/expired/released/ambiguous targets; no index fallback.",
+        "omh_browser blocks native browser_*; inert by default. Opted-in effects need exact approval: docs/BROWSER-EFFECTS.md."
+      ]
+    },
+    "build-failure-triage": {
+      "family_id": "application-and-native-debug",
+      "source_path": "skills/omh-build-failure-triage/SKILL.md",
+      "source_sha256": "cac62e7a8ab4720a8229b9c2aebd52e4cb2963e1763aec7fb3f5257cf592725b",
+      "references": [],
+      "expected_outputs": [
+        "build_failure_triage_plan/v1",
+        "failure_log_digest/v1",
+        "failure_cluster_matrix/v1",
+        "root_cause_hypothesis_set/v1",
+        "minimal_fix_handoff/v1 when remediation is requested",
+        "rerun_plan/v1",
+        "build_failure_triage_verdict/v1"
+      ],
+      "acceptance_criteria": [
+        "The failing command/job, freshness, exit status, and log/source boundary are explicit.",
+        "Failure clusters separate syntax/type/lint/test/dependency/config/environment/DCO causes.",
+        "The proposed remediation is minimal, scoped to affected files, and separated from implementation evidence.",
+        "The rerun ladder names targeted, broad local, CI, and DCO checks without claiming they already passed.",
+        "The final verdict is FIX_READY, NEEDS_MORE_LOGS, BLOCKED_BY_ENVIRONMENT, or ROUTE_TO_VERIFICATION_GATE."
+      ]
+    },
+    "buzz": {
+      "family_id": "hermes-setup-guidance",
+      "source_path": "skills/omh-buzz/SKILL.md",
+      "source_sha256": "fffc268347d6af81912b08f9c27561a63fb96217a804086b705a0b33952b8c77",
+      "references": [
+        {
+          "relative_path": "omh-buzz/references/media.md",
+          "source_path": "skills/omh-buzz/references/media.md",
+          "source_sha256": "1ff204a5b3af778a3ceac191fee9c50ee3c75f0b121a25a0e77ff2558522698c"
+        },
+        {
+          "relative_path": "omh-buzz/references/self-host.md",
+          "source_path": "skills/omh-buzz/references/self-host.md",
+          "source_sha256": "d506e144000563805d1cf14daedfccab5a36520fd7dc8469aaf13bf79627df58"
+        },
+        {
+          "relative_path": "omh-buzz/references/setup.md",
+          "source_path": "skills/omh-buzz/references/setup.md",
+          "source_sha256": "8e9df8bf368176a94c09f032a2f05acc667b6b5e05fc1456319e3a6fe05a6aaf"
+        }
+      ],
+      "expected_outputs": [
+        "selected Buzz workflow lane",
+        "bounded setup or diagnostic evidence",
+        "observed delivery stage or explicit unobserved boundary"
+      ],
+      "acceptance_criteria": [
+        "Exactly one of setup, media, or self-host is selected from request meaning; no internal lane is public.",
+        "Secrets remain out of argv, logs, rendered output, and workflow artifacts.",
+        "Configuration, process, relay, event acceptance, subscription, and client rendering are separate claims.",
+        "Any state-changing self-host command remains user-driven and has an explicit rollback or backup boundary.",
+        "The final answer names what was observed, what remains unobserved, and the next smallest proof action."
+      ]
+    },
+    "capability-toggle": {
+      "family_id": "capability-policy",
+      "source_path": "skills/omh-capability-toggle/SKILL.md",
+      "source_sha256": "90f8a45a6ca1393f792eb0d2a2e39f0284077a3532d9922f99631b9f59f38d7a",
+      "references": [],
+      "expected_outputs": [
+        "policy change summary",
+        "what was removed versus retained",
+        "the exact command that reverses it"
+      ],
+      "acceptance_criteria": [
+        "The affected family is named by its canonical id, not guessed from a partial word.",
+        "Removed workflows and retained core skills are listed separately.",
+        "The reversing command is stated so the change never reads as permanent.",
+        "Locally modified skill files are reported as retained exceptions rather than deleted."
+      ]
+    },
+    "codebase-onboarding": {
+      "family_id": "code-intelligence",
+      "source_path": "skills/omh-codebase-onboarding/SKILL.md",
+      "source_sha256": "c604623f641ae38026951712bbe2e6ed62ba26fc5413ed066dfeb66c181598e3",
+      "references": [],
+      "expected_outputs": [
+        "codebase_onboarding_plan/v1",
+        "repo_map/v1",
+        "reading_path/v1",
+        "domain_glossary/v1",
+        "risk_and_unknowns_map/v1",
+        "first_task_runway/v1",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "The plan names goals, non-goals, assumptions, acceptance criteria, and verification shape.",
+        "Draft recommendations, accepted decisions, and executor handoffs are separate states.",
+        "Rejected options or unresolved tradeoffs are recorded before handoff."
+      ]
+    },
+    "codebase-uml": {
+      "family_id": "code-intelligence",
+      "source_path": "skills/omh-codebase-uml/SKILL.md",
+      "source_sha256": "2342c510401082490fb87dca8c046d63d8b19c8ae2dcbef0c04314d8df544487",
+      "references": [],
+      "expected_outputs": [
+        "codebase_uml/v1 model (units, interfaces, edges, omissions) via `omh codegraph uml --json`",
+        "PlantUML source written by `omh codegraph uml --output <file>.puml`",
+        "uml_render_plan/v1 naming the exact render command or the blocker",
+        "one rendered PNG (or SVG on request) attached to the reply, with the omissions legend visible",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "The view (package, focus, or module) matches the question asked, and only one view was rendered unless more were requested.",
+        "The render command and its observed result are recorded before the image is claimed.",
+        "The legend's omissions were read back to the user in the reply.",
+        "Follow-up exploration used narrower generated views, not recollection of the first picture."
+      ]
+    },
+    "command-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-terminal/SKILL.md",
+      "source_sha256": "242f733a773d99f885623728fde1fca4594fe2d039fe4f070d18a0a6d10ff58c",
+      "references": [],
+      "expected_outputs": [
+        "command_task_card/v1",
+        "command_scope/v1",
+        "command_safety_gate/v1",
+        "command_result_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Command text, working directory, environment assumptions, timeout, safety level, and stop condition are explicit.",
+        "Destructive, credential, network, filesystem mutation, install, deploy, and production commands are gated or marked missing.",
+        "Exit codes, stdout/stderr, test results, package-manager effects, and filesystem mutations are reported only from observed command evidence."
+      ]
+    },
+    "commit-pr-authoring": {
+      "family_id": "commit-and-git",
+      "source_path": "skills/omh-commit-pr-authoring/SKILL.md",
+      "source_sha256": "0ceaee44829a03cdcf6d0333ee0d828f1c6d078c025f81ef56e35b3076031ea4",
+      "references": [
+        {
+          "relative_path": "omh-commit-pr-authoring/references/commit-and-pr-conventions.md",
+          "source_path": "skills/omh-commit-pr-authoring/references/commit-and-pr-conventions.md",
+          "source_sha256": "1ff3ade943d6d24a90e1ace1e1eefa4ffb9d9e48e41e71856d346b420aac8c99"
+        }
+      ],
+      "expected_outputs": [
+        "repo_convention_read/v1",
+        "evidence_ledger/v1",
+        "commit_message_draft/v1",
+        "pr_body_draft/v1 when a PR is being opened"
+      ],
+      "acceptance_criteria": [
+        "The convention read names the template and log sample it drew from.",
+        "Every `Tested:` entry maps to an observed ledger row with its exit status.",
+        "Every prepared, skipped, or unobserved command is under `Not-tested:` with its reason.",
+        "Nothing was committed, pushed, or opened by OMH."
+      ]
+    },
+    "connector-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-apps/SKILL.md",
+      "source_sha256": "fd17d1e8702a7630cd3e2b4e121b4de4911a5dd16ae0f1254cb83c1332bbcd26",
+      "references": [],
+      "expected_outputs": [
+        "connector_task_card/v1",
+        "connector_scope/v1",
+        "connector_auth_boundary/v1",
+        "connector_confirmation_gate/v1 when mutating or sending",
+        "connector_result_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Provider, target object, allowed action, payload summary, authority, confirmation policy, and stop condition are explicit.",
+        "Credentials, missing connector setup, external writes, sends, ticket mutations, calendar invites, CRM updates, and webhook delivery are gated or marked missing.",
+        "Message ids, ticket ids, provider responses, delivery receipts, and API effects are reported only from observed connector evidence."
+      ]
+    },
+    "content-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-content-operator/SKILL.md",
+      "source_sha256": "cb842f86a965133d2c74bc2a22e04e39fbab684d3301e6acff56a31e9acb3853",
+      "references": [],
+      "expected_outputs": [
+        "content_task_card/v1",
+        "source_scope/v1",
+        "audience_tone_style/v1",
+        "content_review_gate/v1",
+        "content_output_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Audience, channel, language, tone, style guide, length, source scope, fact-risk, review owner, and stop condition are explicit.",
+        "Missing facts, source gaps, claims needing citations, legal/compliance needs, approval, publish/send authority, and file-export needs are gated or marked missing.",
+        "Published, sent, exported, approved, and fact-verified claims are reported only from observed evidence."
+      ]
+    },
+    "context": {
+      "family_id": "domain-context",
+      "source_path": "skills/ulw-context/SKILL.md",
+      "source_sha256": "372aa8e9d50db2e0f7e60988e1b9ee0bfd13a0a4e64dbd24d8e0d40067b3d80b",
+      "references": [
+        {
+          "relative_path": "ulw-context/references/decision-frontier.md",
+          "source_path": "skills/ulw-context/references/decision-frontier.md",
+          "source_sha256": "122978a41c0a003f8b7a879b00c9ecc2417e75d5fbb787f24ecb3477403a67df"
+        },
+        {
+          "relative_path": "ulw-context/references/project-terms.md",
+          "source_path": "skills/ulw-context/references/project-terms.md",
+          "source_sha256": "0b6baee554fc8fa813d9b4b86aab55a9858441d2c3b2d90ef0d037a8f12afd45"
+        }
+      ],
+      "expected_outputs": [
+        "direct source-labeled terminology answer or proposed terminology alignment",
+        "dependency-ready frontier with concise recommendations when decisions remain",
+        "explicit pending-candidate staging choice when machine mappings should be reviewed",
+        "confirmed shared-understanding summary and separately prepared planning or coding-owner handoff"
+      ],
+      "acceptance_criteria": [
+        "Source status and reviewed-profile status are named without treating either as model-use evidence.",
+        "Safe lookups were answered directly and unresolved decisions were asked only when the user confirmed interview entry.",
+        "Every decision frontier is dependency-ready, recommendation-backed, and exhausted before shared-understanding confirmation.",
+        "Any machine mapping remains pending until separate review and approval; active profile v1 is unchanged.",
+        "Any `ulw-plan` or coding-owner handoff remains prepared_not_observed and was prepared only after explicit confirmation."
+      ]
+    },
+    "context-budget-review": {
+      "family_id": "context-and-efficiency",
+      "source_path": "skills/omh-context-budget-review/SKILL.md",
+      "source_sha256": "12360627394861d52f22a27438a25dd81be94ed4b8e1d1aabc21c23c3e347126",
+      "references": [
+        {
+          "relative_path": "omh-context-budget-review/references/cache-placement.md",
+          "source_path": "skills/omh-context-budget-review/references/cache-placement.md",
+          "source_sha256": "bdac27120964aa692bd9b47f107fc9f19105d87f362e787e41c217d7a38d7590"
+        },
+        {
+          "relative_path": "omh-context-budget-review/references/route-capacity.md",
+          "source_path": "skills/omh-context-budget-review/references/route-capacity.md",
+          "source_sha256": "66d6f07e2b40366aeb462bca3652212c2dea95e7cb0f0ecd17b0cbe84cba3584"
+        }
+      ],
+      "expected_outputs": [
+        "context_budget_plan/v1",
+        "must_keep_context_pack/v1",
+        "must_keep_item_class_delta/v1 when a pack replaces an earlier one",
+        "summarization_checkpoint_plan/v1",
+        "budget_risk_register/v1",
+        "overflow_recovery_route/v1",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "The run or workflow scope, metric window, failure modes, and cost/latency boundary are named.",
+        "Local telemetry, provider truth, billing truth, and completion evidence are separate states.",
+        "Warnings name the next measurement or operator review action."
+      ]
+    },
+    "curriculum-design": {
+      "family_id": "curriculum",
+      "source_path": "skills/omh-curriculum-design/SKILL.md",
+      "source_sha256": "b875809f5ca70f5ac59274e4ec520b16ad19457151c6a1f0799de810335c2e06",
+      "references": [
+        {
+          "relative_path": "omh-curriculum-design/references/procedure.md",
+          "source_path": "skills/omh-curriculum-design/references/procedure.md",
+          "source_sha256": "5078d35c8cd9cae8257fd14fa8ab7466bff5287500f160787633ec2930d1da1b"
+        }
+      ],
+      "expected_outputs": [
+        "curriculum_learner_outcome_brief/v1",
+        "curriculum_alignment_map/v1",
+        "curriculum_sequence_design/v1",
+        "curriculum_validation_disposition/v1"
+      ],
+      "acceptance_criteria": [
+        "The plan names goals, non-goals, assumptions, acceptance criteria, and verification shape.",
+        "Draft recommendations, accepted decisions, and executor handoffs are separate states.",
+        "Rejected options or unresolved tradeoffs are recorded before handoff."
+      ]
+    },
+    "data-analysis": {
+      "family_id": "data-analysis",
+      "source_path": "skills/omh-data-analysis/SKILL.md",
+      "source_sha256": "571206ff152f35aeea7f4d962f35b9e9b8f6f6283dfa8d6b7c8c42e26fc579ec",
+      "references": [],
+      "expected_outputs": [
+        "data_analysis_task_card/v1",
+        "dataset_scope/v1",
+        "analysis_method_plan/v1",
+        "operations_data_harness/v1",
+        "product_evidence_loop/v1",
+        "analysis_result_summary/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Dataset or corpus source, record scope, schema or extraction method, join assumptions, analysis question, method, and stop condition are explicit.",
+        "Numeric claims, anomalies, trends, segments, and log patterns are reported only from observed data or supplied evidence.",
+        "Causal claims require observed identification evidence.",
+        "Source acquisition, file conversion, report generation, and code fixes are routed to the narrower workflow when stronger."
+      ]
+    },
+    "data-pipelines": {
+      "family_id": "data-pipeline",
+      "source_path": "skills/omh-data-pipelines/SKILL.md",
+      "source_sha256": "085ff980578de449585a9b2e8b9751c681d1c24513060b35c47fa1d1a23d9238",
+      "references": [
+        {
+          "relative_path": "omh-data-pipelines/references/pipeline-method.md",
+          "source_path": "skills/omh-data-pipelines/references/pipeline-method.md",
+          "source_sha256": "9f2dea6059c664a0c1ab4d989545825d3ecc567d22816af00975e79670ef36f0"
+        }
+      ],
+      "expected_outputs": [
+        "lineage_map/v1",
+        "schema_change_impact/v1",
+        "idempotency_contract/v1",
+        "replay_backfill_plan/v1",
+        "data_quality_gate/v1"
+      ],
+      "acceptance_criteria": [
+        "The sink's unique key and the idempotency contract are stated.",
+        "Every replay or backfill is bounded by window and target.",
+        "Every downstream reader of a schema change is named with its impact.",
+        "Every load names its data-quality gate and the value that stops it.",
+        "OMH ran nothing, and every count cites observed output or is marked unverified."
+      ]
+    },
+    "decision-prototype": {
+      "family_id": "decision-prototype",
+      "source_path": "skills/omh-decision-prototype/SKILL.md",
+      "source_sha256": "889ab7c588c777bace6a8fe5d0cfd238d487234b9ab5d09f438f5b6777f95b1a",
+      "references": [
+        {
+          "relative_path": "omh-decision-prototype/references/full-contract.md",
+          "source_path": "skills/omh-decision-prototype/references/full-contract.md",
+          "source_sha256": "882778519c2974544fe98b01f9d47f59d3850777610f39394ec752f16659f8d2"
+        },
+        {
+          "relative_path": "omh-decision-prototype/references/procedure.md",
+          "source_path": "skills/omh-decision-prototype/references/procedure.md",
+          "source_sha256": "53334fb4c76acb18a49272bd9dfab9317c0f9d3eb812b7ef9e87550d99762e88"
+        }
+      ],
+      "expected_outputs": [
+        "decision_prototype/v1",
+        "prepared prototype handoff with exact commands and expected observations",
+        "observation ledger separating observed outputs from interpretation and confidence",
+        "decision receipt for planning with supported option, rejected option, residual risk, and evidence limits"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Record observed delegation results; otherwise return `not_available` or `not_observed`.",
+        "Use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "decision-recall": {
+      "family_id": "memory-review-and-rejected-decisions",
+      "source_path": "skills/omh-decision-recall/SKILL.md",
+      "source_sha256": "ddd0e6b703ab6edb1acb0f01db3a51eb1cc1f2d4a4da0f04326d7ad409eb6fbc",
+      "references": [],
+      "expected_outputs": [
+        "rejected_decision_recall/v1",
+        "scoped rejected-decision matches",
+        "claim boundary"
+      ],
+      "acceptance_criteria": [
+        "The query, scope, tags, stale policy, and match limit are explicit.",
+        "Only reviewed rejected candidates are returned; expired candidates stay excluded.",
+        "Recall output is not presented as approved memory, source freshness, or execution evidence."
+      ]
+    },
+    "design-orchestration": {
+      "family_id": "design-direction",
+      "source_path": "skills/omh-design-orchestration/SKILL.md",
+      "source_sha256": "f8389ac4733637a875545e3bc21215bc7b04628b856be0869302d3ed13c0219e",
+      "references": [],
+      "expected_outputs": [
+        "design_orchestration/v1",
+        "design_direction_set/v1 when the direction is still open",
+        "design intent and opaque context-reference boundary",
+        "prepared direction vocabulary",
+        "downstream composition: design-quality-gate, frontend, accessibility-audit, visual-qa",
+        "executor-neutral handoff with executor_selection_required",
+        "visual evidence requirements with visual_verdict not_observed"
+      ],
+      "acceptance_criteria": [
+        "The bounded intent, opaque context references, direction vocabulary, and avoid patterns are explicit.",
+        "The four downstream lanes retain their direct ownership and the executor is still selection-required.",
+        "The visual evidence contract keeps visual_verdict not_observed until fresh captures are recorded by the visual-QA owner."
+      ]
+    },
+    "design-quality-gate": {
+      "family_id": "design-direction",
+      "source_path": "skills/omh-design-quality-gate/SKILL.md",
+      "source_sha256": "b7f5fe57565af02b4daaf62392985a6307218c5e3f16405cf640caea45d11350",
+      "references": [
+        {
+          "relative_path": "omh-design-quality-gate/references/design-critique-rubric.md",
+          "source_path": "skills/omh-design-quality-gate/references/design-critique-rubric.md",
+          "source_sha256": "7b7bde56a390431bd46b1b1d3965723521c722f461d12bdc993407a54595e9ae"
+        }
+      ],
+      "expected_outputs": [
+        "design_quality_gate/v1",
+        "content_quality_review/v1",
+        "surface_quality_matrix/v1",
+        "comparative_quality_rubric/v1",
+        "layout_validation_plan/v1",
+        "visual_qa_evidence/v1 when observed",
+        "publishing_readiness/v1",
+        "downstream route: frontend, materials-package, img-summary, or deliverable-package"
+      ],
+      "acceptance_criteria": [
+        "The surface, audience, source content, baseline/reference bar, and artifact type are named.",
+        "The comparative_quality_rubric/v1 explains how the result must beat ordinary output.",
+        "The surface_quality_matrix/v1 covers web, deck/PPT, PDF/poster, accessibility, and CJK-relevant checks as applicable.",
+        "Prepared quality gates, generated artifacts, visual QA, export, publication, approval, and delivery remain separate states.",
+        "The next action names whether to revise content, prepare implementation/export handoff, gather render evidence, or report blocked QA."
+      ]
+    },
+    "external-connector-readiness": {
+      "family_id": "external-and-provider-readiness",
+      "source_path": "skills/omh-external-connector-readiness/SKILL.md",
+      "source_sha256": "e20e1cba2e2fe35516c16419c443575beb451256b31084e3bdf29fd1aa8cdb05",
+      "references": [
+        {
+          "relative_path": "omh-external-connector-readiness/references/memory-provider-trial.md",
+          "source_path": "skills/omh-external-connector-readiness/references/memory-provider-trial.md",
+          "source_sha256": "b6eda7efc3307d8bd6540bec47b2564f3e565da5ad8133bd998b2ebcabdf29a3"
+        }
+      ],
+      "expected_outputs": [
+        "external_connector_readiness_card/v1",
+        "connector_capability_matrix/v1",
+        "auth_cost_boundary/v1",
+        "live_data_freshness_policy/v1 when live data is required",
+        "multimodal_routing_policy/v1 when screenshots, audio, video, or files are involved",
+        "fallback_route_policy/v1",
+        "connector_trial_manifest/v1 when observed",
+        "memory_provider_posture/v1 when the candidate is an optional memory provider",
+        "memory_provider_trial_comparison/v1 when two or more memory providers are trialled on one corpus",
+        "realtime_voice_trial_receipt/v1 when a supplied realtime voice trial is observed",
+        "realtime_voice_readiness/v1 verdict per voice dimension when a receipt is supplied",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Candidate connector, target domain, read/write scope, modality needs, provider owner, fallback workflow, and stop condition are explicit.",
+        "Cost, quota, credential, permission, live-data freshness, multimodal capture, safety, and compliance boundaries are marked ready, missing, risky, or not_observed.",
+        "Route live read-only lookups to live-info-operator, external writes to connector-operator, datasets/SQL to data-analysis, and missing tools to toolbelt-readiness before claiming results.",
+        "Provider responses, screenshots, audio/video/file captures, query outputs, message ids, and external mutations are reported only from observed trial evidence.",
+        "For a memory provider, disabling it, removing its local cache, deleting its remote memory, deleting the account, and switching away are reported as distinct operations with distinct postconditions.",
+        "Unknown deletion, isolation, or write semantics block automatic writes and irreversible adoption instead of resolving to an OMH or Hermes default.",
+        "For a realtime voice connector, keep turn integrity, latency, fallback, interruption, and spoken tool safety separate; report unsupported or unobserved dimensions as hold or block rather than as a pass."
+      ]
+    },
+    "failure-signal-audit": {
+      "family_id": "agent-failure-and-eval",
+      "source_path": "skills/omh-failure-signal-audit/SKILL.md",
+      "source_sha256": "445b56b47ba41f6f9eb027461bdf476aea8eaa48807b8fb1d5e73e33541b4d65",
+      "references": [],
+      "expected_outputs": [
+        "failure_signal_audit_plan/v1",
+        "silent_failure_finding/v1 when observed",
+        "fallback_risk_matrix/v1",
+        "propagation_gap_map/v1",
+        "false_green_status_review/v1",
+        "remediation_handoff/v1 when needed"
+      ],
+      "acceptance_criteria": [
+        "Audit scope, source surfaces, and evidence types are named.",
+        "Swallowed errors, dangerous fallbacks, propagation gaps, and false-green claims are reported as separate finding types.",
+        "Each finding names location or evidence ref, severity, user/operator impact, and a smallest safe remediation route.",
+        "No remediation, runtime repair, verification, CI, merge, or future reliability claim is made without observed follow-up evidence."
+      ]
+    },
+    "finance-analysis": {
+      "family_id": "finance",
+      "source_path": "skills/omh-finance-analysis/SKILL.md",
+      "source_sha256": "a0263ea7e99e71e903e4c7997497854d02cadad3060f826bed1e4eb95cba89d9",
+      "references": [
+        {
+          "relative_path": "omh-finance-analysis/references/procedure.md",
+          "source_path": "skills/omh-finance-analysis/references/procedure.md",
+          "source_sha256": "0fd8b3ad528d10aebd971c26375de9775e95429d3dbdc3a6f2ee5cc063a9c79c"
+        }
+      ],
+      "expected_outputs": [
+        "finance_scope_source_record/v1",
+        "finance_reconciliation_analysis_schedule/v1",
+        "finance_risk_register/v1",
+        "finance_decision_brief/v1"
+      ],
+      "acceptance_criteria": [
+        "Confirm the workflow target, evidence boundary, and stop condition are named.",
+        "Report which outputs are prepared, observed, blocked, or missing.",
+        "Name the smallest next verification or handoff instead of claiming completion from narration."
+      ]
+    },
+    "frontend": {
+      "family_id": "design-direction",
+      "source_path": "skills/omh-frontend/SKILL.md",
+      "source_sha256": "8469297df68b61ed17919318b6899deac2318260ee437ab06abd3dfe67f75dec",
+      "references": [
+        {
+          "relative_path": "omh-frontend/references/chart-styling.md",
+          "source_path": "skills/omh-frontend/references/chart-styling.md",
+          "source_sha256": "60a63a5708c45d1ceae4b788fe3bcca7799ba5155d2a0372848262e8e9a70a8d"
+        },
+        {
+          "relative_path": "omh-frontend/references/component-registry-adoption.md",
+          "source_path": "skills/omh-frontend/references/component-registry-adoption.md",
+          "source_sha256": "591ff300492510a50ae7e92904c7e705073c637f7028e2306964a2855f729f62"
+        },
+        {
+          "relative_path": "omh-frontend/references/design-system-contract.md",
+          "source_path": "skills/omh-frontend/references/design-system-contract.md",
+          "source_sha256": "658841bd7b41bfed4fb6be29d6d2db3c257367a202e53f1f02fa3a796e499d3e"
+        },
+        {
+          "relative_path": "omh-frontend/references/reference-token-extraction.md",
+          "source_path": "skills/omh-frontend/references/reference-token-extraction.md",
+          "source_sha256": "b36dedde2f859f83a95563cddab06f4002ce8c0a2c3b4ef64abc8a954c1e12bf"
+        },
+        {
+          "relative_path": "omh-frontend/references/screenshot-loop.md",
+          "source_path": "skills/omh-frontend/references/screenshot-loop.md",
+          "source_sha256": "ddaaf841a154130222c98945d070f4a8b157a564ef59a3f960a3e48e01113e09"
+        },
+        {
+          "relative_path": "omh-frontend/references/scroll-motion-libraries.md",
+          "source_path": "skills/omh-frontend/references/scroll-motion-libraries.md",
+          "source_sha256": "605393baaed428e2adab937fdbc1ab3e5db20a6592039d948a2447da80ceb245"
+        },
+        {
+          "relative_path": "omh-frontend/references/taste-foundations.md",
+          "source_path": "skills/omh-frontend/references/taste-foundations.md",
+          "source_sha256": "e4f820fcf594021e7915a42eb8a1fff6f139b0d1bd88fe4da28b430959c1ad16"
+        },
+        {
+          "relative_path": "omh-frontend/references/tui-craft.md",
+          "source_path": "skills/omh-frontend/references/tui-craft.md",
+          "source_sha256": "13153858bf9da970915003cb22b42ff714fdfd351458f1a0cac20fd789fb477e"
+        },
+        {
+          "relative_path": "omh-frontend/references/web-vitals-budgets.md",
+          "source_path": "skills/omh-frontend/references/web-vitals-budgets.md",
+          "source_sha256": "7905f7913ff835eb84e7b9bd88059d52d7ede370312f2e24df8cb7ebf407a29b"
+        }
+      ],
+      "expected_outputs": [
+        "frontend_design_brief/v1",
+        "frontend_initial_generation_contract/v1 when greenfield",
+        "design_system_contract/v1",
+        "design_reference_selection/v1",
+        "reference_packet/v1 when supplied",
+        "frontend_route_state_matrix/v1",
+        "frontend_component_state_inventory/v1",
+        "frontend_implementation_handoff/v1",
+        "accessibility_performance_expectations/v1",
+        "visual_qa_required/v1",
+        "observed_browser_evidence/v1 when observed"
+      ],
+      "acceptance_criteria": [
+        "The target page/component, audience, primary task, references, and quality bar are named.",
+        "Greenfield work includes frontend_initial_generation_contract/v1 before implementation handoff.",
+        "The design_system_contract/v1 covers typography, spacing, palette, components, layout, motion, and responsive rules.",
+        "The frontend_route_state_matrix/v1 covers pages, 375/768/1280-style breakpoints, empty/loading/error, interaction, and CJK/locale risks.",
+        "The frontend_component_state_inventory/v1 covers reusable primitives and their default/hover/focus/active/disabled/loading/empty/error states.",
+        "The handoff names the executor/runtime owner and keeps code, browser, Lighthouse, accessibility, deployment, and visual QA evidence observed-only.",
+        "The next action is prepare_frontend_handoff, route to visual-qa, or report the missing evidence blocker."
+      ]
+    },
+    "frontend-refactor": {
+      "family_id": "behavior-preserving-refactor",
+      "source_path": "skills/omh-frontend-refactor/SKILL.md",
+      "source_sha256": "b2a22786194fe49410a1ab0b6183b89d0f70711c6a5ad9bac243505cec047ed0",
+      "references": [
+        {
+          "relative_path": "omh-frontend-refactor/references/refactor-passes.md",
+          "source_path": "skills/omh-frontend-refactor/references/refactor-passes.md",
+          "source_sha256": "ce187b2323fda67fb536249193b4cc0bab1f04024986c8313bb7a4c5fd87e54f"
+        },
+        {
+          "relative_path": "omh-frontend-refactor/references/state-discipline.md",
+          "source_path": "skills/omh-frontend-refactor/references/state-discipline.md",
+          "source_sha256": "04084cfd8d849f9e0b468d8a30fecc58f8c37ca5d5585afeb1e3bce95719faa4"
+        }
+      ],
+      "expected_outputs": [
+        "preview change plan with per-change line refs, before/after, safety reason, and category counts",
+        "impact-ordered pass selection naming what is deferred and why",
+        "characterization-test gate verdict before any macro change",
+        "apply-step handoff with the unsafe-in-isolation changes listed under notes, never half-applied"
+      ],
+      "acceptance_criteria": [
+        "The preview plan was emitted before any file changed, and the apply step was an explicit second decision.",
+        "Behavior evidence exists on both sides of apply, and unsafe-in-isolation changes are listed as notes, not half-applied.",
+        "Pass order was impact-first and each finding names its category and safety reason.",
+        "Out-of-scope smells were routed: generic slop to `ai-slop-cleaner`, new UI to `frontend`, verdict-only review to `code-review`."
+      ]
+    },
+    "git-workflow": {
+      "family_id": "commit-and-git",
+      "source_path": "skills/omh-git-workflow/SKILL.md",
+      "source_sha256": "0cebabc56c4a5c3442f7a7098869b766f4ed7685fdf37bcf97c2d877c1e2759b",
+      "references": [
+        {
+          "relative_path": "omh-git-workflow/references/git-repair-method.md",
+          "source_path": "skills/omh-git-workflow/references/git-repair-method.md",
+          "source_sha256": "7c5b14e1d8972467fc7a59e84bbd7c200106e983d7ef277d147ddb5792b7980e"
+        }
+      ],
+      "expected_outputs": [
+        "pushed_state_inventory/v1",
+        "git_repair_plan/v1",
+        "conflict_resolution_plan/v1 when files conflict",
+        "bisect_plan/v1 when a regression is hunted",
+        "history_rewrite_plan/v1 when commits are rewritten",
+        "observed_git_result/v1 when observed"
+      ],
+      "acceptance_criteria": [
+        "The pushed-state inventory names every branch the plan touches.",
+        "Every rewriting step has a recovery point in front of it.",
+        "Every force-push in the plan uses `--force-with-lease`.",
+        "Generated and counted files in a conflict are re-derived, not picked.",
+        "Resolution, bisect verdict, and push are reported only from observed output."
+      ]
+    },
+    "github-issue-intake": {
+      "family_id": "issue-intake",
+      "source_path": "skills/omh-github-issue-intake/SKILL.md",
+      "source_sha256": "61f28c00357350c3724ff479daba4bdce500abaf35f0fc15fc6ec91e15152069",
+      "references": [],
+      "expected_outputs": [
+        "github_issue_intake/v1",
+        "direction check",
+        "duplicate status",
+        "issue package or connector handoff",
+        "read-back verification or explicit blocker"
+      ],
+      "acceptance_criteria": [
+        "Confirm the workflow target, evidence boundary, and stop condition are named.",
+        "Report which outputs are prepared, observed, blocked, or missing.",
+        "Name the smallest next verification or handoff instead of claiming completion from narration."
+      ]
+    },
+    "harness-session-inventory": {
+      "family_id": "context-and-efficiency",
+      "source_path": "skills/omh-harness-session-inventory/SKILL.md",
+      "source_sha256": "7ebb04c6161e714a2f7926fa8c453bcdd8eb4ebe964136c591793b39f58ea04f",
+      "references": [],
+      "expected_outputs": [
+        "harness_session_inventory/v1 card or guidance",
+        "harness_session_adapter_matrix/v1",
+        "mcp_inventory_drift_report/v1",
+        "mcp_tool_name_compatibility/v1",
+        "worktree_lifecycle_snapshot/v1",
+        "session_progress_slots/v1",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "The inventory scope names the harnesses, sessions, MCP hosts, connector configs, and worktrees being compared.",
+        "Prepared, observed, missing, stale, and drifted entries are separated before any health or progress claim.",
+        "The next action says whether to load a host, verify a connector, inspect a worktree, dispatch an executor, or stay blocked."
+      ]
+    },
+    "iac-change": {
+      "family_id": "infrastructure",
+      "source_path": "skills/omh-iac-change/SKILL.md",
+      "source_sha256": "19e48fac2583ed8131bc1eb3ebe77bd225846583038379380a46b57e31d4a057",
+      "references": [
+        {
+          "relative_path": "omh-iac-change/references/iac-change-method.md",
+          "source_path": "skills/omh-iac-change/references/iac-change-method.md",
+          "source_sha256": "25c75f8974c19cd74028d093a703facb0c66f7b199ca1dc16e937d93b5dbdb5a"
+        }
+      ],
+      "expected_outputs": [
+        "drift_assessment/v1",
+        "blast_radius/v1",
+        "cost_delta/v1",
+        "staged_apply_plan/v1",
+        "health_gate/v1",
+        "rollback_plan/v1"
+      ],
+      "acceptance_criteria": [
+        "Existing drift is separated from the proposed change.",
+        "Every replacement or destroy is listed, and each stateful one waits for explicit approval.",
+        "The cost delta is observed or marked unestimated.",
+        "Every stage names its health gate and its rollback.",
+        "OMH ran nothing, and every fact cites observed output or is marked unverified."
+      ]
+    },
+    "inference-serving": {
+      "family_id": "inference-serving",
+      "source_path": "skills/omh-inference-serving/SKILL.md",
+      "source_sha256": "40846949cfeefef13cd6029c61fb41c92e5a53c13f199a25e65609b22ec2286f",
+      "references": [
+        {
+          "relative_path": "omh-inference-serving/references/serving-bench.md",
+          "source_path": "skills/omh-inference-serving/references/serving-bench.md",
+          "source_sha256": "31f452f33561faf2cd90edd1cf30f33bc74c14bc13c81d77a087db5392d56aa0"
+        },
+        {
+          "relative_path": "omh-inference-serving/references/serving-runbooks.md",
+          "source_path": "skills/omh-inference-serving/references/serving-runbooks.md",
+          "source_sha256": "da5b5950a621d7eedc5333721de4d23651439d06bdd2d9e9661461d1bef9ac5e"
+        }
+      ],
+      "expected_outputs": [
+        "engine and quantization verdict from the decision tables, with the rejected options named",
+        "deployment runbook with its gates (secret, existing-deployment), verification commands, and the four-places port invariant",
+        "benchmark plan naming metrics, load shape, dataset, and metadata to save",
+        "observed-only status: what ran, what was verified, what stays prepared"
+      ],
+      "acceptance_criteria": [
+        "The engine/quantization verdict names the situation-table row it came from and the rejected options.",
+        "Every runbook step's status is prepared or observed, never assumed, and the port invariant was honored.",
+        "Benchmark numbers carry metrics, load shape, dataset, SLO, and saved metadata, or are not reported.",
+        "Anything the workflow started for measurement was stopped, and credentials never appear in artifacts."
+      ]
+    },
+    "instinct-ledger": {
+      "family_id": "atomic-instincts",
+      "source_path": "skills/omh-instinct-ledger/SKILL.md",
+      "source_sha256": "dfa7798ccd95bd2a92ffc5c0a0451f90675af65411cc1f8e74472ac1805b1a4b",
+      "references": [],
+      "expected_outputs": [
+        "instinct_ledger_plan/v1",
+        "instinct_candidate/v1",
+        "project_instinct_scope_map/v1",
+        "instinct_promotion_review/v1",
+        "instinct_export_review/v1 when requested"
+      ],
+      "acceptance_criteria": [
+        "Each instinct is atomic: one trigger, one action, one scope, confidence, evidence refs, and review state.",
+        "Project-specific conventions, global practices, project/global promotion candidates, imports, and exports are separated.",
+        "No hooks, memory writes, skill edits, global promotion, import/export, or behavior-change claims are made without observed approval and implementation evidence."
+      ]
+    },
+    "internal-audit": {
+      "family_id": "internal-controls",
+      "source_path": "skills/omh-internal-audit/SKILL.md",
+      "source_sha256": "7964b9b5c72d96eafef71e148d7cbac97b7b47a358a019ddd09abc4296cc3fe2",
+      "references": [
+        {
+          "relative_path": "omh-internal-audit/references/control-audit-method.md",
+          "source_path": "skills/omh-internal-audit/references/control-audit-method.md",
+          "source_sha256": "2b651418c2a5bdfbd659ebbff7c08e3670443e198e76ddd9d215d5cee821deaa"
+        }
+      ],
+      "expected_outputs": [
+        "control_under_test/v1",
+        "sample_design/v1",
+        "evidence_request/v1",
+        "reperformance_record/v1",
+        "deficiency_severity_grade/v1"
+      ],
+      "acceptance_criteria": [
+        "The control, its population, and the completeness check are stated.",
+        "The sample size is derived from stated frequency, confidence, and tolerable rate, and the selection can be redrawn.",
+        "Each sample item names the evidence obtained, not described.",
+        "Each item's re-performance result cites its evidence.",
+        "The severity grade shows every criterion, or is withheld with the missing one named, and OMH signed off nothing."
+      ]
+    },
+    "jev-action-check": {
+      "family_id": "typed-jev-assist",
+      "source_path": "skills/omh-jev-action-check/SKILL.md",
+      "source_sha256": "10bf10977fc5d8a10cb948262c279db7eb386b080c225615e7170451c9a1e31a",
+      "references": [
+        {
+          "relative_path": "omh-jev-action-check/references/full-contract.md",
+          "source_path": "skills/omh-jev-action-check/references/full-contract.md",
+          "source_sha256": "53dc81d720b6a70abe0d12af9e0af91f5a9af23ff96914f7f5c75cc1f899f80d"
+        },
+        {
+          "relative_path": "omh-jev-action-check/references/preset.md",
+          "source_path": "skills/omh-jev-action-check/references/preset.md",
+          "source_sha256": "92c6f11c0a72e70975ac73c7c1d4b32ca5a7be7979bbec7b9b7493a3dbf07620"
+        }
+      ],
+      "expected_outputs": [
+        "the `action_check/v1` outcome: hold, refuse_recommended, or no_extra_hold",
+        "the rule that fired"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Report the tool's status, ask_id, served model, and cost source; a non-answer is `hold` with `rule: not_answered:<status>`, never Jev's answer.",
+        "Record observed delegation results; use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "jev-ask": {
+      "family_id": "typed-jev-assist",
+      "source_path": "skills/omh-jev-ask/SKILL.md",
+      "source_sha256": "b5c11c9d4a9799e124105052061dfb8aa4447b281a6dd9a0bb5de217a8a6072f",
+      "references": [
+        {
+          "relative_path": "omh-jev-ask/references/full-contract.md",
+          "source_path": "skills/omh-jev-ask/references/full-contract.md",
+          "source_sha256": "81d0a5ae65696bc3ac683106af9886dcbd1140dad4653fef373f5ee3dadb652d"
+        }
+      ],
+      "expected_outputs": [
+        "Jev's probabilities per question",
+        "served model, attempts, and cost",
+        "the non-answer status when there is no answer"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Report the tool's status, ask_id, served model, and cost source; a non-answer is reported as its status and is never an answer.",
+        "Record observed delegation results; use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "jev-done-check": {
+      "family_id": "typed-jev-assist",
+      "source_path": "skills/omh-jev-done-check/SKILL.md",
+      "source_sha256": "bab41b50fcf24bd90faf554eb5f403b3b7cc91d7a3acff14342b052f051193e9",
+      "references": [
+        {
+          "relative_path": "omh-jev-done-check/references/full-contract.md",
+          "source_path": "skills/omh-jev-done-check/references/full-contract.md",
+          "source_sha256": "638a56f53e8643e2cd09365d8c7227c0af839040ccca3f3aba8f1e595aa52bed"
+        },
+        {
+          "relative_path": "omh-jev-done-check/references/preset.md",
+          "source_path": "skills/omh-jev-done-check/references/preset.md",
+          "source_sha256": "1fdd01ff4230ab0d6e232078e41dcf0855d7e8d6f6a549b6444c47c72c05257d"
+        }
+      ],
+      "expected_outputs": [
+        "one `done_check/v1` outcome per claim",
+        "the objections, if any"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Report the tool's status, ask_id, served model, and cost source; a non-answer is `not_observed` with `rule: not_answered:<status>`, never Jev's answer.",
+        "Record observed delegation results; use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "jev-failure-triage": {
+      "family_id": "typed-jev-assist",
+      "source_path": "skills/omh-jev-failure-triage/SKILL.md",
+      "source_sha256": "0ba2151732035f078ca20f5ce3caabf26fc963d9fa878fbe48b74c287bae2954",
+      "references": [
+        {
+          "relative_path": "omh-jev-failure-triage/references/full-contract.md",
+          "source_path": "skills/omh-jev-failure-triage/references/full-contract.md",
+          "source_sha256": "127642e6ab96cfe27ad2a8970ccc9f0582a36537015d404923abc17599240877"
+        },
+        {
+          "relative_path": "omh-jev-failure-triage/references/preset.md",
+          "source_path": "skills/omh-jev-failure-triage/references/preset.md",
+          "source_sha256": "51810af9bf24aa026d34e8fab88d4aa20381606abbea1143282da2ca9193bc26"
+        }
+      ],
+      "expected_outputs": [
+        "the `failure_triage/v1` policy result",
+        "the next move with the rule that fired"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Report the tool's status, ask_id, served model, and cost source; a non-answer is `not_observed` with `rule: not_answered:<status>`, never Jev's answer.",
+        "Record observed delegation results; use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "jev-review-gate": {
+      "family_id": "typed-jev-assist",
+      "source_path": "skills/omh-jev-review-gate/SKILL.md",
+      "source_sha256": "3e082ef835fbfc356a16022697da3109ccfabe2e5571027890ea7c885543eda0",
+      "references": [
+        {
+          "relative_path": "omh-jev-review-gate/references/full-contract.md",
+          "source_path": "skills/omh-jev-review-gate/references/full-contract.md",
+          "source_sha256": "4598a7830cfd44dde7b19fe7e1facc01e906c11476b7a15d433ad540e1502175"
+        },
+        {
+          "relative_path": "omh-jev-review-gate/references/preset.md",
+          "source_path": "skills/omh-jev-review-gate/references/preset.md",
+          "source_sha256": "f89138726d8db4c252a1557552a9151e7203ddfde582c88d80ca5b31771d6941"
+        }
+      ],
+      "expected_outputs": [
+        "`review_flags/v1` flags per file",
+        "the union of flags and the highest severity across files"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Report the tool's status, ask_id, served model, and cost source; a non-answer is `not_observed` with `rule: not_answered:<status>`, never Jev's answer.",
+        "Record observed delegation results; use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "jev-route": {
+      "family_id": "typed-jev-assist",
+      "source_path": "skills/omh-jev-route/SKILL.md",
+      "source_sha256": "46c5e7d350c1932837eae4132bc43c90024c9a1994e31fd3c2b8370c03ec6fcc",
+      "references": [
+        {
+          "relative_path": "omh-jev-route/references/full-contract.md",
+          "source_path": "skills/omh-jev-route/references/full-contract.md",
+          "source_sha256": "dff6ed90de6c2d1be30fab9a90d72875c39c96c6880fdd45ef17a0bbbb5f36f6"
+        }
+      ],
+      "expected_outputs": [
+        "Jev's Choice and fit probabilities",
+        "an `omh_route_answer` record with `answered_by: omh_jev_ask`",
+        "a clarification offered to the user"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Report the tool's status, ask_id, served model, and cost source; a non-answer is reported as its status and is never an answer.",
+        "Record observed delegation results; use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "jit-learn": {
+      "family_id": "just-in-time-learning",
+      "source_path": "skills/omh-jit-learn/SKILL.md",
+      "source_sha256": "3097eda0864c1c91e4d9bc6fbdbe30f527ff45a328f8dbda587247a8fedf4b4b",
+      "references": [],
+      "expected_outputs": [
+        "confirmed target statement: Learn X now so I can do/decide Y in context Z by T.",
+        "source-backed Markdown learning brief",
+        "Books section, including an explicit no-qualifying-candidate reason when empty",
+        "Podcasts section, including an explicit no-qualifying-candidate reason when empty",
+        "Creators section, including an explicit no-qualifying-candidate reason when empty",
+        "Courses section, including an explicit no-qualifying-candidate reason when empty",
+        "for every recommendation: title, format, creator/publisher, link, source class, time to first value, specific fit now, first application, and caveats",
+        "competing learning targets, filtered-out defaults, unresolved gaps, and one recommended next action"
+      ],
+      "acceptance_criteria": [
+        "At least one confirmation question was answered, no turn contained more than one question, and the shared interview ceiling was respected.",
+        "Urgency/trigger, current level, application window, and the target statement are explicit before research.",
+        "Every admitted recommendation is source-gated and popularity signals did not influence admission or rank.",
+        "Books, Podcasts, Creators, and Courses are present with complete fields or an honest empty-section reason.",
+        "Competing targets, filtered-out defaults, unresolved gaps, and one starting action are visible.",
+        "The final status says the brief is prepared and does not claim consumption, learning, application, progress, or blocker resolution."
+      ]
+    },
+    "legal-compliance-review": {
+      "family_id": "legal",
+      "source_path": "skills/omh-legal-compliance-review/SKILL.md",
+      "source_sha256": "e2c82551a10012f0a0c753b5d474ce8be8a2dc410cc490a3ad259f3193701d22",
+      "references": [
+        {
+          "relative_path": "omh-legal-compliance-review/references/negotiation-preparation.md",
+          "source_path": "skills/omh-legal-compliance-review/references/negotiation-preparation.md",
+          "source_sha256": "a0952b301dc12976606e979590da1f01c9b71d4cd5892f6b2f453536b2e4b4c1"
+        },
+        {
+          "relative_path": "omh-legal-compliance-review/references/procedure.md",
+          "source_path": "skills/omh-legal-compliance-review/references/procedure.md",
+          "source_sha256": "670f501f3136c0f5456b82149ca24153f1b38d5151f539a9b1ab0df30e2f0b58"
+        }
+      ],
+      "expected_outputs": [
+        "legal_scope_authority_record/v1",
+        "legal_issue_traceability_matrix/v1",
+        "legal_risk_counsel_hold_register/v1",
+        "legal_negotiation_preparation/v1 when the objective is a redline rather than an assessment",
+        "legal_review_disposition/v1"
+      ],
+      "acceptance_criteria": [
+        "Findings or no-issue results are grounded in concrete file, artifact, command, or source evidence.",
+        "Open questions, residual risk, and missing verification are named.",
+        "Fixes or follow-up work are separate handoffs unless the user explicitly asked to implement them."
+      ]
+    },
+    "lifecycle-growth": {
+      "family_id": "lifecycle-growth",
+      "source_path": "skills/omh-lifecycle-growth/SKILL.md",
+      "source_sha256": "a7a43439df50a0fd5e9cbdf9bfbaa50655aa547af968f4490b1598242f5308d9",
+      "references": [
+        {
+          "relative_path": "omh-lifecycle-growth/references/full-contract.md",
+          "source_path": "skills/omh-lifecycle-growth/references/full-contract.md",
+          "source_sha256": "049cccb6ec789c0a646f42fecee72a566f129b7e64b27a5051a61b8e47aeaa92"
+        },
+        {
+          "relative_path": "omh-lifecycle-growth/references/procedure.md",
+          "source_path": "skills/omh-lifecycle-growth/references/procedure.md",
+          "source_sha256": "7a26968cd2e4d46a536fe28d93dd7adc2f89c01ca59ab042d5d6ff205b5762de"
+        }
+      ],
+      "expected_outputs": [
+        "lifecycle_growth_brief/v1",
+        "audience_trigger_policy/v1",
+        "lifecycle_safety_policy/v1",
+        "growth_experiment_plan/v1",
+        "growth_measurement_readout/v1",
+        "growth_handoff_disposition/v1"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Record observed delegation results; otherwise return `not_available` or `not_observed`.",
+        "Use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "live-incident-response": {
+      "family_id": "live-incidents",
+      "source_path": "skills/omh-live-incident-response/SKILL.md",
+      "source_sha256": "0a912c1377e1897560692f79fc771e0ea61ce70a8928b2573a48c71c4187e1c9",
+      "references": [
+        {
+          "relative_path": "omh-live-incident-response/references/incident-command-method.md",
+          "source_path": "skills/omh-live-incident-response/references/incident-command-method.md",
+          "source_sha256": "8d5ad3bb15d401cf45300ec3d7df126072fcd20bee40e3bc702bd35027b754b7"
+        }
+      ],
+      "expected_outputs": [
+        "live_incident_record/v1",
+        "declared severity: the level, the observation that set it, and when it last changed",
+        "role assignment naming a person per role, or recording the role unfilled",
+        "append-only timeline: one entry per observation, action, or decision, each timestamped and attributed",
+        "mitigation entries marked temporary or permanent, each with what removes it",
+        "recovery verification: the signal, its healthy value, the observed value, and who observed it",
+        "customer notice draft plus the prepared paging and status-page requests, kept apart from observed sends"
+      ],
+      "acceptance_criteria": [
+        "Severity is declared, carries the observation that set it, and every change appended rather than overwrote the previous level.",
+        "One commander is named; operations, communications, and scribe each name a person or read unfilled.",
+        "Every timeline entry is timestamped, attributed, and typed, and no earlier entry was edited.",
+        "Each mitigation reads temporary or permanent, and a temporary one names what removes it.",
+        "Recovery cites the named signal, its healthy value, the observed value, and the observer, never the mitigation alone.",
+        "Paging, status-page, and customer-send entries read prepared unless a connector result was observed."
+      ]
+    },
+    "live-info-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-live-info/SKILL.md",
+      "source_sha256": "31df680b2f1c9ab7d3ce011a8bdb14129c6658ab81a1059b2eeaedf7cc6bf55d",
+      "references": [],
+      "expected_outputs": [
+        "live_info_task_card/v1",
+        "live_info_scope/v1",
+        "freshness_boundary/v1",
+        "live_info_result_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Domain, location or symbol, time window, provider preference, freshness, units, and stop condition are explicit.",
+        "Provider setup, API access, source quality, stale data, and missing location/symbol decisions are gated or marked missing.",
+        "Weather, price, score, exchange-rate, time-zone, map, place, and traffic facts are reported only from observed provider evidence."
+      ]
+    },
+    "llm-app-dev": {
+      "family_id": "llm-application-build",
+      "source_path": "skills/omh-llm-app-dev/SKILL.md",
+      "source_sha256": "744ba340ab2332d10315c350a05cc82c55371e0522038beecc2772644c54f6a3",
+      "references": [
+        {
+          "relative_path": "omh-llm-app-dev/references/build-rails.md",
+          "source_path": "skills/omh-llm-app-dev/references/build-rails.md",
+          "source_sha256": "35db50a4960ced98fa2ee556e59c5a439188e8b47bebef5073efa9264d8fe149"
+        },
+        {
+          "relative_path": "omh-llm-app-dev/references/eval-harness.md",
+          "source_path": "skills/omh-llm-app-dev/references/eval-harness.md",
+          "source_sha256": "959130e28abaabea53cf9ed6fe46268ce27372333d2a6d28b6f0e02928ac2cbd"
+        },
+        {
+          "relative_path": "omh-llm-app-dev/references/public-board.md",
+          "source_path": "skills/omh-llm-app-dev/references/public-board.md",
+          "source_sha256": "e69b890be7da4d91ce612722b180b229821db714bd72aa28a55db013364e7cca"
+        },
+        {
+          "relative_path": "omh-llm-app-dev/references/stateful-contracts.md",
+          "source_path": "skills/omh-llm-app-dev/references/stateful-contracts.md",
+          "source_sha256": "7bda4e79b8c60f406d3a4e7ea9d3e4f7c69d6ee80a23416678be678d6dd95816"
+        }
+      ],
+      "expected_outputs": [
+        "rail decisions across provider boundary, structured output, prompt artifacts, retrieval grounding, evaluation",
+        "the output schema and the validate-and-repair path for a response that does not match it",
+        "the prompt artifact layout and its version identifier",
+        "the eval deliverables - golden set, task-level validators, baseline-vs-candidate comparison",
+        "the executor handoff and what stays unobserved until a run produces it"
+      ],
+      "acceptance_criteria": [
+        "Every rail - provider boundary, structured output, prompt artifacts, retrieval grounding, evaluation - is either decided or explicitly deferred with a reason.",
+        "One client boundary owns the model ID, credentials, timeout, retry, and backoff, and no credential appears in source, prompts, tests, or examples.",
+        "The model ID is exact, and it is recorded next to any result meant to be compared.",
+        "Every model response is validated against a declared schema, with a bounded repair path and a loud failure - no prose scraping.",
+        "Prompts are files with a version identifier, and system rules, task instruction, and injected context are separated.",
+        "Untrusted retrieved or user-supplied content is fenced from the instruction channel and cannot change the task.",
+        "The eval deliverables - golden set, task-level validators, baseline-vs-candidate comparison - exist as committed artifacts, and retrieval is evaluated before generation when retrieval is in the path.",
+        "Token, latency, and cost figures come from an observed run or stay null; no design output is reported as an eval result, implementation, review, CI, or merge evidence.",
+        "If the feature communicates through a public board, the destination carries a public-audience label, each action class names its own authority and outbound data, the exact draft and its host-recorded approval reference travel with the request through compaction and executor handoff, and no publication is reported without an observed connector result."
+      ]
+    },
+    "localization-review": {
+      "family_id": "localization",
+      "source_path": "skills/omh-localization-review/SKILL.md",
+      "source_sha256": "16a8c9bf1b5716695c37dc66effffd0fddaee853e1296e44badcb0dcdb4f8bdf",
+      "references": [],
+      "expected_outputs": [
+        "locale/audience/context and source-version brief",
+        "approved-term glossary and transcreation/localization choices",
+        "string/content issue matrix with context, severity, and review owner",
+        "locale QA acceptance criteria and handoff/observed-evidence gaps"
+      ],
+      "acceptance_criteria": [
+        "Findings or no-issue results are grounded in concrete file, artifact, command, or source evidence.",
+        "Open questions, residual risk, and missing verification are named.",
+        "Fixes or follow-up work are separate handoffs unless the user explicitly asked to implement them."
+      ]
+    },
+    "long-document-reading": {
+      "family_id": "long-document",
+      "source_path": "skills/omh-long-document-reading/SKILL.md",
+      "source_sha256": "879dce22c5769c86ebdc7b9a2615538de0ab6feb5a7becdf425403a204cd0c4c",
+      "references": [
+        {
+          "relative_path": "omh-long-document-reading/references/hermes-pdf-limits.md",
+          "source_path": "skills/omh-long-document-reading/references/hermes-pdf-limits.md",
+          "source_sha256": "ab88c0c5dcac3ca6a83d5573cad96a0838133dcb7e629f48c55327b36d9664d2"
+        }
+      ],
+      "expected_outputs": [
+        "long_document_card/v1",
+        "page count and source_state boundary",
+        "page-range plan sized to the read budget",
+        "chunk ledger with covered / next / missing page anchors",
+        "per-range notes merged in page order",
+        "scanned-range decisions and not-observed list"
+      ],
+      "acceptance_criteria": [
+        "The page count is observed or the card says it is not.",
+        "Every ledger range is covered, or the missing ranges are listed with a reason.",
+        "Every claim in the merged answer carries a page anchor.",
+        "Scanned ranges are read, declined with a reason, or listed as missing.",
+        "Not-observed boundaries remain visible: page_count, text_extraction, scanned_page_ocr, range_delegation, hosted_ocr, cross_range_consistency."
+      ]
+    },
+    "maestro": {
+      "family_id": "external-maestro",
+      "source_path": "skills/ulw-maestro/SKILL.md",
+      "source_sha256": "d25cef43f089909e86823251ebf733ff842a7e15454d858e5aeb942fdfa8b6c2",
+      "references": [
+        {
+          "relative_path": "ulw-maestro/references/executor-prompt-composition.md",
+          "source_path": "skills/ulw-maestro/references/executor-prompt-composition.md",
+          "source_sha256": "a158cdee670fb80e853a6b1a143673aabe721e72d17e4c2edb8ad010270e50fe"
+        }
+      ],
+      "expected_outputs": [
+        "a composed executor prompt arranged by the unit's role recipe",
+        "the handoff mode and dispatchability state named up front",
+        "a captured session or thread id, or an explicit unsteerable note"
+      ],
+      "acceptance_criteria": [
+        "The selected coding or runtime owner is named before any implementation claim.",
+        "Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.",
+        "The final status cites observed runtime evidence or keeps the work prepared_not_observed.",
+        "When Hermes is the selected coding owner this engine does not apply -- Hermes-native selection uses the Hermes runtime path, never this engine.",
+        "Dispatch never merges: collect each unit's fanout_unit_result/v1 evidence, verify the integrated combination of units (not just each one alone -- disjoint file scopes can still conflict at integration), and report merged/unmerged per unit in the closing brief. Merging the unit branches remains an explicit operator or reviewing-agent action; a dispatch receipt is never merge evidence.",
+        "The closing brief ends with the observed `omh_run_summary` summary_text verbatim, or an explicit run-summary not_available line -- never a model-estimated number."
+      ]
+    },
+    "media-input-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-media-input/SKILL.md",
+      "source_sha256": "7bb72c89c13ce8e064bfcd326e075664851456a5dfa7225559a64912e5ea18c9",
+      "references": [],
+      "expected_outputs": [
+        "media_input_task_card/v1",
+        "media_source_scope/v1",
+        "transcript_boundary/v1",
+        "media_summary_plan/v1",
+        "media_result_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Media type, source location, permission boundary, transcript availability, language, requested output, timestamp requirement, and stop condition are explicit.",
+        "Downloads, uploads, ASR, transcript extraction, speaker labels, copyrighted media access, and provider setup are gated or marked missing.",
+        "Transcript text, OCR output, screenshot text, receipt fields, timestamps, quotes, action items, and media-summary claims are reported only from observed media or supplied transcript/extraction evidence."
+      ]
+    },
+    "memory-sync": {
+      "family_id": "memory-review-and-rejected-decisions",
+      "source_path": "skills/omh-memory-sync/SKILL.md",
+      "source_sha256": "22274080815463ec40d0c49f91b5c233bf94498d8d4dfc1df1c1dd6eef84cbdc",
+      "references": [
+        {
+          "relative_path": "omh-memory-sync/references/source-recovery.md",
+          "source_path": "skills/omh-memory-sync/references/source-recovery.md",
+          "source_sha256": "d1fc1e52a87ee1f631290e661483f0910b4a76332d11d6ee8bfcf0a742c3e41b"
+        }
+      ],
+      "expected_outputs": [
+        "memory-sync/v1 card or guidance",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Confirm the workflow target, evidence boundary, and stop condition are named.",
+        "Report which outputs are prepared, observed, blocked, or missing.",
+        "Name the smallest next verification or handoff instead of claiming completion from narration."
+      ]
+    },
+    "meta-router": {
+      "family_id": "explicit-meta-routing",
+      "source_path": "skills/omh-meta-router/SKILL.md",
+      "source_sha256": "3515feecbfffca34258790c3834298936a7c232a665a504f6144d0863beeec4e",
+      "references": [],
+      "expected_outputs": [
+        "selected workflow or chain with rationale",
+        "consulted catalog evidence from the bounded recommend output",
+        "observed-vs-prepared evidence boundary for the routing decision"
+      ],
+      "acceptance_criteria": [
+        "The selected workflow, confidence reason, evidence boundary, and user-facing next action are named.",
+        "Low-confidence or conflicting signals return a picker or clarification instead of forced routing.",
+        "Catalog answers are rendered without shell approval when wrapper metadata is sufficient."
+      ]
+    },
+    "mobile-release": {
+      "family_id": "mobile-store-release",
+      "source_path": "skills/omh-mobile-release/SKILL.md",
+      "source_sha256": "3aefffa78ef41fb8d0047a34ac8c372bd37814356f9b74efa9091e01e15819b7",
+      "references": [
+        {
+          "relative_path": "omh-mobile-release/references/mobile-release-method.md",
+          "source_path": "skills/omh-mobile-release/references/mobile-release-method.md",
+          "source_sha256": "c28b6bec1569b8971c42b412e054daa8d9efa23a4fad698cd72ce2acc349de82"
+        }
+      ],
+      "expected_outputs": [
+        "signing_plan/v1",
+        "privacy_declaration_check/v1",
+        "beta_channel_plan/v1",
+        "staged_rollout_plan/v1",
+        "hotfix_plan/v1"
+      ],
+      "acceptance_criteria": [
+        "Every signing asset is named with its expiry and holder, and no secret is in the plan.",
+        "The privacy declarations match the shipped SDKs, or each mismatch is named.",
+        "The beta channel, its testers, and its exit checks are stated.",
+        "Every rollout step names the threshold that halts it.",
+        "The hotfix build number and the halt are planned, and OMH submitted nothing."
+      ]
+    },
+    "model-finetuning": {
+      "family_id": "model-finetuning",
+      "source_path": "skills/omh-model-finetuning/SKILL.md",
+      "source_sha256": "3a888f3b0c821a4b2c9844ceab6ec259e16b50f1a096e49a3d6d8522c38610e8",
+      "references": [
+        {
+          "relative_path": "omh-model-finetuning/references/finetuning-method.md",
+          "source_path": "skills/omh-model-finetuning/references/finetuning-method.md",
+          "source_sha256": "10a677fdc07303b3b2b3b0d7759f9b5956e9f00fac94ccad0bac9bdef3d8d797"
+        }
+      ],
+      "expected_outputs": [
+        "finetune_decision/v1",
+        "training_method_choice/v1",
+        "training_data_plan/v1",
+        "baseline_comparison/v1",
+        "checkpoint_promotion_gate/v1"
+      ],
+      "acceptance_criteria": [
+        "The fine-tune decision is stated, and `do_not_finetune` was considered first.",
+        "The method is chosen from the data's shape and its failure mode is named.",
+        "The held-out split was drawn before training and checked for overlap.",
+        "Promotion cites the same eval observed on the untuned baseline and the candidate.",
+        "OMH ran nothing, and every score cites observed output or is marked unverified."
+      ]
+    },
+    "model-optimization": {
+      "family_id": "model-onboarding",
+      "source_path": "skills/omh-model-optimization/SKILL.md",
+      "source_sha256": "6936da423ff8a48ca072ef8d335f8ddaa68c661471cb7e3a2742549bba6be3f4",
+      "references": [],
+      "expected_outputs": [
+        "recognition and calibration coverage verdict for the family",
+        "trait-to-counter calibration draft (or a no-change verdict with reasons)",
+        "routing/pricing placement plan naming config surfaces vs repo changes",
+        "measurement plan naming the benchmark pair or the reason none can run yet"
+      ],
+      "acceptance_criteria": [
+        "Recognition probe output exists for every new id, and the family label is the expected one.",
+        "Every research finding is labeled official, official-client, observed, or community with its source kept.",
+        "The calibration draft counters named traits and marks version-specific rules as such.",
+        "Routing and pricing changes name their surface (operator config vs repo change) and their approval state.",
+        "The measurement plan names the benchmark pair, or the recorded reason none can run, and the worse-measured-calibration rule is stated."
+      ]
+    },
+    "model-setup": {
+      "family_id": "hermes-setup-guidance",
+      "source_path": "skills/omh-model-setup/SKILL.md",
+      "source_sha256": "ba7bec0b39bb499b6a67279b44835cd4253cdc461c6f044bd7fa855098c428d1",
+      "references": [],
+      "expected_outputs": [
+        "source-labeled candidate inventory separating historical observation from confirmed-active models",
+        "editable editorial recommendation chains resolved only against confirmed-active compatible candidates",
+        "Hermes-native alias/provider preview or a separate Maestro ordered external-handoff recommendation",
+        "verification checklist or an incomplete non-blocking setup advisory with exact next actions"
+      ],
+      "acceptance_criteria": [
+        "If a prerequisite is unmet, mark that item \"not applicable\" and continue with the rest of the guide instead of blocking or guessing.",
+        "Success is applicable-only: verification passes when every applicable item is confirmed complete, not when every possible item exists.",
+        "Every emitted metadata identifier passed the safe allowlist and every candidate retains a closed source state.",
+        "Hermes-native configuration and Maestro external-handoff recommendations are reported as separate owner surfaces.",
+        "Every requested write was previewed, explicitly approved, digest-checked, and re-verified; unresolved model items did not block unrelated setup."
+      ]
+    },
+    "morning-brief": {
+      "family_id": "hermes-setup-guidance",
+      "source_path": "skills/omh-morning-brief/SKILL.md",
+      "source_sha256": "6f1b4f5ae68e7e6514749f9d8bf83d3d94be78e5ead056a68809de2ab0e9e603",
+      "references": [],
+      "expected_outputs": [
+        "read-only diagnosis of the current mail/calendar MCP connection state",
+        "diff-approved MCP config write scoped to read and draft-only access",
+        "an on-demand morning brief once connection is verified"
+      ],
+      "acceptance_criteria": [
+        "If a prerequisite is unmet, mark that item \"not applicable\" and continue with the rest of the guide instead of blocking or guessing.",
+        "Success is applicable-only: verification passes when every applicable item is confirmed complete, not when every possible item exists.",
+        "The connection is confirmed read and draft-only, with Send permission never enabled, before the brief is reported ready."
+      ]
+    },
+    "native-debugging": {
+      "family_id": "application-and-native-debug",
+      "source_path": "skills/omh-native-debugging/SKILL.md",
+      "source_sha256": "ff35522cac4f4b3f11cbbcfe15cdb4a7d8c7c644dac43b506e3c278621152cba",
+      "references": [
+        {
+          "relative_path": "omh-native-debugging/references/native-debug-loop.md",
+          "source_path": "skills/omh-native-debugging/references/native-debug-loop.md",
+          "source_sha256": "3ce0f29395b8a1c71074ce2808d6d2497bef1ccbecbba179b74950055435430d"
+        }
+      ],
+      "expected_outputs": [
+        "native_fault_statement/v1",
+        "hypothesis_set/v1 with at least three competing hypotheses",
+        "distinguishing_observation_plan/v1",
+        "debugger_session_plan/v1",
+        "native_debug_handoff/v1",
+        "observed_debugger_evidence/v1 when observed"
+      ],
+      "acceptance_criteria": [
+        "The fault is stated as an observed symptom with a reproduction command, separate from any assumed cause.",
+        "At least three hypotheses span distinct axes and each carries its refuting observation.",
+        "The debugger session plan names the DAP adapter, breakpoints, watchpoints, threads, frames, and values to read.",
+        "The handoff says the executor drives the debugger and OMH executes nothing.",
+        "Reproduction, debugger output, root cause, and fix are reported as separate observed or not_observed states."
+      ]
+    },
+    "parallel-tools": {
+      "family_id": "hermes-setup-guidance",
+      "source_path": "skills/omh-parallel-tools/SKILL.md",
+      "source_sha256": "aec5623baa178ca98657617c42a83d2fdbc2da32b22323fce7f59e5c164a398e",
+      "references": [],
+      "expected_outputs": [
+        "read-only diagnosis of the installed version and parallel-tool capability status",
+        "a user-runnable update command to check or restore version currency",
+        "a capability status report naming which parallel-tool features are active"
+      ],
+      "acceptance_criteria": [
+        "If a prerequisite is unmet, mark that item \"not applicable\" and continue with the rest of the guide instead of blocking or guessing.",
+        "Success is applicable-only: verification passes when every applicable item is confirmed complete, not when every possible item exists.",
+        "The reported capability status matches an observed read, not an assumed default."
+      ]
+    },
+    "people-ops": {
+      "family_id": "people",
+      "source_path": "skills/omh-people-ops/SKILL.md",
+      "source_sha256": "d0bfa06fcf9f9c4fa9c1ecbec0b1e45f5097cbbdeefcac96cffd94dfe5184e18",
+      "references": [],
+      "expected_outputs": [
+        "role/outcome and must-have versus trainable-criteria brief",
+        "structured interview scorecard and evidence-based debrief template",
+        "hiring-process, interviewer, and decision-owner plan",
+        "inclusion, privacy, policy, and missing-evidence flags with a next route"
+      ],
+      "acceptance_criteria": [
+        "Confirm the workflow target, evidence boundary, and stop condition are named.",
+        "Report which outputs are prepared, observed, blocked, or missing.",
+        "Name the smallest next verification or handoff instead of claiming completion from narration."
+      ]
+    },
+    "physical-device-readiness": {
+      "family_id": "external-and-provider-readiness",
+      "source_path": "skills/omh-physical-device-readiness/SKILL.md",
+      "source_sha256": "44c42487019fb1b0a86cd29e4dbad485d8e29af603780bf0a9f3622a8be99dc0",
+      "references": [],
+      "expected_outputs": [
+        "physical_device_readiness_card/v1",
+        "device_safety_envelope/v1",
+        "hazard_and_actuator_inventory/v1",
+        "sensor_camera_gate_policy/v1",
+        "operator_approval_policy/v1",
+        "dry_run_and_simulation_policy/v1",
+        "emergency_stop_and_rollback_plan/v1",
+        "device_trial_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Device scope, actuator and hazard classes, sensor/camera gates, operator approval, dry-run policy, emergency stop, and stop condition are explicit.",
+        "Physical actions, heat commands, relay toggles, robot movement, print starts, camera inspections, and telemetry readings are marked observed, missing, risky, or not_observed.",
+        "Route external APIs or provider setup to external-connector-readiness, terminal commands to command-operator, safety concerns to security-safety-review, visual/camera checks to visual-qa, and missing tools to toolbelt-readiness.",
+        "Do not claim device movement, heat, print, relay, robot, camera, sensor, or emergency-stop success without observed device-trial evidence."
+      ]
+    },
+    "product-brief": {
+      "family_id": "product-brief",
+      "source_path": "skills/omh-product-brief/SKILL.md",
+      "source_sha256": "91e9fb7689d6ce6de64df6d1423a70b98ca3a536c059176543b9be65d7ed8436",
+      "references": [],
+      "expected_outputs": [
+        "problem, user, evidence, metric, goal, and non-goal brief",
+        "PRD with requirements, open questions, risks, dependencies, and acceptance shape",
+        "prioritization/roadmap options with tradeoffs and decision owner",
+        "explicit downstream route to ralplan, strategy-brief, or ultrawork only when its prerequisite is satisfied"
+      ],
+      "acceptance_criteria": [
+        "The plan names goals, non-goals, assumptions, acceptance criteria, and verification shape.",
+        "Draft recommendations, accepted decisions, and executor handoffs are separate states.",
+        "Rejected options or unresolved tradeoffs are recorded before handoff."
+      ]
+    },
+    "product-discovery-validation": {
+      "family_id": "product-discovery",
+      "source_path": "skills/omh-product-discovery-validation/SKILL.md",
+      "source_sha256": "1ab833ce4b011d8dbdb17941fe1fc0b4e7c56d39e5aac399142e0bc000cf8ab1",
+      "references": [
+        {
+          "relative_path": "omh-product-discovery-validation/references/full-contract.md",
+          "source_path": "skills/omh-product-discovery-validation/references/full-contract.md",
+          "source_sha256": "ca33812bb36762cb7c1c17eaa80495cb51cff09b25fd37aa4570dbdee70dc41b"
+        },
+        {
+          "relative_path": "omh-product-discovery-validation/references/procedure.md",
+          "source_path": "skills/omh-product-discovery-validation/references/procedure.md",
+          "source_sha256": "c4b545ab2472299450aa8279f3d15a64afbfada6e14314f083d3f905aa52a19a"
+        }
+      ],
+      "expected_outputs": [
+        "discovery_decision_frame/v1",
+        "discovery_evidence_ledger/v1",
+        "customer_discovery_plan/v1",
+        "assumption_test_portfolio/v1",
+        "discovery_decision_receipt/v1",
+        "initial_gtm_hypothesis/v1"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Record observed delegation results; otherwise return `not_available` or `not_observed`.",
+        "Use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "product-docs": {
+      "family_id": "product-docs",
+      "source_path": "skills/omh-docs/SKILL.md",
+      "source_sha256": "5a2b13a24e3898b8b34153cea07eb1cfa2b6f74343c58a727fdc9bbeabbafd4a",
+      "references": [
+        {
+          "relative_path": "omh-docs/references/capability-map.md",
+          "source_path": "skills/omh-docs/references/capability-map.md",
+          "source_sha256": "937a010b722a4f58fb50d2f3e48c3e406bc83808d9ce15d43b3c484643619805"
+        },
+        {
+          "relative_path": "omh-docs/references/long-term-memory.md",
+          "source_path": "skills/omh-docs/references/long-term-memory.md",
+          "source_sha256": "27f65430ce3965f36758bf307d8e1f11fb124cfd2eea23b3cd474757c5d30a6e"
+        },
+        {
+          "relative_path": "omh-docs/references/model-routing-and-local-state.md",
+          "source_path": "skills/omh-docs/references/model-routing-and-local-state.md",
+          "source_sha256": "c55788d64f09ecde6cbc8603184c69dc9f6cf8cbfdf1f63d31ed72fa975055ec"
+        },
+        {
+          "relative_path": "omh-docs/references/product-and-sources.md",
+          "source_path": "skills/omh-docs/references/product-and-sources.md",
+          "source_sha256": "5b7117efb31d33cf78d3456f394ecc865c26a6612302aade6eff2327f279971a"
+        }
+      ],
+      "expected_outputs": [
+        "Prepared product-docs source-backed answer with explicit not_observed gaps"
+      ],
+      "acceptance_criteria": [
+        "Answer only from disclosed current sources or bounded local observations.",
+        "Treat wrapper metadata-only memory comparisons as advisory local context,",
+        "not proof of Hermes-memory mutation or raw-entry exposure.",
+        "Record observed delegation results; otherwise return `not_available` or",
+        "`not_observed`.",
+        "Prepared OMH routing is not execution, review, CI, or merge evidence.",
+        "Preserve workflow intent and stop conditions; verify before claiming",
+        "completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Use Hermes-native subagent/delegation features when available:",
+        "native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "production-audit": {
+      "family_id": "production-readiness",
+      "source_path": "skills/omh-production-audit/SKILL.md",
+      "source_sha256": "be28c1c10dd2a8fdca2e0782fdfbdec209f64375fa589f93d4308ab295964e6f",
+      "references": [],
+      "expected_outputs": [
+        "production_audit_plan/v1",
+        "readiness_matrix/v1",
+        "release_gate_verdict/v1",
+        "rollback_and_monitoring_plan/v1",
+        "risk_register/v1",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "Findings or no-issue results are grounded in concrete file, artifact, command, or source evidence.",
+        "Open questions, residual risk, and missing verification are named.",
+        "Fixes or follow-up work are separate handoffs unless the user explicitly asked to implement them."
+      ]
+    },
+    "prompt-import-readiness": {
+      "family_id": "external-and-provider-readiness",
+      "source_path": "skills/omh-prompt-import-readiness/SKILL.md",
+      "source_sha256": "bf93aea9e50cfd8abc0b24809f00540786039e375935b404c1f0070b8253229d",
+      "references": [],
+      "expected_outputs": [
+        "prompt_import_readiness_card/v1",
+        "prompt_compatibility_audit/v1 for explicitly named local files",
+        "prompt_source_inventory/v1",
+        "prompt_format_matrix/v1",
+        "argument_interpolation_policy/v1",
+        "slash_command_collision_report/v1",
+        "prompt_trust_review/v1",
+        "prompt_import_manifest/v1 when observed",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "Prompt sources, agent family, expected file formats, argument syntax, slash-command names, trust level, and stop condition are explicit.",
+        "Explicit-path audit reads and compatibility results are observed only in their audit output; source discovery, command registration, prompt mutation, slash-command activation, and dry-run execution remain marked not_observed.",
+        "Route broad candidate discovery to skill-scout, prompt/tool safety to security-safety-review, missing CLIs or directories to toolbelt-readiness, and approved implementation to a selected executor handoff.",
+        "Imported prompts, generated command files, registry updates, and dry-run results are reported only from observed prompt-import evidence."
+      ]
+    },
+    "provider-profile-posture": {
+      "family_id": "external-and-provider-readiness",
+      "source_path": "skills/omh-provider-profile-posture/SKILL.md",
+      "source_sha256": "155e9a6d64c0fb80d10c373c73d30428455de83ede5896c34b20fd13a240ef01",
+      "references": [],
+      "expected_outputs": [
+        "provider_profile_posture/v1",
+        "metadata-only secret requirements",
+        "allowed and prohibited actions"
+      ],
+      "acceptance_criteria": [
+        "Provider ID, profile ID, requested capabilities, and secret-presence metadata are explicit.",
+        "No secret value, credential validation, provider call, model route, wallet, or payment action is claimed.",
+        "Any host observation reference remains supplied metadata, not a live connector check."
+      ]
+    },
+    "refactor-plan": {
+      "family_id": "behavior-preserving-refactor",
+      "source_path": "skills/omh-refactor-plan/SKILL.md",
+      "source_sha256": "205d3ecac0b4101b105d69ba0b33e80c2ee5fa120de7982ba98b6f58686014b7",
+      "references": [
+        {
+          "relative_path": "omh-refactor-plan/references/dependency-upgrade.md",
+          "source_path": "skills/omh-refactor-plan/references/dependency-upgrade.md",
+          "source_sha256": "97e9b74b117a66171386a0015a0ad60954def8dcf59b1d6c180037919c61bfbf"
+        },
+        {
+          "relative_path": "omh-refactor-plan/references/refactor-phases.md",
+          "source_path": "skills/omh-refactor-plan/references/refactor-phases.md",
+          "source_sha256": "492cfcd81b1b44ffb54bcb16b6dc319549a7ee868d95b21176fa9cc0fa06f035"
+        }
+      ],
+      "expected_outputs": [
+        "reconnaissance: affected files, ownership boundaries, hidden coupling, blast radius — and for an upgrade, the advisory, licence, migration-guide, and lockfile intake",
+        "phase plan in the fixed order - types/interfaces, implementations, callers, tests, cleanup - each with verification and rollback",
+        "files table: path, action, phase, blocks/blocked-by",
+        "for an upgrade, the call-site readiness gate: every breaking change between the two versions against this repository's call sites or an observed empty search, and every stage's rollback",
+        "the approval gate: the plan stops and waits for the user's go"
+      ],
+      "acceptance_criteria": [
+        "Reconnaissance names affected files, boundaries, coupling, and blast radius from observed evidence.",
+        "Every phase carries its verification command and its rollback point, and ends at a shippable commit.",
+        "The files table covers every touched file with action, phase, and dependencies.",
+        "For an upgrade, every breaking change row names its call sites or an observed empty search, and every stage names its rollback.",
+        "The plan stopped at the approval gate; no implementation began without the user's go."
+      ]
+    },
+    "relational-db": {
+      "family_id": "backend-and-relational-db",
+      "source_path": "skills/omh-relational-db/SKILL.md",
+      "source_sha256": "02be09b6e1cc793de7008e7d4e68f635db9f6a654e2bb9f0849b2d957ea44bfe",
+      "references": [
+        {
+          "relative_path": "omh-relational-db/references/engine-lock-tables.md",
+          "source_path": "skills/omh-relational-db/references/engine-lock-tables.md",
+          "source_sha256": "c5a495fec865b028c18882f3a4102d491610945edd23a109fac49b8f914fb6b4"
+        }
+      ],
+      "expected_outputs": [
+        "db_problem_statement/v1",
+        "query_plan_evidence/v1 when a query is involved",
+        "index_proposal/v1 when an index is proposed",
+        "online_migration_plan/v1 when a table changes shape",
+        "n_plus_one_finding/v1 when an endpoint issues per-row queries",
+        "capacity_projection/v1 when partitioning or sharding is asked",
+        "migration_readiness_verdict/v1"
+      ],
+      "acceptance_criteria": [
+        "Engine, version, and table sizes are stated.",
+        "Every proposed index cites an observed plan or is marked unverified.",
+        "Every migration step states its lock mode, its duration bound, and its rollback.",
+        "The readiness verdict is ready only when no step lacks lock behaviour or rollback.",
+        "Nothing was connected to, run, or applied by OMH."
+      ]
+    },
+    "release-cut": {
+      "family_id": "version-release",
+      "source_path": "skills/omh-release-cut/SKILL.md",
+      "source_sha256": "eae75507d98e6f4dfdbcfce89d05a674e64b31112dd3178ead2bc1c33a8146a6",
+      "references": [
+        {
+          "relative_path": "omh-release-cut/references/release-and-rollback-method.md",
+          "source_path": "skills/omh-release-cut/references/release-and-rollback-method.md",
+          "source_sha256": "e97a49d65d6b943fa5bbacc4f8083fcd94e52d864cea97301c9b945180e57cc9"
+        }
+      ],
+      "expected_outputs": [
+        "release_scope/v1",
+        "release_plan/v1",
+        "rollout_stages/v1 when the release is staged",
+        "rollback_trigger/v1",
+        "release_readiness_verdict/v1"
+      ],
+      "acceptance_criteria": [
+        "The contents, the held items, and the version are stated.",
+        "Every rollout stage has a traffic share, a bake time, and a promotion criterion.",
+        "The rollback trigger names a signal, a threshold, and the exact command.",
+        "The readiness verdict is ready only when the trigger and the command are named.",
+        "Nothing was tagged, published, deployed, or rolled back by OMH."
+      ]
+    },
+    "research": {
+      "family_id": "research-procedure",
+      "source_path": "skills/ulw-research/SKILL.md",
+      "source_sha256": "90170cd524122c559233b11bdd3d857a355061a04afd045c8e6ea220a3c2fe9d",
+      "references": [
+        {
+          "relative_path": "ulw-research/references/briefing-format.md",
+          "source_path": "skills/ulw-research/references/briefing-format.md",
+          "source_sha256": "466c21fb7bedefe1e42dbdb3f8ddaf3321504882140af507a292188678243dac"
+        }
+      ],
+      "expected_outputs": [
+        "source-backed synthesis",
+        "links or citations",
+        "source-quality notes",
+        "reference-implementation notes with pinned versions or permalinks",
+        "verified-claims ledger with an unresolved and refuted annex",
+        "plan-feed block: decision drivers, viable options with evidence, rejected candidates with reasons, risks, open questions",
+        "confidence and residual uncertainty",
+        "product_evidence_loop/v1",
+        "deep_research_dossier/v1",
+        "research_briefing/v1 with its markdown and print-ready page when the reader is human",
+        "temporal_source_receipt/v1 per historical claim and temporal_evidence_surfaces/v1 when the question is point-in-time"
+      ],
+      "acceptance_criteria": [
+        "The research question, source boundaries, recency assumptions, and confidence level are named.",
+        "Observed sources, inference, synthesis, and unresolved retrieval gaps are separated.",
+        "Follow-up planning or handoff uses the research summary without calling it execution evidence."
+      ]
+    },
+    "rules-distill": {
+      "family_id": "rule-candidates",
+      "source_path": "skills/omh-rules-distill/SKILL.md",
+      "source_sha256": "71e259d34ecffd67e10898e07e65921e4ef8caec8ca1983463dcdbdd54db37d8",
+      "references": [],
+      "expected_outputs": [
+        "rules_distillation_plan/v1",
+        "principle_candidate_set/v1",
+        "duplication_conflict_report/v1",
+        "review_queue/v1",
+        "approved_patch_handoff/v1 when approved",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "The durable fact, source evidence, retrieval hint, and staleness risk are recorded.",
+        "Uncertain or conflicting knowledge is marked as review-needed rather than permanent truth.",
+        "Separate coding or docs tasks are extracted instead of buried in notes."
+      ]
+    },
+    "run-efficiency": {
+      "family_id": "context-and-efficiency",
+      "source_path": "skills/omh-run-efficiency/SKILL.md",
+      "source_sha256": "55d3f2ea146cfc156cf89841d0bc092bb6818ebaa388bdae32ec2fcb5003851d",
+      "references": [],
+      "expected_outputs": [
+        "run_efficiency_report/v1",
+        "context utilization",
+        "not_observed provider and host gaps"
+      ],
+      "acceptance_criteria": [
+        "The run ID, context budget, surfaces, and supplied observations are explicit.",
+        "Provider billing, cron, and host claims remain not_observed unless separately recorded.",
+        "The report does not intercept, route, or execute provider or host work."
+      ]
+    },
+    "running-work-board": {
+      "family_id": "running-board",
+      "source_path": "skills/omh-running-work-board/SKILL.md",
+      "source_sha256": "e456cb2502f40be140fdb71cb9fe6fcbd738351cfc87cd2206b3ea0ba7a30733",
+      "references": [],
+      "expected_outputs": [
+        "per-unit runtime and model",
+        "observed tokens and elapsed",
+        "explicit unknowns"
+      ],
+      "acceptance_criteria": [
+        "Runtime and model are named per unit, or explicitly reported as unknown.",
+        "Token counts and session references are observed values or the literal unknown, never estimates.",
+        "Elapsed time for an unfinished unit comes from its start marker, which cannot prove the unit is still alive.",
+        "The board is labelled observed activity, not result, verification, review, CI, or merge evidence."
+      ]
+    },
+    "rust": {
+      "family_id": "rust",
+      "source_path": "skills/omh-rust/SKILL.md",
+      "source_sha256": "8810fd2a8d52e2d4bf36b86c1921b84722fa3f01e6875562987679dcab7e86c2",
+      "references": [
+        {
+          "relative_path": "omh-rust/references/rust-discipline.md",
+          "source_path": "skills/omh-rust/references/rust-discipline.md",
+          "source_sha256": "7d9b5005213715f4712dac2371fa63699b8ba963e843f360d75789d576c12844"
+        },
+        {
+          "relative_path": "omh-rust/references/ub-escalation.md",
+          "source_path": "skills/omh-rust/references/ub-escalation.md",
+          "source_sha256": "b39328707a4c3e1cf1d152603f0840255d68db3cfda714d6c33d853ebb087768"
+        }
+      ],
+      "expected_outputs": [
+        "rust_change_contract/v1",
+        "ownership_shape/v1",
+        "error_and_api_contract/v1",
+        "rust_gate_list/v1",
+        "ub_escalation_verdict/v1",
+        "ub_discipline_checklist/v1 when the escalation triggers",
+        "observed_rust_gate_evidence/v1 when observed"
+      ],
+      "acceptance_criteria": [
+        "The escalation verdict is stated with the trigger that decided it.",
+        "The ownership shape names owners, borrows across boundaries, and every deliberate clone.",
+        "The error type, its conversion boundary, and every surviving `unwrap`/`expect`/`panic!` are named.",
+        "The gate list names the exact commands the executor must run and pass.",
+        "An escalated change carries the Miri, sanitizer, and concurrency-testing requirements as blocking items.",
+        "Compiler, clippy, test, Miri, sanitizer, and loom results stay observed-only."
+      ]
+    },
+    "sales-development": {
+      "family_id": "sales-discovery",
+      "source_path": "skills/omh-sales-development/SKILL.md",
+      "source_sha256": "7f6c72f1d9e7b5e4ecefb0aca6899c7439f0929994af734dfda9d2c149157f96",
+      "references": [
+        {
+          "relative_path": "omh-sales-development/references/procedure.md",
+          "source_path": "skills/omh-sales-development/references/procedure.md",
+          "source_sha256": "0ed747dc7a21bee8931023e4f7d78f65a7a9845ccf40cd6b754eeecc2a6aea70"
+        }
+      ],
+      "expected_outputs": [
+        "sales_opportunity_evidence_record/v1",
+        "sales_qualification_state/v1",
+        "sales_draft_sequence/v1",
+        "sales_handoff_disposition/v1"
+      ],
+      "acceptance_criteria": [
+        "The decision, options, tradeoffs, assumptions, and rejected alternatives are named.",
+        "Observed signals are separated from strategic inference.",
+        "Accepted decisions and implementation follow-ups are not conflated."
+      ]
+    },
+    "sales-pipeline-review": {
+      "family_id": "sales-pipeline",
+      "source_path": "skills/omh-sales-pipeline-review/SKILL.md",
+      "source_sha256": "772914984077a1ec970a012400622515dd303488a5a4c280a53b18f59c33afff",
+      "references": [
+        {
+          "relative_path": "omh-sales-pipeline-review/references/full-contract.md",
+          "source_path": "skills/omh-sales-pipeline-review/references/full-contract.md",
+          "source_sha256": "ca5c932554aaa27326c6eab7b07a34e53d853251528efab343340d88457f2d91"
+        },
+        {
+          "relative_path": "omh-sales-pipeline-review/references/procedure.md",
+          "source_path": "skills/omh-sales-pipeline-review/references/procedure.md",
+          "source_sha256": "ae092ea4d9363da82d23620f33a2f83e8a3dd42f4a8d69fd08b92cb2989fa138"
+        }
+      ],
+      "expected_outputs": [
+        "sales_pipeline_scope/v1",
+        "sales_pipeline_health/v1",
+        "sales_forecast_assessment/v1",
+        "sales_outcome_learning_annex/v1",
+        "sales_renewal_risk_annex/v1",
+        "sales_pipeline_handoff/v1"
+      ],
+      "acceptance_criteria": [
+        "Preserve workflow intent and stop conditions; load the full contract before claiming completion.",
+        "Reply in the user's own words and the host's own voice: its SOUL.md persona owns reply language, tone, speech level, and sentence endings, progress updates included (where it sets no language, use the one the user wrote in), and OMH shapes structure and content only; OMH's record terms (surface, lane, wrapper, handoff, evidence boundary, not_observed) stay in records and tool calls, never in the sentence the user reads unless they ask about one; and when a stop condition or a decision the user owns ends the turn, offer the next action as a question rather than declaring what will not be done.",
+        "Record observed delegation results; otherwise return `not_available` or `not_observed`.",
+        "Use Hermes-native subagent/delegation features when available: native subagents -> Hermes delegation when available, otherwise sequential lanes."
+      ]
+    },
+    "security-event-response": {
+      "family_id": "application-security",
+      "source_path": "skills/omh-security-event-response/SKILL.md",
+      "source_sha256": "3364c8da9f0f3267d95d0d171479ada6efbd8dc9d13f90f4c21d4e651852d1a6",
+      "references": [
+        {
+          "relative_path": "omh-security-event-response/references/event-containment-order.md",
+          "source_path": "skills/omh-security-event-response/references/event-containment-order.md",
+          "source_sha256": "2ea0a28b9d22cb0fa3016617e3d52253bb30d82d30c4931437c60f6706213090"
+        }
+      ],
+      "expected_outputs": [
+        "security_event_record/v1",
+        "reachability_analysis/v1 when a vulnerable dependency is involved",
+        "containment_plan/v1",
+        "license_fit_verdict/v1 when a license is asked",
+        "event_closure_verdict/v1"
+      ],
+      "acceptance_criteria": [
+        "The event kind, source, and exposure window are stated.",
+        "Every severity call cites the reachable path or its observed absence.",
+        "A leaked secret's rotation precedes any history rewrite in the plan.",
+        "The closure verdict is closed only when the rotation or fixed version is observed.",
+        "No secret value appears anywhere, and OMH scanned, contacted, or rotated nothing."
+      ]
+    },
+    "security-safety-review": {
+      "family_id": "application-security",
+      "source_path": "skills/omh-security-safety-review/SKILL.md",
+      "source_sha256": "30a68dafe7cafd75bd9032dd065a46da88944d6b611b7e75c2db3b66f31c2b1a",
+      "references": [
+        {
+          "relative_path": "omh-security-safety-review/references/credential-rotation.md",
+          "source_path": "skills/omh-security-safety-review/references/credential-rotation.md",
+          "source_sha256": "2a4e1cacc2c10141a1aaff437353150696c397f5fec0b41536eb5d946ebff065"
+        }
+      ],
+      "expected_outputs": [
+        "security_safety_review_plan/v1",
+        "threat_surface_map/v1",
+        "permission_and_secret_risk_matrix/v1",
+        "prompt_injection_risk_review/v1",
+        "safe_action_policy/v1",
+        "plugin_risk_audit/v1 for one explicitly named local plugin directory",
+        "remediation_handoff/v1 when needed",
+        "credential_rotation_sequence/v1 when a live credential must be replaced",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "Findings or no-issue results are grounded in concrete file, artifact, command, or source evidence.",
+        "Open questions, residual risk, and missing verification are named.",
+        "Fixes or follow-up work are separate handoffs unless the user explicitly asked to implement them."
+      ]
+    },
+    "skill-health": {
+      "family_id": "skill-portfolio",
+      "source_path": "skills/omh-skill-health/SKILL.md",
+      "source_sha256": "9ce7b238853c2ba35b2bfabfa81817b624576b92b76ced004879ca3dfcea9d49",
+      "references": [],
+      "expected_outputs": [
+        "catalog, generated, reference, harness, and capability-surface status",
+        "observed failure signals, or an explicit statement that none were supplied",
+        "pending amendment review slots and top safe actions with owner lane and verification path"
+      ],
+      "acceptance_criteria": [
+        "Dashboard scope, source surfaces, stale/duplicate criteria, and stop condition are explicit.",
+        "Install/setup health is routed to doctor; catalog operations are routed to skill; failure retrospectives are routed to workflow-learning.",
+        "No skill, prompt, doc, memory, or model behavior is claimed changed until a reviewed implementation records evidence."
+      ]
+    },
+    "skill-scout": {
+      "family_id": "skill-portfolio",
+      "source_path": "skills/omh-skill-scout/SKILL.md",
+      "source_sha256": "0f889802c7a8b9ad0b3ccb36014a42486023cb96283817f6e29ff8272ae170a9",
+      "references": [],
+      "expected_outputs": [
+        "skill_scout_query/v1",
+        "local_skill_candidate_inventory/v1 when observed",
+        "external_skill_candidate_risk_review/v1 when observed",
+        "awesome_hermes_agent_coverage/v1 for upstream ecosystem comparison when requested",
+        "skill_adoption_decision_matrix/v1",
+        "skill_scout_recommendation/v1"
+      ],
+      "acceptance_criteria": [
+        "Intent, keywords, source scope, and stop condition are explicit.",
+        "Local and external search evidence is separated from planned search.",
+        "No install, copy, write, credential, or trust claim is made without observed review or implementation."
+      ]
+    },
+    "support-operations": {
+      "family_id": "support",
+      "source_path": "skills/omh-support-operations/SKILL.md",
+      "source_sha256": "66d79e8a68058f862823032d8aa599c2bb12ebba15b1f88adeb5c81b8a3a8719",
+      "references": [],
+      "expected_outputs": [
+        "customer-safe reply draft with stated facts, unknowns, and tone",
+        "issue/severity/impact/escalation matrix",
+        "internal next-step and owner handoff brief",
+        "missing repro, account, entitlement, or approval evidence list"
+      ],
+      "acceptance_criteria": [
+        "The source boundary, signal clusters, severity, and follow-up lane are named.",
+        "Bug, feature, research, strategy, and coding handoff outcomes stay separate.",
+        "The next workflow is recommended before any implementation claim."
+      ]
+    },
+    "tech-debt-audit": {
+      "family_id": "behavior-preserving-refactor",
+      "source_path": "skills/omh-tech-debt-audit/SKILL.md",
+      "source_sha256": "e8c5ce7eda593b4a824f67e3391e09dfc81ef52ab963c5e5d74c3574d9f47469",
+      "references": [
+        {
+          "relative_path": "omh-tech-debt-audit/references/debt-dimensions.md",
+          "source_path": "skills/omh-tech-debt-audit/references/debt-dimensions.md",
+          "source_sha256": "7d0d601c1fc8897f0ce433dfa2ae44c2a5c9dd69ded28d7775cb6adbdd2afb75"
+        }
+      ],
+      "expected_outputs": [
+        "orientation summary: manifests read, churn ranking, largest files, test and CI entry points",
+        "findings table per `tech_debt_ledger/v1`: id, category, file:line, severity, effort, recommendation",
+        "top fixes ranked by severity and the quick wins ranked by payoff-per-effort",
+        "the looks-bad-but-is-actually-fine list, and the RESOLVED/NEW/CARRIED reconciliation on rerun"
+      ],
+      "acceptance_criteria": [
+        "Orientation evidence is observed: manifests, churn ranking, and largest files are named, not assumed.",
+        "Every finding has id, dimension, file:line, severity, effort, and a bounded recommendation.",
+        "Quick wins and top fixes are ranked, and the looks-bad-but-is-actually-fine section is present.",
+        "On rerun, every prior finding is reconciled RESOLVED, CARRIED, or superseded - none silently dropped."
+      ]
+    },
+    "todo-checklist": {
+      "family_id": "todo-checklist",
+      "source_path": "skills/omh-todo-checklist/SKILL.md",
+      "source_sha256": "a20344d5082437113e8e84cc63262d7e9d08a882dbeb3e50fb79fd0e09afd458",
+      "references": [
+        {
+          "relative_path": "omh-todo-checklist/references/checklist-discipline.md",
+          "source_path": "skills/omh-todo-checklist/references/checklist-discipline.md",
+          "source_sha256": "177c45c4e137b7281450e25de30af838682b5eca4da3eb4aa7c1786cc2ac3291"
+        },
+        {
+          "relative_path": "omh-todo-checklist/references/closing-a-story.md",
+          "source_path": "skills/omh-todo-checklist/references/closing-a-story.md",
+          "source_sha256": "40eb38e758ab51875109bd2a5f3f3eec075d750779dd465e427dbf8dd15847a6"
+        },
+        {
+          "relative_path": "omh-todo-checklist/references/requirements-quality-checklist.md",
+          "source_path": "skills/omh-todo-checklist/references/requirements-quality-checklist.md",
+          "source_sha256": "1afa33299e670698534923585725297e365d5f96773a29d11b137954bbfa8ffb"
+        }
+      ],
+      "expected_outputs": [
+        "a declared checklist with exactly one active item",
+        "explicit states as work completes"
+      ],
+      "acceptance_criteria": [
+        "Exactly one item is active, or the list is complete and every item is done.",
+        "Use `action=advance` or a complete `action=set` list; never drop an item by omission.",
+        "Item states are described as declarations; observed results are cited separately or named as missing.",
+        "Name whether work is blocked or human-deferred."
+      ]
+    },
+    "ultraperf": {
+      "family_id": "performance-procedure",
+      "source_path": "skills/ulw-perf/SKILL.md",
+      "source_sha256": "fbff5ed34135d088446e31b02f4ab6638a35c607355111cfff38c587bdda1abf",
+      "references": [],
+      "expected_outputs": [
+        "baseline record",
+        "ranked hot-path hypotheses",
+        "smallest reversible fix handoff",
+        "re-measured delta",
+        "regression budget and gate"
+      ],
+      "acceptance_criteria": [
+        "Baseline, workload, environment, and evaluator command are recorded before any edit is proposed.",
+        "Each accepted fix names the measured hot path, the reversible change, and its owner.",
+        "Re-measured deltas cite observed evidence; unmeasured steps stay not_observed.",
+        "The regression budget and the gate that enforces it are stated with the tolerance."
+      ]
+    },
+    "verification-gate": {
+      "family_id": "verification",
+      "source_path": "skills/omh-verification-gate/SKILL.md",
+      "source_sha256": "327b4458de6d08432c89976d3450b40a892db8693a87dc46fb4fadcd54692296",
+      "references": [
+        {
+          "relative_path": "omh-verification-gate/references/generated-artifact-provenance.md",
+          "source_path": "skills/omh-verification-gate/references/generated-artifact-provenance.md",
+          "source_sha256": "91a818c86eb8311e39f7e1e0f1dca2bed5066551acff83a656aeb78e947f2fad"
+        },
+        {
+          "relative_path": "omh-verification-gate/references/requirement-coverage-map.md",
+          "source_path": "skills/omh-verification-gate/references/requirement-coverage-map.md",
+          "source_sha256": "91b86c41bdee5e4336c92a15875f8691fb929e75377b3c18187d6bc8eb184a19"
+        }
+      ],
+      "expected_outputs": [
+        "verification_gate_plan/v1",
+        "verification_matrix/v1",
+        "generated_artifact_provenance/v1 when the change touches a path the repository declares generated",
+        "observed_check_results/v1 when observed",
+        "claim_verdict/v1",
+        "rerun_or_blocker/v1",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "The scenario, expected behavior, observed result, and pass/fail basis are named.",
+        "Proposed fixes are separated from observed QA evidence.",
+        "Missing or failed verification routes back to plan, fix, or a narrower test."
+      ]
+    },
+    "visual-qa": {
+      "family_id": "design-direction",
+      "source_path": "skills/omh-visual-qa/SKILL.md",
+      "source_sha256": "fd2f822e85dd8b5f0bc9bed0f2b1aa20d3b16889d6cb32d5c78db1b302543d30",
+      "references": [
+        {
+          "relative_path": "omh-visual-qa/references/visual-verdict-contract.md",
+          "source_path": "skills/omh-visual-qa/references/visual-verdict-contract.md",
+          "source_sha256": "7c803a3997dc58be0a4b88f2d7aa081cc5cac49a227d0cc19437cd1aad420759"
+        }
+      ],
+      "expected_outputs": [
+        "visual_qa_plan/v1",
+        "web_visual_qa_package/v2",
+        "viewport_state_capture_matrix/v1",
+        "message_attachment_projection/v1 for chat attachments",
+        "web_visual_qa_message_card/v1 for chat message summaries",
+        "render_capture_manifest/v1 when observed",
+        "browser_interaction_trace/v1 when observed",
+        "console_network_health/v1 when observed",
+        "click_path_state_trace/v1 when observed",
+        "accessibility_keyboard_trace/v1 when observed",
+        "visual_diff_evidence/v1 when observed",
+        "visual_hotspot_review/v1 when observed",
+        "motion_interaction_capture/v1 when observed",
+        "dual_oracle_visual_review/v1 when observed",
+        "cjk_layout_findings/v1 when applicable",
+        "visual_qa_verdict/v1",
+        "retry_or_blocker/v1"
+      ],
+      "acceptance_criteria": [
+        "Interaction, console/network, click-path, keyboard/accessibility, diff, hotspot, motion, dual-review evidence, and blocker status are separate fields.",
+        "The verdict is PASS, REVISE, or BLOCK with concrete evidence IDs and exact missing evidence or fix requirements.",
+        "Implementation fixes stay separate from the observed verdict, routed back to the executor/frontend workflow and rechecked against the resulting revision."
+      ]
+    },
+    "websearch-setup": {
+      "family_id": "hermes-setup-guidance",
+      "source_path": "skills/omh-websearch-setup/SKILL.md",
+      "source_sha256": "5429a81ae3d8e62d5974095ae845cdc892f2b2eb10641c87463565e0ba8c5877",
+      "references": [],
+      "expected_outputs": [
+        "read-only diagnosis of the current scraper `.env` key and auxiliary web-extract model routing state",
+        "a diff-approved `.env` write adding the scraper API key, approved on its own",
+        "a diff-approved routing block change assigning the auxiliary web-extract model, approved separately from the key write",
+        "verification checklist confirming both writes were applied"
+      ],
+      "acceptance_criteria": [
+        "If a prerequisite is unmet, mark that item \"not applicable\" and continue with the rest of the guide instead of blocking or guessing.",
+        "Success is applicable-only: verification passes when every applicable item is confirmed complete, not when every possible item exists.",
+        "The scraper API key write and the auxiliary web-extract model write were verified as two separate, independently-approved changes."
+      ]
+    },
+    "workspace-audit": {
+      "family_id": "workspace-surface",
+      "source_path": "skills/omh-workspace-audit/SKILL.md",
+      "source_sha256": "882803b50cb3a38a1bbb336cc1b025ff6ba085c994fe5dce22e2688e48852abd",
+      "references": [],
+      "expected_outputs": [
+        "workspace_audit_plan/v1",
+        "surface_inventory/v1",
+        "capability_gap_matrix/v1",
+        "config_security_findings/v1",
+        "downstream_workflow_recommendation/v1",
+        "not-evidence boundary"
+      ],
+      "acceptance_criteria": [
+        "Confirm the workflow target, evidence boundary, and stop condition are named.",
+        "Report which outputs are prepared, observed, blocked, or missing.",
+        "Name the smallest next verification or handoff instead of claiming completion from narration."
+      ]
+    },
+    "workspace-file-operator": {
+      "family_id": "primitive-operators",
+      "source_path": "skills/omh-files/SKILL.md",
+      "source_sha256": "b0051a22d4b8ec86afc5594642c747fe099c316c702745e414ec75dac8d5c3a8",
+      "references": [],
+      "expected_outputs": [
+        "workspace_file_task_card/v1",
+        "file_operation_scope/v1",
+        "file_observation_manifest/v1 when observed",
+        "file_confirmation_gate/v1 when destructive",
+        "next action",
+        "prepared-vs-observed boundary"
+      ],
+      "acceptance_criteria": [
+        "The path root, allowed file operations, excluded paths, destructive-operation policy, and stop condition are explicit.",
+        "Delete, overwrite, move, rename, permission change, archive mutation, upload, and download are gated or marked missing.",
+        "Directory listings, file contents, hashes, diffs, and operation results are reported only from observed file evidence."
+      ]
+    }
+  }
+}

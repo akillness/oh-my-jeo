@@ -222,6 +222,89 @@ def remove_external_dir(config_text: str, skill_dir: str | Path) -> ConfigChange
     return ConfigChange(True, "removed external dir", "\n".join(output).rstrip() + "\n")
 
 
+def omj_home_setting(config_text: str) -> tuple[bool, str | None]:
+    """Read the plugin-owned home leaf using the copied plugin's scanner."""
+    from ..plugin_bundle.omj.runtime_paths import omj_home_setting as scan_home
+
+    return scan_home(config_text)
+
+
+def ensure_omj_home_binding(config_text: str, omj_home: str | Path) -> ConfigChange:
+    """Record the selected absolute OMJ store only when the profile is unset."""
+    value = str(Path(omj_home).expanduser().resolve())
+    try:
+        found, _current = omj_home_setting(config_text)
+    except ValueError as exc:
+        return ConfigChange(False, f"{exc}; OMJ home binding left unchanged", config_text)
+    if found:
+        return ConfigChange(False, "external dir already present", config_text)
+
+    lines = config_text.splitlines()
+    block = [
+        "plugins:",
+        "  entries:",
+        "    omj:",
+        "      settings:",
+        f"        omj_home: '{value}'",
+    ]
+    if not lines:
+        text = "\n".join(block) + "\n"
+        return ConfigChange(True, "recorded plugins.entries.omj.settings.omj_home", text)
+
+    # Extend existing mapping levels without duplicating operator-owned keys.
+    plugins_index = next((idx for idx, line in enumerate(lines) if line.strip() == "plugins:" and not line.startswith(" ")), None)
+    if plugins_index is None:
+        text = config_text.rstrip() + "\n\n" + "\n".join(block) + "\n"
+        return ConfigChange(True, "recorded plugins.entries.omj.settings.omj_home", text)
+    plugins_end = len(lines)
+    for idx in range(plugins_index + 1, len(lines)):
+        if lines[idx] and not lines[idx].startswith(" "):
+            plugins_end = idx
+            break
+    entries_index = next(
+        (idx for idx in range(plugins_index + 1, plugins_end) if lines[idx].strip() == "entries:" and len(lines[idx]) - len(lines[idx].lstrip(" ")) == 2),
+        None,
+    )
+    if entries_index is None:
+        lines[plugins_end:plugins_end] = ["  entries:", "    omj:", "      settings:", f"        omj_home: '{value}'"]
+    else:
+        entries_end = next(
+            (idx for idx in range(entries_index + 1, plugins_end) if lines[idx] and len(lines[idx]) - len(lines[idx].lstrip(" ")) <= 2),
+            plugins_end,
+        )
+        omj_index = next(
+            (idx for idx in range(entries_index + 1, entries_end) if lines[idx].strip() == "omj:" and len(lines[idx]) - len(lines[idx].lstrip(" ")) == 4),
+            None,
+        )
+        if omj_index is None:
+            lines[entries_end:entries_end] = ["    omj:", "      settings:", f"        omj_home: '{value}'"]
+        else:
+            omj_end = next(
+                (idx for idx in range(omj_index + 1, entries_end) if lines[idx] and len(lines[idx]) - len(lines[idx].lstrip(" ")) <= 4),
+                entries_end,
+            )
+            settings_index = next(
+                (idx for idx in range(omj_index + 1, omj_end) if lines[idx].strip() == "settings:" and len(lines[idx]) - len(lines[idx].lstrip(" ")) == 6),
+                None,
+            )
+            if settings_index is None:
+                lines[omj_end:omj_end] = ["      settings:", f"        omj_home: '{value}'"]
+            else:
+                settings_end = next(
+                    (idx for idx in range(settings_index + 1, omj_end) if lines[idx] and len(lines[idx]) - len(lines[idx].lstrip(" ")) <= 6),
+                    omj_end,
+                )
+                lines[settings_end:settings_end] = [f"        omj_home: '{value}'"]
+    text = "\n".join(lines).rstrip() + "\n"
+    try:
+        found, written = omj_home_setting(text)
+    except ValueError:
+        return ConfigChange(False, "external dir already present", config_text)
+    if not found or written != value:
+        return ConfigChange(False, "external dir already present", config_text)
+    return ConfigChange(True, "external dir already present", text)
+
+
 def read_config(path: Path) -> str:
     if not path.exists():
         return ""

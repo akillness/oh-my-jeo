@@ -33,8 +33,8 @@ from .coding import (
     cmd_coding_lifecycle_start,
     cmd_coding_lifecycle_verify,
 )
-from .codegraph import _add_codegraph_commands, cmd_codegraph_build, cmd_codegraph_handoff, cmd_codegraph_summary
-from .context import _add_context_commands, cmd_context_brief
+from .codegraph import _add_codegraph_commands, cmd_codegraph_build, cmd_codegraph_handoff, cmd_codegraph_summary, cmd_codegraph_tests, cmd_codegraph_uml
+from .context import _add_context_commands, cmd_context_brief, cmd_context_terms_capture, cmd_context_terms_inspect
 from .demo import _add_demo_commands, cmd_demo_orchestration
 from .docs import (
     _add_docs_commands,
@@ -53,7 +53,7 @@ from .goal import (
     cmd_goal_create,
     cmd_goal_status,
 )
-from .hermes import _add_hermes_commands, cmd_hermes_plan
+from .hermes import _add_hermes_commands, cmd_hermes_plan, cmd_hermes_plan_variant
 from .hud import _add_hud_commands, cmd_hud
 from .learning import (
     _add_learning_commands,
@@ -85,11 +85,24 @@ from .memory import (
     cmd_memory_apply,
     cmd_memory_approve,
     cmd_memory_capture,
+    cmd_memory_compare,
+    cmd_memory_domain_approve,
+    cmd_memory_domain_capture,
+    cmd_memory_domain_inspect,
+    cmd_memory_domain_reject,
+    cmd_memory_domain_retire,
+    cmd_memory_domain_review,
+    cmd_memory_evaluate,
     cmd_memory_inspect,
+    cmd_memory_lifecycle,
+    cmd_memory_lineage,
     cmd_memory_pack,
     cmd_memory_recall,
+    cmd_memory_recall_incident,
+    cmd_memory_recall_suite,
     cmd_memory_reject,
     cmd_memory_review,
+    cmd_memory_sources,
     cmd_memory_status,
 )
 from .mcp import (
@@ -111,20 +124,32 @@ from .ops import (
     cmd_ops_blueprint_list,
     cmd_ops_blueprint_show,
     cmd_ops_export,
+    cmd_ops_file_lineage,
+    cmd_ops_incident_capsule,
     cmd_ops_list,
+    cmd_ops_permission_rehearse,
+    cmd_ops_plugin_risk_audit,
     cmd_ops_research_department,
     cmd_ops_research_department_list,
     cmd_ops_research_department_show,
     cmd_ops_show,
+    cmd_ops_source_recovery,
     cmd_ops_validate,
     cmd_ops_write,
+    cmd_rules_import,
 )
+from .paper import _add_paper_commands, cmd_paper_list, cmd_paper_plan, cmd_paper_progress, cmd_paper_show, cmd_paper_validate
+from .document import _add_document_commands
 from .playbook import _add_playbook_commands, cmd_playbook_inspect, cmd_playbook_list, cmd_playbook_recommend
 from .providers import (
     _add_providers_commands,
+    cmd_providers_complexity,
     cmd_providers_doctor,
     cmd_providers_inspect,
     cmd_providers_list,
+    cmd_providers_model_coverage,
+    cmd_providers_model_verdict,
+    cmd_providers_sensitive_chain,
 )
 from .release import _add_release_commands, cmd_release_checklist, cmd_release_hermes_smoke
 from .runtime import (
@@ -155,6 +180,8 @@ from .setup import (
     cmd_probe,
     cmd_recommend,
     cmd_setup,
+    cmd_setup_profile_export,
+    cmd_setup_profile_import,
     cmd_snippet,
     cmd_uninstall,
     cmd_update,
@@ -270,6 +297,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_visual_commands(sub)
     _add_worktree_commands(sub)
     _add_runtime_commands(sub)
+    _add_paper_commands(sub)
+    _add_document_commands(sub)
     _add_goal_commands(sub)
     _add_state_commands(sub)
     return parser
@@ -456,7 +485,11 @@ Run `omj --help` for the full command list."""
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        # Keep the library entrypoint testable while preserving argparse's help/error output.
+        return int(exc.code) if isinstance(exc.code, int) else 2
     if not getattr(args, "command", None):
         _print_welcome(args)
         return 0

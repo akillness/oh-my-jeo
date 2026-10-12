@@ -461,12 +461,12 @@ def build_project_memory_recall_pack(
             continue
         # Failure-first: a query-relevant failed_attempt is a dead end the next run
         # must not repeat, so it is surfaced ahead of everything else -- but ONLY when
-        # the query actually hits it (real token/tag overlap, never the empty-query
-        # score of 1). An unrelated dead end therefore never crowds out relevant
+        # the query actually hits it (real token/tag overlap, never the unqueried or
+        # no-indexable-token score of 1). An unrelated dead end never crowds out relevant
         # context. Ported from jeo-code memory.ts priorityOrder: resurfacing a known
         # failure is higher-leverage than reinforcing what already works ("close the
         # gaps, don't just polish strengths").
-        failure_first = bool(query.strip()) and str(record.get("record_type", "")) == "failed_attempt" and score > 0
+        failure_first = bool(query.strip()) and str(record.get("record_type", "")) == "failed_attempt" and score > 1
         included.append(_recall_item(record, score=score, staleness=staleness, failure_first=failure_first))
     included.sort(
         key=lambda item: (
@@ -483,7 +483,7 @@ def build_project_memory_recall_pack(
         "session_id": session_id,
         "task_ref": task_ref,
         "policy": policy,
-        "scope": _scope(scope_kind or "project", scope_ref or "default"),
+        "scope": _scope(scope_kind or "*", scope_ref or "*"),
         "included_records": included,
         "excluded_records": excluded,
         "record_count": len(included),
@@ -930,7 +930,7 @@ def _empty_recall_pack(
         "session_id": session_id,
         "task_ref": task_ref,
         "policy": policy,
-        "scope": _scope(scope_kind or "project", scope_ref or "default"),
+        "scope": _scope(scope_kind or "*", scope_ref or "*"),
         "included_records": [],
         "excluded_records": [{"record_id": "", "reason": reason, "staleness": {"state": "not_checked"}}],
         "record_count": 0,
@@ -964,6 +964,8 @@ def _memory_recall_score(record: dict[str, Any], query: str) -> int:
     if not query.strip():
         return 1
     query_tokens = _memory_tokens(query)
+    if not query_tokens:
+        return 1
     record_tokens = _memory_tokens(
         " ".join(
             [
@@ -980,6 +982,16 @@ def _memory_recall_score(record: dict[str, Any], query: str) -> int:
 
 _MEMORY_LATIN_EXTRA = "\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u1e00-\u1eff\u0300-\u036f"
 _MEMORY_WORD_TOKEN = re.compile(rf"[a-z0-9_/{_MEMORY_LATIN_EXTRA}-]{{3,}}")
+_MEMORY_SHORT_ASCII_TOKEN = re.compile(
+    rf"(?<![a-z0-9_/{_MEMORY_LATIN_EXTRA}-])[a-z0-9]{{2}}(?![a-z0-9_/{_MEMORY_LATIN_EXTRA}-])"
+)
+_MEMORY_SHORT_STOPWORDS = frozenset(
+    {
+        "am", "an", "as", "at", "be", "by", "do", "he", "if", "in", "is", "it",
+        "me", "my", "no", "of", "oh", "on", "or", "so", "to", "up", "us", "we",
+    }
+)
+_MEMORY_CJK_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]+")
 
 
 def _memory_tokens(value: str) -> set[str]:
@@ -990,6 +1002,11 @@ def _memory_tokens(value: str) -> set[str]:
             folded = _folded_text(word)
             if len(folded) >= 3:
                 tokens.add(folded)
+    tokens.update(token for token in _MEMORY_SHORT_ASCII_TOKEN.findall(lowered) if token not in _MEMORY_SHORT_STOPWORDS)
+    for run in _MEMORY_CJK_RUN.findall(lowered):
+        if len(run) >= 2:
+            tokens.add(run)
+        tokens.update(run[index : index + 2] for index in range(len(run) - 1))
     return tokens
 
 

@@ -8,6 +8,7 @@ from typing import Any
 
 from ..host_observation import PLUGIN_HOST_ACTIVE_OBSERVATION_EVENTS
 from ..host_observation import OBSERVATION_SCHEMA, attach_public_observation, observe_plugin_tool_call
+from ..runtime_paths import resolve_handler_homes
 from ..runtime_reader import read_omj_hud, read_omj_status
 
 OMJ_PROBE_SCHEMA = {
@@ -44,9 +45,12 @@ OMJ_PROBE_SCHEMA = {
 def omj_probe_handler(args: dict, **kwargs) -> str:
     include_parity = bool(args.get("include_parity", False))
     include_roadmap = bool(args.get("include_roadmap", False))
-    omj_home = _optional_path_arg(args.get("omj_home"))
-    hermes_home = _optional_path_arg(args.get("hermes_home"))
-    observation = observe_plugin_tool_call("omj_probe", args, kwargs)
+    homes = resolve_handler_homes(args, kwargs)
+    omj_home = str(homes.omj_home)
+    hermes_home = str(homes.hermes_home)
+    bound_kwargs = dict(kwargs)
+    bound_kwargs.update({"omj_home": omj_home, "hermes_home": hermes_home})
+    observation = observe_plugin_tool_call("omj_probe", args, bound_kwargs)
     try:
         payload = _package_probe(
             omj_home=omj_home,

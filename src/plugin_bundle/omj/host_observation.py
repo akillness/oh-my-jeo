@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from .runtime_paths import resolve_homes
 
 
 PLUGIN_HOST_OBSERVATION_SCHEMA_VERSION = "omj_plugin_host_observation/v1"
@@ -283,11 +284,8 @@ def _record_observation(metadata: dict[str, Any], *, event: str, tool: str, hook
     try:
         from omj.paths import resolve_paths
         from omj.plugin_observations import record_plugin_host_observation
-
-        paths = resolve_paths(
-            omj_home=str(metadata.get("omj_home", "") or "") or None,
-            hermes_home=str(metadata.get("hermes_home", "") or "") or None,
-        )
+        homes = resolve_homes(host_kwargs=metadata)
+        paths = resolve_paths(omj_home=homes.omj_home, hermes_home=homes.hermes_home)
         return record_plugin_host_observation(
             paths,
             host=host,
@@ -371,7 +369,8 @@ def _record_standalone_observation(
     evidence_refs: list[str],
     message: str,
 ) -> dict[str, Any]:
-    omj_home = _expand_path(str(metadata.get("omj_home", "") or "") or os.environ.get("OMJ_HOME", "~/.omj"))
+    homes = resolve_homes(host_kwargs=metadata)
+    omj_home = homes.omj_home
     runtime_dir = omj_home / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     try:

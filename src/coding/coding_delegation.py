@@ -3,13 +3,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import hashlib
 import re
-from typing import Any
+from typing import Any, Mapping
 
 from ..coding_contracts import (
     CODING_EXECUTOR_TARGETS,
     EXECUTOR_HANDOFF_SCHEMA_VERSION,
     PROMPT_HANDOFF_SCHEMA_VERSION,
     RUNTIME_HANDOFF_SCHEMA_VERSION,
+)
+from ..coding.handoff_contract import (
+    HANDOFF_CONTRACT_KEY,
+    build_handoff_contract,
+    require_valid_handoff_contract,
 )
 from ..executors import (
     HERMES_CODING_TEAM_WRAPPER_ACTIONS,
@@ -184,8 +189,13 @@ def build_coding_delegation_payload(
     preferred_workflow_score: int | None = None,
     prefer_direct_coding_handoff: bool = True,
     force_coding_handoff: bool = False,
+    handoff_contract: Mapping[str, Any] | None = None,
+    codegraph_context: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     message = message.strip()
+    declared_handoff_contract = (
+        build_handoff_contract(handoff_contract) if handoff_contract is not None else None
+    )
     if not message:
         raise ValueError("coding delegate requires a task description")
     if source not in CHAT_SOURCES:
@@ -284,6 +294,10 @@ def build_coding_delegation_payload(
         payload["prompt_handoff"] = _prompt_handoff(selection.selected_executor_profile, delegation, isolation_plan=isolation_plan)
         _attach_context_pack(payload["prompt_handoff"], context_pack)
         _attach_memory_recall_pack(payload["prompt_handoff"], memory_recall_pack)
+    if declared_handoff_contract is not None:
+        _attach_handoff_contract(payload, declared_handoff_contract)
+    if codegraph_context is not None:
+        _attach_codegraph_context(payload, codegraph_context)
     payload["harness_quality"] = _public_harness_quality(
         harness,
         action=delegation.action,
@@ -370,6 +384,62 @@ def _attach_memory_recall_pack(handoff: object, memory_recall_pack: dict[str, ob
     if memory_block and isinstance(handoff.get("prompt_template"), str):
         handoff["prompt_template"] = f"{handoff['prompt_template']}\n\n{memory_block}"
 
+def _attach_handoff_contract(payload: dict[str, object], contract: dict[str, Any]) -> None:
+    """Pin a prepared contract onto one handoff and expose it in its prompt."""
+    for handoff_key in ("executor_handoff", "prompt_handoff", "runtime_handoff"):
+        handoff = payload.get(handoff_key)
+        if not isinstance(handoff, dict):
+            continue
+        handoff[HANDOFF_CONTRACT_KEY] = contract
+        prompt = handoff.get("prompt_template")
+        if isinstance(prompt, str):
+            handoff["prompt_template"] = f"{prompt}{_handoff_contract_prompt(contract)}"
+        require_valid_handoff_contract(handoff)
+        return
+    payload["handoff_contract_not_attached"] = {
+        "schema_version": contract["schema_version"],
+        "status": "not_attached",
+        "reason": "no_prepared_handoff",
+    }
+
+
+def _attach_codegraph_context(payload: dict[str, object], context: Mapping[str, Any]) -> None:
+    """Attach only already-persisted, validated codegraph context to a handoff."""
+    if context.get("schema_version") != "omj_codegraph_context/v1":
+        raise ValueError("codegraph context must use omj_codegraph_context/v1")
+    for handoff_key in ("executor_handoff", "prompt_handoff", "runtime_handoff"):
+        handoff = payload.get(handoff_key)
+        if isinstance(handoff, dict):
+            handoff["codegraph_context"] = dict(context)
+            return
+    payload["codegraph_context_not_attached"] = {
+        "schema_version": "omj_codegraph_context/v1",
+        "status": "not_attached",
+        "reason": "no_prepared_handoff",
+    }
+
+
+def _handoff_contract_prompt(contract: Mapping[str, Any]) -> str:
+    lines = ["\n\nHandoff contract (prepared_not_observed):"]
+    forbidden = contract.get("forbidden_actions", [])
+    if isinstance(forbidden, list) and forbidden:
+        lines.append("Forbidden actions:")
+        lines.extend(f"- Forbidden: {action}" for action in forbidden)
+    postconditions = contract.get("postconditions", [])
+    if isinstance(postconditions, list):
+        lines.append("Postconditions:")
+        for entry in postconditions:
+            if isinstance(entry, Mapping):
+                lines.append(f"- Postcondition `{entry.get('id', '')}`: run `{entry.get('command', '')}`")
+    output_shape = contract.get("output_shape")
+    if isinstance(output_shape, Mapping):
+        fields = output_shape.get("required_fields", [])
+        output_format = output_shape.get("format", "json")
+        if isinstance(fields, list):
+            lines.append(f"Required output fields ({output_format}): {', '.join(str(field) for field in fields)}")
+    lines.append("Report integer exit status for each postcondition; do not replace it with prose.")
+    return "\n" + "\n".join(lines)
+
 
 
 def coding_delegation_record_payload(
@@ -410,6 +480,9 @@ def coding_delegation_record_payload(
         "verification": delegation.get("verification", []),
         "status": "prepared_not_observed",
     }
+    for key in ("handoff_contract_not_attached", "codegraph_context_not_attached"):
+        if isinstance(payload.get(key), dict):
+            record[key] = payload[key]
     for key in ("executor_handoff", "runtime_handoff", "prompt_handoff"):
         if isinstance(payload.get(key), dict):
             record[key] = payload[key]

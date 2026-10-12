@@ -107,11 +107,9 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Do not enter a finish-until-done loop until scope, acceptance criteria, and verification commands are concrete.
   - For coding edits, prepare and track selected runtime evidence instead of implying unobserved work happened.
   - Report completion only from observed execution and verification evidence.
-  - Ruling: decision, reason, reversible, in-scope, cost if wrong — initial independent review, then at most two re-reviews from a fresh reviewer.
 - Completion checklist:
-  - The selected coding or runtime owner is named before any implementation claim.
-  - Prepared handoff, dispatch, execution, verification, review, CI, and merge states are separated.
-  - The final status cites observed runtime evidence or keeps the work prepared_not_observed.
+  - Ruling: decision, reason, reversible, in-scope, cost if wrong.
+  - Load `references/loop-design-review.md` for machine-decidable finish line, independent judge, and bounded retries.
 - Recovery notes:
   - If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.
   - If dispatch or result evidence is missing, keep the handoff prepared_not_observed and expose the next observable action.
@@ -500,6 +498,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Require disjoint lane ownership before preparing multiple coding runtime handoffs.
   - Attach acceptance criteria, verification commands, and review expectations to each lane.
   - Keep dispatch, execution, review, CI, and merge status evidence separate.
+  - Load `references/execution-rulings.md`, `references/dependency-topology.md`, `references/service-contract.md`, and `references/tdd-red-green.md`.
 - Completion checklist:
   - All work lanes are disjoint by file, invariant, or responsibility before preparing parallel handoffs.
   - Each lane has acceptance criteria, verification command, worker protocol expectation, and review owner.
@@ -1632,11 +1631,9 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Generate hostile scenarios from changed behavior and known risk areas.
   - Report pass/fail evidence separately from proposed fixes.
   - Delegate code mutations discovered by QA to the selected coding executor.
-  - Execute the same reproduction command after each fix attempt; on the third failed attempt, escalate to architecture or a user-owned decision — no fourth fix without that escalation.
+  - Run same reproduction command after each fix; third failed attempt: escalate; no fourth fix.
 - Completion checklist:
-  - The scenario, expected behavior, observed result, and pass/fail basis are named.
-  - Proposed fixes are separated from observed QA evidence.
-  - Missing or failed verification routes back to plan, fix, or a narrower test.
+  - Load `references/hypothesis-and-race-method.md`.
 - Recovery notes:
   - If the expected behavior is unclear, route back to plan before running adversarial checks.
   - If verification fails, return to fix or research with the failed signal instead of advancing.
@@ -1754,7 +1751,11 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Observed repo facts and source/web evidence gaps are named.
   - At least two options or one chosen option plus rejected alternatives are recorded.
   - Risks, acceptance criteria, and verification commands are testable or explicitly blocked.
-  - Record consumer current state and target state, Success criteria Criterion | Task | Verification scenario mapping, and sizing bands. Target-state coverage names every required consumer behavior and uncovered gap.
+  - Record consumer current state and target state; map Success criteria Criterion | Task | Verification scenario and sizing bands. Target-state coverage includes each behavior unless the user excluded it; record gaps.
+  - name each consumer of the result, their current workflow on this surface, and the state in which that workflow keeps working with no new friction or loss.
+  - For every difference between current and target, each with why it matters; use an evidence-gap record below instead when unobserved.
+  - Never shrink scope on your own; plan an MVP or a first phase only when the user requested one.
+  - Size each task as one band, never as hours or days: `XS` (one small edit), `S` (one file and its test), `M` (several files in one module), `L` (several modules or one contract change), `XL` (crosses subsystems; split it into smaller tasks).
   - Review Focus has at most five unmapped failure cases with an owning test or task, or explicitly states none.
   - The plan stays unaccepted and awaiting with no handoff until an actual user answer accepts it. After acceptance, mark any prepared implementation handoff prepared_not_observed until selected-owner execution evidence is observed.
 - Recovery notes:
@@ -2851,6 +2852,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - The session/turn range, expected behavior, observed behavior, and one observable are bounded before reads.
   - Forensics are read-only, capped, source-role and authorship aware, and partial counts are labelled rather than inferred.
   - Exports are prepared only; exact text of third-party content is shown and separately approved before any send.
+  - Load `references/session-forensics.md` for read-only source-role, exact-text approval, and leak-aware export.
 - Recovery notes:
   - If the requested range or observable is missing, ask for that boundary instead of reading an unbounded session.
   - If replay, reset, mutation, or export writing is requested, stop for its separate user approval and keep diagnosis read-only.

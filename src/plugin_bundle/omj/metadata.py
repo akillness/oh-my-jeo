@@ -11,7 +11,7 @@ PROVIDED_TOOLS = (
     "omj_role",
     "omj_status",
 )
-PROVIDED_HOOKS = ("on_session_end", "pre_llm_call", "pre_tool_call")
+PROVIDED_HOOKS = ("on_session_end", "pre_llm_call", "pre_tool_call", "subagent_start")
 
 TOOL_FILE_STEMS = {
     "omj_capabilities": "capability_tool",

@@ -4,8 +4,13 @@ import hashlib
 import json
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from ..coding.handoff_contract import (
+    HANDOFF_CONTRACT_KEY,
+    build_handoff_contract,
+    contract_digest,
+)
 from ..ingress import (
     CHAT_SOURCES,
     compact_source_metadata,
@@ -268,6 +273,7 @@ def prepare_wrapper_session_handoff(
     source_metadata: dict[str, str] | None = None,
     executor_target: str | None = None,
     context_pack: dict[str, object] | None = None,
+    handoff_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     session = _existing_session(paths, session_id)
     if session["status"] == "cancelled":
@@ -329,6 +335,7 @@ def prepare_wrapper_session_handoff(
             source_metadata=source_metadata,
             executor_target=selected_executor,
             context_pack=context_pack,
+            handoff_contract=handoff_contract,
         )
     if selected_executor and selected_executor != "codex":
         return _prepare_prompt_only_session_handoff(
@@ -340,6 +347,7 @@ def prepare_wrapper_session_handoff(
             source_metadata=source_metadata,
             executor_target=selected_executor,
             context_pack=context_pack,
+            handoff_contract=handoff_contract,
         )
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message)
@@ -359,8 +367,17 @@ def prepare_wrapper_session_handoff(
     )
     metadata = _compact_coding_source_metadata(metadata)
     message_sha256 = hashlib.sha256(message.encode("utf-8")).hexdigest()
+    expected_contract_digest = (
+        contract_digest(build_handoff_contract(handoff_contract))
+        if handoff_contract is not None
+        else None
+    )
     recovered_run_id = _find_recoverable_prepared_handoff_run(
-        paths, session, message_sha256, metadata
+        paths,
+        session,
+        message_sha256,
+        metadata,
+        expected_contract_digest,
     )
     if recovered_run_id:
         return _link_prepared_handoff_run(
@@ -374,15 +391,16 @@ def prepare_wrapper_session_handoff(
             "data": {"message_sha256": message_sha256, "message_length": len(message)},
         },
     )
-    lifecycle = start_codex_delegation_lifecycle(
-        paths,
-        message,
-        source=str(session["source"]),
-        source_metadata=metadata,
-        limit=limit,
-        include_message=include_message,
-        context_pack=context_pack,
-    )
+    lifecycle_kwargs: dict[str, Any] = {
+        "source": str(session["source"]),
+        "source_metadata": metadata,
+        "limit": limit,
+        "include_message": include_message,
+        "context_pack": context_pack,
+    }
+    if handoff_contract is not None:
+        lifecycle_kwargs["handoff_contract"] = handoff_contract
+    lifecycle = start_codex_delegation_lifecycle(paths, message, **lifecycle_kwargs)
     run_id = str(lifecycle["run"]["run_id"])
     linked = _link_prepared_handoff_run(paths, session, run_id, recovered=False)
     lifecycle["status"] = report_codex_delegation_lifecycle(paths, run_id)
@@ -400,6 +418,7 @@ def _prepare_prompt_only_session_handoff(
     source_metadata: dict[str, str] | None,
     executor_target: str,
     context_pack: dict[str, object] | None,
+    handoff_contract: Mapping[str, Any] | None,
 ) -> dict[str, object]:
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message)
@@ -426,6 +445,7 @@ def _prepare_prompt_only_session_handoff(
         source_metadata=metadata,
         executor_target=executor_target,
         context_pack=context_pack,
+        handoff_contract=handoff_contract,
         memory_recall_pack=memory_recall_pack_for_handoff(
             paths,
             message,
@@ -489,6 +509,7 @@ def _prepare_runtime_session_handoff(
     source_metadata: dict[str, str] | None,
     executor_target: str,
     context_pack: dict[str, object] | None,
+    handoff_contract: Mapping[str, Any] | None,
 ) -> dict[str, object]:
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message)
@@ -515,6 +536,7 @@ def _prepare_runtime_session_handoff(
         source_metadata=metadata,
         executor_target=executor_target,
         context_pack=context_pack,
+        handoff_contract=handoff_contract,
         memory_recall_pack=memory_recall_pack_for_handoff(
             paths,
             message,
@@ -795,6 +817,7 @@ def _find_recoverable_prepared_handoff_run(
     session: dict[str, Any],
     message_sha256: str,
     expected_metadata: dict[str, str],
+    expected_contract_digest: str | None,
 ) -> str:
     session_dir = _session_dir(paths, str(session["session_id"]))
     if not _has_prepare_started_event(session_dir, message_sha256):
@@ -808,7 +831,11 @@ def _find_recoverable_prepared_handoff_run(
             continue
         coding = read_json_object(run_json.parent / "coding_delegation.json")
         if not _is_matching_coding_handoff(
-            coding, session, message_sha256, expected_metadata
+            coding,
+            session,
+            message_sha256,
+            expected_metadata,
+            expected_contract_digest,
         ):
             continue
         return run_id
@@ -838,6 +865,7 @@ def _is_matching_coding_handoff(
     session: dict[str, Any],
     message_sha256: str,
     expected_metadata: dict[str, str],
+    expected_contract_digest: str | None,
 ) -> bool:
     if not isinstance(coding, dict):
         return False
@@ -853,6 +881,17 @@ def _is_matching_coding_handoff(
         return False
     coding_metadata = coding.get("source_metadata", {})
     if not isinstance(coding_metadata, dict):
+        return False
+    actual_contract = handoff.get(HANDOFF_CONTRACT_KEY)
+    actual_pinned_digest = coding.get("handoff_contract_digest")
+    if expected_contract_digest is None:
+        if HANDOFF_CONTRACT_KEY in handoff or actual_pinned_digest is not None:
+            return False
+    elif (
+        not isinstance(actual_contract, Mapping)
+        or actual_pinned_digest != expected_contract_digest
+        or contract_digest(actual_contract) != expected_contract_digest
+    ):
         return False
     compact_coding_metadata = _compact_coding_source_metadata(coding_metadata)
     return compact_coding_metadata == expected_metadata

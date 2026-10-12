@@ -43,6 +43,7 @@ Bad example:
 - The session/turn range, expected behavior, observed behavior, and one observable are bounded before reads.
 - Forensics are read-only, capped, source-role and authorship aware, and partial counts are labelled rather than inferred.
 - Exports are prepared only; exact text of third-party content is shown and separately approved before any send.
+- Load `references/session-forensics.md` for read-only source-role, exact-text approval, and leak-aware export.
 
 ## Recovery Notes
 

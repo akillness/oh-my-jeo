@@ -38,6 +38,23 @@ class CliTests(unittest.TestCase):
         self.assertIn("If `omj` is not found", stdout)
         self.assertIn("If this screen appears after `omj uninstall`", stdout)
         self.assertIn("omj --help", stdout)
+    def test_providers_complexity_rejects_invalid_chain_json_without_model_fallback(self) -> None:
+        status, stdout, stderr = run_cli(
+            [
+                "providers",
+                "complexity",
+                "smoke",
+                "--chain-json",
+                '{"quick":[{"model":"local-model","effort":"bogus"}]}',
+                "--json",
+            ],
+            output_json=False,
+        )
+
+        self.assertNotEqual(status, 0)
+        self.assertEqual(stdout, "")
+        self.assertIn("chain effort must be one of", stderr)
+        self.assertNotIn("local-model", stderr)
 
     def test_no_arg_cli_stays_advise_only_by_default_when_hermes_missing(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -2079,7 +2096,12 @@ class CliTests(unittest.TestCase):
         gates = {gate["id"]: gate for gate in payload["gates"]}
         self.assertEqual(
             set(gates),
-            {"skill_content", "use_cases", "parity_contracts", "release_checklist"},
+            {"skill_content", "prepared_guidance", "use_cases", "parity_contracts", "release_checklist"},
+        )
+        self.assertEqual(gates["prepared_guidance"]["status"], "passed")
+        self.assertEqual(
+            gates["prepared_guidance"]["summary"],
+            "98/98 members, 97/97 method references, 41/41 source contracts",
         )
         self.assertEqual(gates["parity_contracts"]["status"], "passed")
         self.assertIn("not run the release checklist", payload["boundary"])
