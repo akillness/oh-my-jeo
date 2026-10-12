@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import stat
 import sys
 import tempfile
@@ -126,11 +127,18 @@ class _InstallerFixture:
         self.bin = root / "bin"
         self.package = root / "local-package"
         self.python_bin = root / "fake-python"
+        self.tool_bin = root / "host-tools"
         self.log = root / "python-calls.jsonl"
         self.mutable_roots = {"home": self.home, "venv": self.venv, "bin": self.bin}
         self._commands: list[list[str]] = []
         self.home.mkdir()
         self.package.mkdir()
+        self.tool_bin.mkdir()
+        for name in ("sh", "awk", "tr", "sed", "mkdir", "readlink", "ln", "dirname"):
+            source = shutil.which(name)
+            if source is None:
+                raise RuntimeError(f"required host tool is unavailable: {name}")
+            (self.tool_bin / name).symlink_to(source)
         versions = dict(python_versions or {"python3": "3.12"})
         for name, version in versions.items():
             _write_fake_python(self.python_bin / name, version, self.log)
@@ -140,7 +148,7 @@ class _InstallerFixture:
     def run(self, overrides: Mapping[str, str] | None = None) -> tuple[CommandResult, list[list[str]]]:
         env = {
             "HOME": str(self.home),
-            "PATH": f"{self.python_bin}{os.pathsep}/usr/bin:/bin",
+            "PATH": f"{self.python_bin}{os.pathsep}{self.tool_bin}",
             "PYTHONDONTWRITEBYTECODE": "1",
             "FAKE_PYTHON_LOG": str(self.log),
             "OMJ_CHANNEL": "local",
@@ -154,8 +162,6 @@ class _InstallerFixture:
         }
         if overrides:
             env.update({key: str(value) for key, value in overrides.items()})
-        if "OMJ_PYTHON" not in env and (self.python_bin / "python3").exists():
-            env["PATH"] = f"{self.python_bin}{os.pathsep}/usr/bin:/bin"
 
         def runner(command: Sequence[str], timeout: int, command_env: Mapping[str, str] | None) -> CommandResult:
             self._commands.append(list(command))
