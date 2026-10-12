@@ -1930,14 +1930,19 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("assets/oh-my-jeo-icon.png", readme)
         self.assertRegex(readme, r'<img[^>]+src="assets/oh-my-jeo-icon\.png"[^>]+alt="[^"]+"')
 
-        html_paths = [Path("site/index.html"), *sorted(Path("site/docs").glob("*/index.html"))]
+        html_paths = [
+            Path("site/index.html"),
+            Path("site/docs/index.html"),
+            *sorted(Path("site/docs").glob("*/index.html")),
+        ]
         for page in html_paths:
             html = page.read_text(encoding="utf-8")
-            relative_icon = "assets/oh-my-jeo-icon.png" if page == html_paths[0] else "../../assets/oh-my-jeo-icon.png"
+            page_depth = len(page.parent.relative_to(Path("site")).parts)
+            relative_icon = "/".join([".."] * page_depth + ["assets/oh-my-jeo-icon.png"])
             self.assertIn(f'href="{relative_icon}"', html, page.as_posix())
             self.assertRegex(
                 html,
-                r'<img[^>]+src="(?:\.\./)*assets/oh-my-jeo-icon\.png"[^>]+width="32"[^>]+height="32"[^>]+alt="[^"]+"',
+                r'<a[^>]+aria-label="oh-my-jeo home"[^>]*>\s*<img[^>]+src="(?:\.\./)*assets/oh-my-jeo-icon\.png"[^>]+width="32"[^>]+height="32"[^>]+alt=""',
                 page.as_posix(),
             )
 
