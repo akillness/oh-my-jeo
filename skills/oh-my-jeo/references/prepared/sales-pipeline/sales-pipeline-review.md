@@ -60,8 +60,8 @@ Keep domain framing, clarification, source/evidence synthesis, draft outputs, an
 - SHA256: `772914984077a1ec970a012400622515dd303488a5a4c280a53b18f59c33afff`
 
 ## Method references
-- `omh-sales-pipeline-review/references/full-contract.md` (pinned `skills/omh-sales-pipeline-review/references/full-contract.md`)
-- `omh-sales-pipeline-review/references/procedure.md` (pinned `skills/omh-sales-pipeline-review/references/procedure.md`)
+- `sales-pipeline-review/omh-sales-pipeline-review/references/full-contract.md` (pinned `skills/omh-sales-pipeline-review/references/full-contract.md`)
+- `sales-pipeline-review/omh-sales-pipeline-review/references/procedure.md` (pinned `skills/omh-sales-pipeline-review/references/procedure.md`)
 
 ## Source gaps
 - None declared

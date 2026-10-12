@@ -59,8 +59,8 @@ Keep the decision question, hypothesis, budget, scratch boundary, measurement me
 - SHA256: `889ab7c588c777bace6a8fe5d0cfd238d487234b9ab5d09f438f5b6777f95b1a`
 
 ## Method references
-- `omh-decision-prototype/references/full-contract.md` (pinned `skills/omh-decision-prototype/references/full-contract.md`)
-- `omh-decision-prototype/references/procedure.md` (pinned `skills/omh-decision-prototype/references/procedure.md`)
+- `decision-prototype/omh-decision-prototype/references/full-contract.md` (pinned `skills/omh-decision-prototype/references/full-contract.md`)
+- `decision-prototype/omh-decision-prototype/references/procedure.md` (pinned `skills/omh-decision-prototype/references/procedure.md`)
 
 ## Source gaps
 - None declared

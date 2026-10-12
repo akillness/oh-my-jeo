@@ -89,7 +89,7 @@ Keep safety review in Hermes. Scans, dependency updates, sandbox changes, creden
 - SHA256: `30a68dafe7cafd75bd9032dd065a46da88944d6b611b7e75c2db3b66f31c2b1a`
 
 ## Method references
-- `omh-security-safety-review/references/credential-rotation.md` (pinned `skills/omh-security-safety-review/references/credential-rotation.md`)
+- `security-safety-review/omh-security-safety-review/references/credential-rotation.md` (pinned `skills/omh-security-safety-review/references/credential-rotation.md`)
 
 ## Source gaps
 - None declared

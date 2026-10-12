@@ -62,8 +62,8 @@ Keep domain framing, clarification, source/evidence synthesis, draft outputs, an
 - SHA256: `e2c82551a10012f0a0c753b5d474ce8be8a2dc410cc490a3ad259f3193701d22`
 
 ## Method references
-- `omh-legal-compliance-review/references/negotiation-preparation.md` (pinned `skills/omh-legal-compliance-review/references/negotiation-preparation.md`)
-- `omh-legal-compliance-review/references/procedure.md` (pinned `skills/omh-legal-compliance-review/references/procedure.md`)
+- `legal-compliance-review/omh-legal-compliance-review/references/negotiation-preparation.md` (pinned `skills/omh-legal-compliance-review/references/negotiation-preparation.md`)
+- `legal-compliance-review/omh-legal-compliance-review/references/procedure.md` (pinned `skills/omh-legal-compliance-review/references/procedure.md`)
 
 ## Source gaps
 - None declared

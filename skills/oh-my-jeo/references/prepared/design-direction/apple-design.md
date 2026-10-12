@@ -70,11 +70,11 @@ Hermes directs; selected owners implement and existing lanes observe.
 - SHA256: `fdfaa6a6664154ff8e838951ca7232748b1db86ced8cf84ee66ed3e0aec10cb8`
 
 ## Method references
-- `omh-apple-design/references/materials-and-accessibility.md` (pinned `skills/omh-apple-design/references/materials-and-accessibility.md`)
-- `omh-apple-design/references/platform-foundations.md` (pinned `skills/omh-apple-design/references/platform-foundations.md`)
-- `omh-apple-design/references/product-visual-production.md` (pinned `skills/omh-apple-design/references/product-visual-production.md`)
-- `omh-apple-design/references/review-playbook.md` (pinned `skills/omh-apple-design/references/review-playbook.md`)
-- `omh-apple-design/references/web-production-libraries.md` (pinned `skills/omh-apple-design/references/web-production-libraries.md`)
+- `apple-design/omh-apple-design/references/materials-and-accessibility.md` (pinned `skills/omh-apple-design/references/materials-and-accessibility.md`)
+- `apple-design/omh-apple-design/references/platform-foundations.md` (pinned `skills/omh-apple-design/references/platform-foundations.md`)
+- `apple-design/omh-apple-design/references/product-visual-production.md` (pinned `skills/omh-apple-design/references/product-visual-production.md`)
+- `apple-design/omh-apple-design/references/review-playbook.md` (pinned `skills/omh-apple-design/references/review-playbook.md`)
+- `apple-design/omh-apple-design/references/web-production-libraries.md` (pinned `skills/omh-apple-design/references/web-production-libraries.md`)
 
 ## Source gaps
 - None declared

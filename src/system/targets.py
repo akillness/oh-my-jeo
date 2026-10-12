@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ..config_adapter import ensure_external_dir, read_config, write_config
+from ..config_adapter import ensure_external_dir, update_config
 from ..local_store import atomic_write_json, read_json_object_result, utc_now
 from ..paths import OmjPaths, expand_path
 
@@ -65,11 +65,13 @@ def record_target_observation(
         registry = None
     if ensure_config:
         config_path = Path(str(target["hermes_config_path"]))
-        current = read_config(config_path)
-        change = ensure_external_dir(current, paths.skills_dir)
-        if change.changed:
-            write_config(config_path, change.text)
-            config_changed = True
+        result = update_config(
+            config_path,
+            lambda text: ensure_external_dir(text, paths.skills_dir),
+            omj_home=paths.omj_home if config_path == paths.hermes_config_path else None,
+            dry_run=dry_run,
+        )
+        config_changed = result.written
     next_registry = _merge_registry(registry, target)
     atomic_write_json(paths.target_registry_path, next_registry, private=True)
     return _observation_payload(paths, registry, error, target, dry_run=False, persisted=True, config_changed=config_changed)

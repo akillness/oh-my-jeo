@@ -64,7 +64,7 @@ Keep every round in Hermes as prepared prompt contracts. The distilled bundle is
 - SHA256: `c531e927bf354b3c1f16dacd4124879162a592b2b4827c27fbc3fb3b2884fb8c`
 
 ## Method references
-- `omh-adversarial-consensus/references/consensus-protocol.md` (pinned `skills/omh-adversarial-consensus/references/consensus-protocol.md`)
+- `adversarial-consensus/omh-adversarial-consensus/references/consensus-protocol.md` (pinned `skills/omh-adversarial-consensus/references/consensus-protocol.md`)
 
 ## Source gaps
 - None declared

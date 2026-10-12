@@ -69,7 +69,7 @@ Keep the fine-tune decision, the method choice, the data plan, the baseline comp
 - SHA256: `3a888f3b0c821a4b2c9844ceab6ec259e16b50f1a096e49a3d6d8522c38610e8`
 
 ## Method references
-- `omh-model-finetuning/references/finetuning-method.md` (pinned `skills/omh-model-finetuning/references/finetuning-method.md`)
+- `model-finetuning/omh-model-finetuning/references/finetuning-method.md` (pinned `skills/omh-model-finetuning/references/finetuning-method.md`)
 
 ## Source gaps
 - None declared

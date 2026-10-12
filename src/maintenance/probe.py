@@ -9,7 +9,9 @@ from ..catalogs.provider_auth import (
     diagnose_provider_auth,
 )
 from ..config_adapter import external_dirs, read_config
+from ..install.installer import skill_install_relative_dir
 from ..local_store import read_jsonl_objects
+from ..manifest import installed_managed_skill_path, read_manifest
 from ..parity import build_parity_matrix
 from ..paths import OmjPaths
 from ..plugin_observations import (
@@ -381,7 +383,12 @@ def probe_capabilities(paths: OmjPaths, *, include_parity: bool = False, include
     configured_dirs = external_dirs(config_text)
     skills_registered = str(paths.skills_dir) in configured_dirs
     capabilities: list[Capability] = []
-    managed_skill_path = paths.skills_dir / "oh-my-jeo" / "SKILL.md"
+    managed_skill_path = installed_managed_skill_path(
+        paths.skills_dir,
+        read_manifest(paths.manifest_path),
+        skill_install_relative_dir("oh-my-jeo") / "SKILL.md",
+    )
+    managed_skills_ready = managed_skill_path is not None and skills_registered
 
     capabilities.append(
         Capability(
@@ -394,9 +401,13 @@ def probe_capabilities(paths: OmjPaths, *, include_parity: bool = False, include
     capabilities.append(
         Capability(
             "managed_skills",
-            "available" if _has_file(managed_skill_path) else "missing",
+            "available" if managed_skills_ready else "missing",
             str(paths.skills_dir),
-            "Managed oh-my-jeo skill is installed" if _has_file(managed_skill_path) else "Managed skills are not installed",
+            (
+                "Managed oh-my-jeo skill is installed and registered"
+                if managed_skills_ready
+                else "Managed skills are not installed or registered"
+            ),
         )
     )
     hooks_markers = [paths.hermes_home / "hooks.yaml", paths.hermes_home / "hooks.json"]

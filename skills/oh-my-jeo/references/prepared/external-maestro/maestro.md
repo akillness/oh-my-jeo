@@ -73,7 +73,7 @@ Convert an explicitly chosen external coding owner into a prepared handoff: clau
 - SHA256: `d25cef43f089909e86823251ebf733ff842a7e15454d858e5aeb942fdfa8b6c2`
 
 ## Method references
-- `ulw-maestro/references/executor-prompt-composition.md` (pinned `skills/ulw-maestro/references/executor-prompt-composition.md`)
+- `maestro/ulw-maestro/references/executor-prompt-composition.md` (pinned `skills/ulw-maestro/references/executor-prompt-composition.md`)
 
 ## Source gaps
 - None declared

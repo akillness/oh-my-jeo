@@ -55,7 +55,7 @@ Keep evaluation design and scoring in Hermes. Actual executor runs, costs, timin
 - SHA256: `36d9cde2944e8f413458f84b99d68f66d37a563833e35514c08676547f5994ea`
 
 ## Method references
-- `omh-agent-evaluation/references/self-evaluation-loops.md` (pinned `skills/omh-agent-evaluation/references/self-evaluation-loops.md`)
+- `agent-evaluation/omh-agent-evaluation/references/self-evaluation-loops.md` (pinned `skills/omh-agent-evaluation/references/self-evaluation-loops.md`)
 
 ## Source gaps
 - None declared

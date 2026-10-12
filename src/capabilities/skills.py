@@ -82,7 +82,7 @@ def _skill_capability(
         "tool_requirements": {
             "derivation_status": "partial",
             "required_tools": [],
-            "fallback": "No concrete tool or MCP requirement is declared by the existing skill catalog.",
+            "fallback": "Catalog declares no concrete tool or MCP requirement.",
         },
         "evidence_boundary": _skill_evidence_boundary(definition),
         "prepared_is_not": PREPARED_NOT_OBSERVED,

@@ -18,7 +18,9 @@ from omj.release import (
     FULL_CAPABILITY_SKILL_SECTION_CHAR_LIMIT,
     STANDALONE_CAPABILITY_SKILL_ITEM_CHAR_LIMIT,
     STANDALONE_CAPABILITY_SKILL_SECTION_CHAR_LIMIT,
+    skill_content_smoke,
 )
+from omj.capabilities.playbooks import playbook_capabilities
 from omj.capabilities.skills import skill_capabilities
 from omj.plugin_bundle.omj.tools.capability_tool import standalone_skill_capability_items
 from omj.plugin_bundle.omj.awareness import (
@@ -36,6 +38,7 @@ from omj.skills.catalog import (
     coding_skills_for_intent,
     explicit_memory_context_skill_names,
     memory_context_policy_for_skill,
+    portable_skill_names,
     retained_delegation_skill_names,
 )
 
@@ -203,6 +206,131 @@ class EfficiencyContractTests(unittest.TestCase):
             "meeting notes -> meeting-brief",
             " ".join(next(item for item in full_items if item["id"] == "img-summary")["cross_lane_examples"]),
         )
+
+    def test_emitted_full_capability_section_preserves_catalog_and_consumer_budget(self) -> None:
+        full_items = skill_capabilities()
+        smoke = skill_content_smoke()
+        expected_ids = {
+            "agent-board",
+            "agent-ops-review",
+            "ai-slop-cleaner",
+            "ask",
+            "automation-blueprint",
+            "autoresearch-goal",
+            "best-practice-research",
+            "cancel",
+            "code-review",
+            "cto-loop",
+            "deep-interview",
+            "deliverable-package",
+            "deploy-and-monitor",
+            "doctor",
+            "executor-runtime-readiness",
+            "feedback-triage",
+            "gateway-intent-card",
+            "github-event-ops",
+            "idea-to-deploy",
+            "img-summary",
+            "loop",
+            "materials-package",
+            "meeting-brief",
+            "memory-curation-review",
+            "oh-my-jeo",
+            "operating-rhythm",
+            "ops-observability-card",
+            "ops-review",
+            "paper-learning",
+            "performance-goal",
+            "plan",
+            "ralph",
+            "ralplan",
+            "reliability-review",
+            "report-package",
+            "research-brief",
+            "research-department",
+            "skill",
+            "source-finder",
+            "strategy-brief",
+            "team",
+            "toolbelt-readiness",
+            "ultragoal",
+            "ultraprocess",
+            "ultraqa",
+            "ultrawork",
+            "voice-operator",
+            "web-research",
+            "wiki",
+            "workflow-learning",
+        }
+        actual_ids = {str(item.get("id") or "") for item in full_items}
+        full_section_chars = len(json.dumps(full_items, sort_keys=True, ensure_ascii=False))
+
+        self.assertEqual(len(full_items), 50)
+        self.assertEqual(actual_ids, expected_ids)
+        self.assertEqual(len(builtin_skill_templates()), 43)
+        self.assertEqual(len(portable_skill_names()), 39)
+        self.assertEqual(smoke["full_capability_skill_count"], 50)
+        self.assertEqual(smoke["full_capability_skill_section_chars"], full_section_chars)
+        self.assertEqual(smoke["capability_budget_failures"], [])
+        self.assertEqual(
+            smoke["capability_context_char_limits"]["full_skill_section"],
+            FULL_CAPABILITY_SKILL_SECTION_CHAR_LIMIT,
+        )
+
+        required_fields = {
+            "workflow_routing_hint",
+            "workflow_context_rule",
+            "chat_rule",
+            "fallback_rule",
+            "evidence_boundary",
+            "cross_lane_examples",
+        }
+        self.assertEqual(set(smoke["required_capability_context_fields"]), required_fields)
+        for item in full_items:
+            for field in required_fields:
+                self.assertTrue(item.get(field), f"{item.get('id')}.{field}")
+
+    def test_planning_guards_and_playbook_ownership_survive_capability_emission(self) -> None:
+        cards = {str(item["id"]): item for item in skill_capabilities()}
+        planning_markers = (
+            "Take plan acceptance only from the answer the user gave",
+            "the response status and value the question tool returns",
+            "times out",
+            "is dismissed",
+            "returns with no answer",
+            "the plan stays unaccepted",
+            "record no acceptance",
+            "prepare no handoff",
+            "start nothing",
+            "not a refusal either",
+        )
+        for name in ("plan", "ralplan"):
+            quality_bar = " ".join(str(value) for value in cards[name]["quality_bar"])
+            for marker in planning_markers:
+                self.assertIn(marker, quality_bar, name)
+            self.assertIn("prepared", str(cards[name]["prepared_is_not"]).lower())
+            self.assertIn("not execution", str(cards[name]["prepared_is_not"]).lower())
+        self.assertIn("cannot originate acceptance", " ".join(str(value) for value in cards["plan"]["quality_bar"]))
+
+        required_playbook_fields = {
+            "workflow_context_rule",
+            "chat_rule",
+            "fallback_rule",
+            "evidence_boundary",
+            "prepared_is_not",
+            "pipeline",
+            "primary_owner_role",
+            "stage_owners",
+            "available_wrapper_actions",
+            "first_stage",
+        }
+        for item in playbook_capabilities():
+            for field in required_playbook_fields:
+                self.assertTrue(item.get(field), f"{item.get('id')}.{field}")
+            self.assertIn("not", str(item["prepared_is_not"]).lower())
+            self.assertTrue(item["primary_owner_role"])
+            self.assertTrue(item["stage_owners"])
+
 
     def test_workflow_reference_markdown_reuses_cached_render(self) -> None:
         render_module._workflow_reference_markdown_cached.cache_clear()

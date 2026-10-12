@@ -80,7 +80,7 @@ Keep this as Hermes-facing orchestration guidance first. Prepare executor, conne
 - SHA256: `e20e1cba2e2fe35516c16419c443575beb451256b31084e3bdf29fd1aa8cdb05`
 
 ## Method references
-- `omh-external-connector-readiness/references/memory-provider-trial.md` (pinned `skills/omh-external-connector-readiness/references/memory-provider-trial.md`)
+- `external-connector-readiness/omh-external-connector-readiness/references/memory-provider-trial.md` (pinned `skills/omh-external-connector-readiness/references/memory-provider-trial.md`)
 
 ## Source gaps
 - None declared

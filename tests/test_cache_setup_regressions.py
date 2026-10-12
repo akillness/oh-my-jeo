@@ -15,6 +15,7 @@ load_local_package()
 
 import omj.commands.setup as setup_commands
 import omj.workflows.paper_learning as paper_learning
+from omj.install.config_adapter import plugin_is_enabled
 
 GOAL_ROOT = Path(__file__).resolve().parents[1]
 
@@ -115,8 +116,13 @@ class CacheAndSetupRegressionTests(unittest.TestCase):
             self.assertEqual(result["message"], "recorded plugins.entries.omj.settings.omj_home")
             self.assertEqual(
                 result["messages"],
-                ["created skills.external_dirs", "recorded plugins.entries.omj.settings.omj_home"],
+                [
+                    "appended plugins.enabled",
+                    "appended skills.external_dirs",
+                    "recorded plugins.entries.omj.settings.omj_home",
+                ],
             )
+            self.assertTrue(plugin_is_enabled(config_text, "omj"))
             self.assertIn(str(Path(result["skills_dir"]).resolve()), config_text)
             self.assertIn(f"omj_home: '{str(Path(result['omj_home']).resolve())}'", config_text)
             self.assertEqual(result["omj_home"], str(Path(args.omj_home).resolve()))

@@ -90,7 +90,7 @@ Keep the signing plan, privacy declaration check, beta plan, staged rollout, and
 - SHA256: `3aefffa78ef41fb8d0047a34ac8c372bd37814356f9b74efa9091e01e15819b7`
 
 ## Method references
-- `omh-mobile-release/references/mobile-release-method.md` (pinned `skills/omh-mobile-release/references/mobile-release-method.md`)
+- `mobile-release/omh-mobile-release/references/mobile-release-method.md` (pinned `skills/omh-mobile-release/references/mobile-release-method.md`)
 
 ## Source gaps
 - None declared

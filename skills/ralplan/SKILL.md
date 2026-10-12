@@ -92,6 +92,7 @@ Quality bar:
 - Record unresolved tradeoffs and evidence gaps instead of flattening uncertainty.
 - End with a selected executor/runtime handoff shape only after the plan is accepted.
 - Do not implement directly from consensus planning.
+- Take plan acceptance only from the answer the user gave — the response status and value the question tool returns, or the user's own reply — never from the wording of the question you asked: when the acceptance question times out, is dismissed, or returns with no answer, the plan stays unaccepted, so record no acceptance, prepare no handoff, and start nothing; a missing answer is not a refusal either, so ask again later or report the plan as awaiting acceptance.
 
 Handoff policy:
 

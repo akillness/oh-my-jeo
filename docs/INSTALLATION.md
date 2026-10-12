@@ -11,14 +11,16 @@ to run, what to report, and what is still unobserved after install.
 
 ## Quick Start
 
-Use this for the one-shot bootstrap. By default `install.sh` runs autopilot: it
-installs the `omj` command, registers the managed skills with Hermes, bootstraps
-the Hermes runtime OMJ wraps if it is missing (network, mutating), and verifies
-with `omj doctor` — non-interactively:
+Use this for the one-shot bootstrap. By default `install.sh` installs the `omj`
+command only. To also register the managed skills with Hermes, bootstrap the
+Hermes runtime if missing (network, mutating), and verify with `omj doctor`
+non-interactively, set `OMJ_AUTOPILOT=1`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_AUTOPILOT=1 sh
 ```
+
+For command-only install and explicit `omj setup` later:
 
 To install the `omj` command only and configure later yourself, opt out of
 autopilot and run setup explicitly:
@@ -29,7 +31,7 @@ omj setup
 omj doctor
 ```
 
-First-run expectation (autopilot):
+First-run expectation (when autopilot is enabled with `OMJ_AUTOPILOT=1`):
 
 1. The installer installs the managed skills and records safe defaults.
 2. It bootstraps the Hermes runtime if it is not already present.
@@ -444,13 +446,11 @@ For custom release archives or local package sources accepted by `pip`, pass
 `OMJ_PACKAGE_URL`.
 
 The installer creates an isolated OMJ virtual environment and links the `omj`
-command into `~/.local/bin` when possible. By default it then runs autopilot
-(`omj setup --autopilot --yes`): it registers the Hermes skill directories,
-installs plugin state, bootstraps the Hermes runtime OMJ wraps if it is missing
-(network, mutating), and runs `omj doctor` to verify. The isolated virtual
-environment avoids Homebrew and distro Python `externally-managed-environment`
-failures. To keep the setup boundary visible — install the command first, then
-run `omj setup` when you are ready — opt out with `OMJ_AUTOPILOT=0`.
+command into `~/.local/bin` when possible. By default, it installs the `omj`
+command only. To run autopilot (register Hermes skill directories, install plugin
+state, bootstrap the Hermes runtime if missing, and run `omj doctor`), set
+`OMJ_AUTOPILOT=1`. The isolated virtual environment avoids Homebrew and distro
+Python `externally-managed-environment` errors.
 
 Installer and setup output can be localized with `OMJ_LANG` or `--language`.
 Supported language codes are `en`, `ko`, `ja`, and `zh`:
@@ -1067,11 +1067,12 @@ omj setup --default-executor claude-code   # override the Hermes default
 ```
 
 Supported values are `choose`, `hermes`, `codex`, `claude-code`, `generic`,
-`omx-runtime`, `omo-runtime`, and `omc-runtime`. The interactive wizard
-intentionally shows only `Hermes` (default), `Codex`, and `Claude Code` so
-first setup stays understandable. Use `choose` to restore ask-every-time
-behavior, and the wider flag values only for wrappers, scripts, or advanced
-runtime profiles. Legacy `OMJ_SETUP_PROFILES=1,3` still maps to setup profile
+`omx-runtime`, `omo-runtime`, and `omc-runtime`. The interactive wizard offers
+five numbered choices in order: 1) Ask every time (`choose`), 2) Hermes
+(default), 3) Codex, 4) Claude Code, and 5) Other coding agent (`generic`).
+`omx-runtime`, `omo-runtime`, and `omc-runtime` are flag/env-only values for
+wrappers, scripts, or advanced runtime profiles and are not offered as wizard
+choices. Legacy `OMJ_SETUP_PROFILES=1,3` still maps to setup profile
 categories for automation that already uses it, but new scripts should prefer
 `OMJ_DEFAULT_EXECUTOR`.
 

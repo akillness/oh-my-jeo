@@ -84,7 +84,7 @@ Keep the model in Hermes: assets, boundaries, scenarios, control decisions, and 
 - SHA256: `8a83d2a32f275d5cc4919977bbe2affbc29b5e6df7bdde087799ff2b2f6bde29`
 
 ## Method references
-- `omh-application-threat-model/references/threat-model-method.md` (pinned `skills/omh-application-threat-model/references/threat-model-method.md`)
+- `application-threat-model/omh-application-threat-model/references/threat-model-method.md` (pinned `skills/omh-application-threat-model/references/threat-model-method.md`)
 
 ## Source gaps
 - None declared

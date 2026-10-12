@@ -14,7 +14,7 @@ from _local_package import load_local_package
 load_local_package()
 
 from omj.paths import OmjPaths
-from omj.profiles.setup import write_setup_profile
+from omj.profiles.setup import accepted_disabled_families, write_setup_profile
 from omj.profiles.transport import (
     SETUP_PROFILE_PACK_SCHEMA_VERSION,
     SetupProfileTransportError,
@@ -142,6 +142,138 @@ class ProfileTransportParityTests(unittest.TestCase):
                 apply_setup_profile_pack(target, pack, dry_run=False)
             self.assertFalse(target.setup_profile_path.exists())
 
+
+    def test_rerun_without_memory_mode_preserves_each_explicit_memory_policy(self) -> None:
+        """Omitting memory_mode on setup rerun must not silently reset a prior choice."""
+        for mode, expected in (
+            ("off", {"capture_enabled": False, "recall_enabled": False, "review_required": False, "auto_approve_safe": False}),
+            ("review-first", {"capture_enabled": True, "recall_enabled": True, "review_required": True, "auto_approve_safe": False}),
+            ("auto-safe", {"capture_enabled": True, "recall_enabled": True, "review_required": False, "auto_approve_safe": True}),
+        ):
+            with self.subTest(mode=mode), TemporaryDirectory() as tmp:
+                paths = self._paths(Path(tmp))
+                write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex", memory_mode=mode)
+                write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex")
+                stored = json.loads(paths.setup_profile_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(stored["memory_mode"], mode)
+            self.assertEqual(
+                {key: stored["memory_policy"][key] for key in expected},
+                expected,
+            )
+
+    def test_setup_rerun_preserves_imported_capability_parallelism_unrelated_fields_and_consent(self) -> None:
+        """A setup rewrite must retain imported policy and explicit operator records."""
+        with TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex", memory_mode="off")
+            original = json.loads(paths.setup_profile_path.read_text(encoding="utf-8"))
+            original.update(
+                {
+                    "capability_policy": {"disabled_families": ["create_materials_and_visuals"]},
+                    "parallelism_policy": {"codex": {"max_workers": 2}, "hermes": {"max_workers": 1}},
+                    "imported_capability": {"owner": "codex", "prepared": ["review"]},
+                    "unrelated_local_field": {"keep": True},
+                }
+            )
+            paths.setup_profile_path.write_text(json.dumps(original), encoding="utf-8")
+            from omj.profiles.setup import record_hermes_auto_install_consent
+
+            record_hermes_auto_install_consent(paths, False)
+            write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex")
+            stored = json.loads(paths.setup_profile_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(stored["memory_mode"], "off")
+        self.assertEqual(stored["capability_policy"], original["capability_policy"])
+        self.assertEqual(stored["parallelism_policy"], original["parallelism_policy"])
+        self.assertEqual(stored["imported_capability"], original["imported_capability"])
+        self.assertEqual(stored["unrelated_local_field"], {"keep": True})
+        self.assertIs(stored["hermes_auto_install"], False)
+
+    def test_explicit_memory_mode_change_is_applied_on_rerun(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex", memory_mode="off")
+            write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex", memory_mode="auto-safe")
+            stored = json.loads(paths.setup_profile_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(stored["memory_mode"], "auto-safe")
+        self.assertTrue(stored["memory_policy"]["auto_approve_safe"])
+
+    def test_malformed_parallelism_policy_is_refused_without_writing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            write_setup_profile(paths, ["codex-lifecycle"], default_executor="codex", memory_mode="review-first")
+            before = paths.setup_profile_path.read_bytes()
+            with self.assertRaises(ValueError):
+                write_setup_profile(
+                    paths,
+                    ["codex-lifecycle"],
+                    default_executor="codex",
+                    parallelism_policy={"unknown-owner": {"max_workers": 0}},
+                )
+
+            self.assertEqual(paths.setup_profile_path.read_bytes(), before)
+    def test_blank_whitespace_and_nonstring_disabled_families_refuse_before_persistence(self) -> None:
+        """Malformed disabled-family entries must fail before any profile bytes are written."""
+        for malformed in ("", "   ", 7, None, {"family": "create_materials_and_visuals"}):
+            with self.subTest(malformed=repr(malformed)), TemporaryDirectory() as tmp:
+                paths = self._paths(Path(tmp))
+                with self.assertRaises(ValueError):
+                    write_setup_profile(
+                        paths,
+                        ["codex-lifecycle"],
+                        default_executor="codex",
+                        capability_policy={"disabled_families": [malformed]},
+                    )
+                self.assertFalse(paths.setup_profile_path.exists())
+
+    def test_empty_disabled_family_list_is_valid_and_stored_reader_rejects_malformed_values(self) -> None:
+        """An explicit empty policy is valid, while a stored malformed policy is refused."""
+        with TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            write_setup_profile(
+                paths,
+                ["codex-lifecycle"],
+                default_executor="codex",
+                capability_policy={"disabled_families": []},
+            )
+            self.assertEqual(accepted_disabled_families(paths), frozenset())
+            profile = json.loads(paths.setup_profile_path.read_text(encoding="utf-8"))
+            profile["capability_policy"] = {"disabled_families": ["   "]}
+            paths.setup_profile_path.write_text(json.dumps(profile), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                accepted_disabled_families(paths)
+
+    def _refresh_manifest(self, pack: dict) -> None:
+        sections = {
+            name: pack[name]
+            for name in pack["manifest"]["sections"]
+        }
+        digests = {
+            name: hashlib.sha256(json.dumps(value, sort_keys=True).encode("utf-8")).hexdigest()
+            for name, value in sorted(sections.items())
+        }
+        pack["manifest"]["section_digests"] = digests
+        pack["manifest"]["pack_id"] = "pack-" + hashlib.sha256(
+            "".join(digests[name] for name in sorted(digests)).encode("utf-8")
+        ).hexdigest()[:12]
+
+    def test_unknown_capability_family_is_refused_without_mutating_target(self) -> None:
+        """A slug-shaped but unregistered disabled family must not become active policy."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = self._configured_paths(root / "source")
+            target = self._configured_paths(root / "target")
+            before = target.setup_profile_path.read_bytes()
+            pack = build_setup_profile_pack(source)
+            pack["capability_policy"]["disabled_families"] = ["not_registered_here"]
+            self._refresh_manifest(pack)
+            report = apply_setup_profile_pack(target, pack, dry_run=False)
+            family_row = next(row for row in report["fields"] if row["field"] == "capability_policy.disabled_families")
+            self.assertEqual(target.setup_profile_path.read_bytes(), before)
+
+        self.assertEqual(family_row["status"], "not_applied")
 
 class ExternalAgentRulesParityTests(unittest.TestCase):
     def _rule_tree(self, root: Path) -> None:

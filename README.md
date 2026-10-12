@@ -610,6 +610,11 @@ execution evidence.
   `--assume-yes`) to install a missing Hermes runtime, remembers the answer
   (`hermes_auto_install`) so it never asks twice, and Hermes is now the
   default coding owner out of the box.
+- **Unreleased** — Installer default changed to command-only
+  (`OMJ_AUTOPILOT=0`); `install.sh` no longer bootstraps Hermes
+  automatically. Set `OMJ_AUTOPILOT=1` on the piped `sh` (for example
+  `curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_AUTOPILOT=1 sh`) to restore the previous
+  one-shot autopilot bootstrap. See [Installation](docs/INSTALLATION.md).
 - **1.3.1** (2026-07-02) — Bounded the global observation journal so
   long-running workflows (`ralph`, `omj hud --watch`) no longer grow
   memory/CPU cost without limit.

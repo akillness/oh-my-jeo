@@ -22,17 +22,27 @@ from ..version import __version__
 from ..command_path import COMMAND_PATH_MISSING_NEXT_ACTION, inspect_omj_command_path
 from ..capabilities.registry import capability_summary
 from ..capabilities.skills import skill_capabilities
-from ..config_adapter import ConfigChange, ensure_external_dir, ensure_omj_home_binding, external_dirs, read_config, remove_external_dir, write_config
+from ..config_adapter import ConfigChange, ensure_external_dir, ensure_omj_home_binding, ensure_plugin_enabled, external_dir_registered, external_dirs, read_config, remove_external_dir, remove_omj_home_binding, remove_plugin_enabled, update_config
 from ..doctor import DEFAULT_DOCTOR_NEXT_ACTION, doctor_ok, recommended_next_action, run_doctor
+from ..maintenance.advisory import run_config_advisories
 from ..executors import CODING_EXECUTOR_TARGETS
 from ..hashutil import sha256_file
-from ..installer import OmjError, install_skill_pack, uninstall_skill_pack
+from ..installer import (
+    CORE_SKILL_PROFILE,
+    DEFAULT_SKILL_PROFILE,
+    OmjError,
+    SKILL_PROFILES,
+    install_skill_pack,
+    reconcile_skill_profile,
+    skill_profile_report,
+    uninstall_skill_pack,
+)
 from ..local_store import atomic_write_text
-from ..manifest import read_manifest
+from ..manifest import manifest_owned_files, read_manifest
 from ..mcp.bridge import mcp_tool_definitions
 from ..menubar_app import setup_menubar_app, uninstall_menubar_app
 
-from ..plugin_pack import PluginPackError, install_plugin_bundle
+from ..plugin_pack import PLUGIN_NAME, PLUGIN_SCHEMA_VERSION, PluginPackError, install_plugin_bundle, plugin_local_modifications, read_plugin_manifest
 from ..probe import probe_capabilities
 from ..release import DEFAULT_HERMES_TAP, HERMES_TAP_SKILL, RELEASE_CHANNELS, package_url_for
 from ..hermes_bootstrap import (
@@ -86,6 +96,10 @@ ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def cmd_install(args: argparse.Namespace) -> int:
+    if getattr(args, "target", "hermes") == "agents":
+        return _cmd_install_agents(args)
+    if getattr(args, "agents_scope", None) or getattr(args, "status", False) or getattr(args, "host", None):
+        raise OmjError("install --host, --scope and --status require --target agents")
     language = _resolve_language(args)
     if _wants_json(args):
         payload = _install_result(args)
@@ -99,6 +113,46 @@ def cmd_install(args: argparse.Namespace) -> int:
         skills = payload.get("skills", [])
         progress.done(tr(language, "done_skills_ready", count=len(skills) if isinstance(skills, list) else 0))
         _print_install_summary(payload, command=operation, language=language)
+    return 0
+
+
+def _cmd_install_agents(args: argparse.Namespace) -> int:
+    """Install or inspect the portable Agent Skills projection without Hermes writes."""
+    from ..install.agent_skills_projection import agent_skill_files, agent_skills_status, agent_skills_targets, install_agent_skills
+    try:
+        scope = str(getattr(args, "agents_scope", "") or "").strip().lower()
+        if scope not in {"project", "user"}:
+            raise OmjError("install --target agents requires --scope project|user")
+        if not getattr(args, "host", None):
+            raise OmjError("install --target agents requires --host")
+        if any(getattr(args, name, None) for name in ("from_skills_dir", "source", "version", "package_url", "source_ref", "skill_profile")):
+            raise OmjError("Agent Skills installs do not accept Hermes source, release, or skill profile options")
+        if getattr(args, "channel", "preview") != "preview":
+            raise OmjError("Agent Skills installs use the packaged portable catalog")
+        target, _mirror = agent_skills_targets(scope, host=str(args.host), base=Path.cwd() if scope == "project" else None)
+        payload = (
+            agent_skills_status(target)
+            if getattr(args, "status", False) or getattr(args, "dry_run", False)
+            else install_agent_skills(target)
+        )
+        payload = dict(payload)
+        from ..skills.host_adapters import host_adapter_manifest
+        payload["host_adapter"] = host_adapter_manifest(str(args.host), agent_skill_files())
+    except (ImportError, OSError, ValueError) as exc:
+        if isinstance(exc, OmjError):
+            raise
+        raise OmjError(f"Agent Skills projection failed: {exc}") from exc
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        print(f"Agent Skills projection: {payload.get('projection', 'unknown')}")
+        print(f"Drift: {str(payload.get('drift', 'unknown')).replace('_', '-')}")
+        for directory in payload.get("target_dirs", []):
+            print(f"Target: {directory}")
+        for relative in payload.get("locally_modified", []):
+            print(f"Locally modified: {relative}")
+        print(f"Next action: {payload.get('next_action', '')}")
+        print(payload.get("claim_boundary", ""))
     return 0
 
 
@@ -116,7 +170,32 @@ def _install_result(args: argparse.Namespace) -> dict[str, object]:
     source = str(source_dir) if source_dir else "builtin"
     source_ref = _release_source_ref(args, release)
     previous_release = _previous_release_update_state(paths)
-    result = install_skill_pack(paths, source=source, source_dir=source_dir, force=args.force, dry_run=args.dry_run)
+    previous_owned_files = manifest_owned_files(read_manifest(paths.manifest_path))
+    profile = _resolve_skill_profile(args, paths)
+    plugin_force = None
+    registration_owned = False
+    if operation == "update" and not getattr(args, "without_plugin", False):
+        plugin_manifest = read_plugin_manifest(paths.hermes_plugin_dir)
+        if (
+            plugin_manifest
+            and plugin_manifest.get("schema_version") == PLUGIN_SCHEMA_VERSION
+            and plugin_manifest.get("plugin_name") == PLUGIN_NAME
+        ):
+            dirty = plugin_local_modifications(plugin_manifest, paths.hermes_plugin_dir)
+            edited = [
+                relative for relative in dirty
+                if (paths.hermes_plugin_dir / relative).exists() or (paths.hermes_plugin_dir / relative).is_symlink()
+            ]
+            if edited and not args.force:
+                raise OmjError(_friendly_plugin_error(paths, f"managed plugin files changed: {', '.join(edited)}; use --force to replace them"))
+            # Missing owned files can be restored; existing edits still require --force.
+            plugin_force = bool(args.force or dirty)
+            previous_state, _ = read_state_result(paths)
+            previous_registration = str((previous_state or {}).get("last_applied_skills_dir", ""))
+            registration_owned = (
+                bool(previous_registration) and external_dir_registered([previous_registration], paths.skills_dir)
+            ) or external_dir_registered(external_dirs(read_config(paths.hermes_config_path)), paths.skills_dir)
+    result = install_skill_pack(paths, source=source, source_dir=source_dir, force=args.force, dry_run=args.dry_run, profile=profile)
     result.update(
         {
             "operation": operation,
@@ -147,6 +226,18 @@ def _install_result(args: argparse.Namespace) -> dict[str, object]:
         command_package=result["command_package"],
         dry_run=bool(args.dry_run),
     )
+    result["release_update"]["content_changed"] = (
+        None if args.dry_run else previous_owned_files != manifest_owned_files(result)
+    )
+    if plugin_force is not None:
+        try:
+            result["plugin_distribution"] = install_plugin_bundle(paths, force=plugin_force, dry_run=bool(args.dry_run))
+        except PluginPackError as exc:
+            raise OmjError(_friendly_plugin_error(paths, str(exc))) from exc
+        if registration_owned:
+            result["registration"] = _apply_result(args)
+        if not args.dry_run:
+            update_state(paths, {"last_plugin_distribution": result["plugin_distribution"]})
     if not args.dry_run:
         operation_log = _install_operation_log(result, source=source)
         update_state(
@@ -170,20 +261,50 @@ def _install_result(args: argparse.Namespace) -> dict[str, object]:
     return result
 
 
+def _resolve_skill_profile(args: argparse.Namespace, paths) -> str:
+    requested = getattr(args, "skill_profile", None)
+    if requested is not None:
+        return requested
+    manifest = read_manifest(paths.manifest_path) or {}
+    profile = manifest.get("skill_profile") or manifest.get("requested_profile") or DEFAULT_SKILL_PROFILE
+    if profile not in SKILL_PROFILES:
+        raise OmjError(f"unknown installed skill profile {profile!r}")
+    return profile
+
+
+def cmd_skill_profile_status(args: argparse.Namespace) -> int:
+    payload = skill_profile_report(_paths(args))
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        state = payload["profile_state"]
+        print("OMJ skill profile")
+        print(f"Requested: {state['requested_profile'] or 'none'}")
+        print(f"Effective: {state['effective_profile']}")
+        print(f"Installed skills: {state['installed_skill_count']}")
+        if state["next_action"]:
+            print(f"Next action: {state['next_action']}")
+    return 0
+
+
+def cmd_skill_profile_reconcile(args: argparse.Namespace) -> int:
+    payload = reconcile_skill_profile(_paths(args), target_profile=args.to, dry_run=not args.apply)
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        print("OMJ skill profile reconciliation")
+        print(f"Mode: {'preview' if payload['dry_run'] else 'applied'}")
+        print(f"Target: {payload['target_profile']}")
+        key = "would_remove_skills" if payload["dry_run"] else "removed_skills"
+        print(f"{'Would remove' if payload['dry_run'] else 'Removed'} skills: {len(payload[key])}")
+        for relative in payload["retained_skills"]:
+            print(f"Retained: {relative}")
+        if payload["dry_run"]:
+            print("Repeat this command with --apply to reconcile unchanged OMJ-owned skills.")
+    return 0
+
+
 def cmd_update(args: argparse.Namespace) -> int:
-    # Carry forward an existing managed plugin after an offline package update.
-    # Unmanaged or absent directories retain the normal install boundary.
-    if bool(getattr(args, "command_package_updated", False)):
-        paths = _paths(args)
-        if paths.hermes_plugin_dir.exists():
-            try:
-                install_plugin_bundle(
-                    paths,
-                    force=bool(getattr(args, "force", False)),
-                    dry_run=bool(getattr(args, "dry_run", False)),
-                )
-            except PluginPackError as exc:
-                raise OmjError(_friendly_plugin_error(paths, str(exc))) from exc
     self_update = _command_package_self_update_plan(args)
     if self_update.get("should_update"):
         return _run_command_package_self_update(args, self_update)
@@ -794,23 +915,28 @@ def cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
-def _apply_result(args: argparse.Namespace) -> dict[str, object]:
+def _apply_result(args: argparse.Namespace, *, omj_home_binding: str | Path | None = None) -> dict[str, object]:
     paths = _paths(args)
-    current = read_config(paths.hermes_config_path)
-    try:
-        external_change = ensure_external_dir(current, paths.skills_dir)
-        binding_change = ensure_omj_home_binding(external_change.text, paths.omj_home)
-    except ValueError as exc:
-        raise OmjError(str(exc)) from exc
-    messages = [change.message for change in (external_change, binding_change) if change.changed and change.message]
-    primary_message = binding_change.message if binding_change.changed else external_change.message
-    change = ConfigChange(
-        external_change.changed or binding_change.changed,
-        primary_message,
-        binding_change.text,
-    )
-    if not args.dry_run and change.changed:
-        write_config(paths.hermes_config_path, change.text)
+    binding_home = paths.omj_home if omj_home_binding is None else omj_home_binding
+    changes: list[ConfigChange] = []
+
+    def mutate(current: str) -> ConfigChange:
+        try:
+            plugin_change = ensure_plugin_enabled(current)
+            external_change = ensure_external_dir(plugin_change.text, paths.skills_dir)
+            binding_change = ensure_omj_home_binding(external_change.text, binding_home)
+        except ValueError as exc:
+            raise OmjError(str(exc)) from exc
+        changes[:] = [plugin_change, external_change, binding_change]
+        return ConfigChange(
+            any(change.changed for change in changes),
+            next((change.message for change in reversed(changes) if change.changed), "configuration unchanged"),
+            binding_change.text,
+        )
+
+    result = update_config(paths.hermes_config_path, mutate, omj_home=paths.omj_home, dry_run=bool(args.dry_run))
+    _plugin_change, external_change, binding_change = changes
+    messages = [change.message for change in changes if change.changed and change.message]
     if not args.dry_run:
         update_state(
             paths,
@@ -818,18 +944,62 @@ def _apply_result(args: argparse.Namespace) -> dict[str, object]:
                 "hermes_config_path": str(paths.hermes_config_path),
                 "last_applied_skills_dir": str(paths.skills_dir),
                 "external_dir_registered": str(paths.skills_dir) in read_config(paths.hermes_config_path),
-                "omj_home_binding": str(paths.omj_home),
+                "omj_home_binding": str(binding_home),
             },
         )
     return {
-        "changed": change.changed,
-        "message": change.message,
-        "messages": messages or [change.message],
+        "changed": result.changed,
+        "written": result.written,
+        "attempt": result.attempts,
+        "message": result.message,
+        "messages": messages or [result.message],
         "config": str(paths.hermes_config_path),
         "skills_dir": str(paths.skills_dir),
         "omj_home": str(paths.omj_home),
         "dry_run": args.dry_run,
+        "external_change": external_change.message,
+        "binding_change": binding_change.message,
     }
+def _sync_hermes_profiles(args: argparse.Namespace) -> list[dict[str, object]]:
+    """Refresh each local Hermes bot profile without crossing deliberate opt-outs."""
+    primary = _paths(args)
+    profiles_root = primary.hermes_home / "profiles"
+    if not profiles_root.is_dir():
+        return []
+    results: list[dict[str, object]] = []
+    for profile_dir in sorted((path for path in profiles_root.iterdir() if path.is_dir()), key=lambda path: path.name):
+        profile = profile_dir.name
+        profile_config = profile_dir / "config.yaml"
+        plugin_dir = profile_dir / "plugins" / "omj"
+        had_plugin = plugin_dir.is_dir()
+        try:
+            config_text = read_config(profile_config)
+            registered = external_dir_registered(external_dirs(config_text), primary.skills_dir)
+            if plugin_dir.is_dir() and not registered:
+                results.append({"profile": profile, "status": "unregistered_kept", "registration": "unchanged"})
+                continue
+            values: dict[str, str] = {}
+            env_path = profile_dir / ".env"
+            if env_path.is_file():
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    if line.startswith("OMJ_HOME="):
+                        values["omj_home"] = line.partition("=")[2].strip()
+                        break
+            profile_args = argparse.Namespace(**vars(args))
+            profile_args.hermes_home = str(profile_dir)
+            profile_args.omj_home = str(primary.omj_home)
+            profile_paths = _paths(profile_args)
+            plugin = install_plugin_bundle(profile_paths, force=bool(getattr(args, "force", False)), dry_run=bool(args.dry_run))
+            applied = _apply_result(profile_args, omj_home_binding=values.get("omj_home") or primary.omj_home)
+            results.append({
+                "profile": profile,
+                "status": "refreshed" if had_plugin else "bootstrapped",
+                "registration": "updated" if applied.get("changed") else "unchanged",
+                "plugin": plugin,
+            })
+        except (OSError, OmjError, PluginPackError, ValueError) as exc:
+            results.append({"profile": profile, "status": "failed", "error": str(exc)})
+    return results
 
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
@@ -837,13 +1007,25 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     if args.registration_only and (args.remove_files or args.all or args.purge):
         raise OmjError("--registration-only cannot be combined with --remove-files, --all, or --purge")
     paths = _paths(args)
-    current = read_config(paths.hermes_config_path)
-    try:
-        change = remove_external_dir(current, paths.skills_dir)
-    except ValueError as exc:
-        raise OmjError(str(exc)) from exc
-    if not args.dry_run and change.changed:
-        write_config(paths.hermes_config_path, change.text)
+    def mutate(current: str) -> ConfigChange:
+        try:
+            external_change = remove_external_dir(current, paths.skills_dir)
+            binding_change = remove_omj_home_binding(external_change.text, paths.omj_home)
+            plugin_change = (
+                remove_plugin_enabled(binding_change.text)
+                if binding_change.changed
+                else ConfigChange(False, "OMJ plugin enablement retained", binding_change.text)
+            )
+        except ValueError as exc:
+            raise OmjError(str(exc)) from exc
+        changes = (external_change, binding_change, plugin_change)
+        return ConfigChange(
+            any(change.changed for change in changes),
+            "; ".join(change.message for change in changes if change.changed) or external_change.message,
+            plugin_change.text,
+        )
+
+    change = update_config(paths.hermes_config_path, mutate, omj_home=paths.omj_home, dry_run=bool(args.dry_run))
     remove_all = bool(args.all or args.purge or (not args.registration_only and not args.remove_files))
     menubar_result = (
         uninstall_menubar_app(paths, dry_run=bool(args.dry_run))
@@ -897,6 +1079,22 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    if getattr(args, "profile_isolation", None):
+        from ..maintenance.profile_isolation import compare_profile_isolation, parse_profile_ref
+        try:
+            first, second = (parse_profile_ref(value) for value in args.profile_isolation)
+            payload = compare_profile_isolation(first, second)
+        except (OSError, ValueError) as exc:
+            raise OmjError(f"profile isolation comparison failed: {exc}") from exc
+        if _wants_json(args):
+            _print_json(payload)
+        else:
+            summary = payload.get("summary", {})
+            print(f"Profile isolation: {summary.get('isolated', 0)} isolated, {summary.get('leaked', 0)} leaked, {summary.get('unknown', 0)} unknown")
+            print(payload.get("claim_boundary", ""))
+        if payload["leaked_surfaces"]:
+            return 1
+        return 3 if payload["unknown_surfaces"] else 0
     language = _resolve_language(args)
     payload = _doctor_result(args)
     if _wants_json(args):
@@ -998,30 +1196,14 @@ def _list_catalog_context(skills: list[dict[str, object]]) -> dict[str, object]:
 def _doctor_result(args: argparse.Namespace) -> dict[str, object]:
     paths = _paths(args)
     checks = run_doctor(paths)
-    next_action = recommended_next_action(checks)
-    summary = _doctor_operator_summary(checks)
-    runtime_writable = any(check.name == "runtime_artifacts" and check.ok for check in checks)
-    runtime_state_readable = not any(check.name == "runtime_state" and not check.ok for check in checks)
-    state_log: dict[str, str] = {}
-    if runtime_writable and runtime_state_readable:
-        update_state(
-            paths,
-            {
-                "last_doctor": {
-                    "ok": doctor_ok(checks),
-                    "checks": {check.name: check.ok for check in checks},
-                    "summary": summary,
-                    "recommended_next_action": next_action,
-                }
-            },
-        )
-        state_log = {"path": str(paths.runtime_state_path), "entry": "last_doctor"}
+    advice = run_config_advisories(paths.hermes_home, omj_home=paths.omj_home).to_dict()
     return {
         "ok": doctor_ok(checks),
         "checks": [check.__dict__ for check in checks],
-        "summary": summary,
-        "state_log": state_log,
-        "recommended_next_action": next_action,
+        "summary": _doctor_operator_summary(checks),
+        "state_log": {},
+        "advice": advice["entries"],
+        "recommended_next_action": recommended_next_action(checks),
         "language": _resolve_language(args),
     }
 
@@ -1044,9 +1226,18 @@ def cmd_setup(args: argparse.Namespace) -> int:
             args.scope = _ask_setup_scope(use_color=_use_color(), language=language)
             paths = _paths(args)
         _run_setup_wizard(args, paths, language)
-        _offer_github_star_before_setup(language=language, use_color=_use_color(), dry_run=bool(args.dry_run))
+    if bool(getattr(args, "star", False)):
+        if bool(args.dry_run):
+            print(_color(tr(language, "github_star_dry_run"), "33", _use_color()))
+        else:
+            result = _try_star_github_repo()
+            if result.get("ok"):
+                print(_color(tr(language, "github_star_thanks"), "1;32", _use_color()))
+            else:
+                reason = str(result.get("reason") or "GitHub star was not recorded")
+                print(_color(tr(language, "github_star_failed", reason=reason), "33", _use_color()))
 
-    progress = _HumanProgress(enabled=not _wants_json(args), use_color=_use_color())
+    progress = _HumanProgress(enabled=not _wants_json(args) and not args.dry_run, use_color=_use_color())
     if not _wants_json(args):
         progress.header(tr(language, "setup_title"), tr(language, "setup_subtitle"))
     setup_menubar = _setup_should_attempt_menubar(args)
@@ -1055,6 +1246,18 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
     progress.step(step_index, total_steps, tr(language, "step_install_skills"), detail=str(paths.skills_dir))
     steps: dict[str, object] = {"install": _install_result(args)}
+    if bool(getattr(args, "model_setup", False)) or getattr(args, "confirm_model", None) or getattr(args, "model_alias", None):
+        from .providers import build_model_setup_preview
+        steps["model_activation"] = {
+            "status": "preview_ready",
+            "preview": build_model_setup_preview(
+                getattr(args, "hermes_home", None),
+                confirm_models=tuple(getattr(args, "confirm_model", ()) or ()),
+                model_aliases=tuple(getattr(args, "model_alias", ()) or ()),
+                expected_digest=str(getattr(args, "model_config_digest", "") or ""),
+            ),
+            "apply": {"status": "not_requested"},
+        }
     install_skills = steps["install"].get("skills", []) if isinstance(steps["install"], dict) else []
     progress.done(tr(language, "done_skills_installed", count=len(install_skills) if isinstance(install_skills, list) else 0))
     step_index += 1
@@ -1078,6 +1281,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
     plugin_status = steps["plugin"].get("status", "installed") if isinstance(steps["plugin"], dict) else "installed"
     progress.done(_plugin_status_label(language, str(plugin_status)))
     step_index += 1
+    steps["hermes_profiles"] = _sync_hermes_profiles(args) if not args.skip_apply else []
 
     if setup_menubar:
         progress.step(step_index, total_steps, tr(language, "step_menubar"), detail=str(paths.omj_home / "menubar"))
@@ -1215,6 +1419,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
         "language": language,
     }
     payload["plugin_distribution"] = steps["plugin"]
+    if steps.get("hermes_profiles"):
+        payload["hermes_profiles"] = steps["hermes_profiles"]
     if args.profile_pack:
         payload["team_profiles"] = steps["team_profiles"]
     if _wants_json(args):
@@ -1225,11 +1431,13 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
 
 def _setup_should_interact(args: argparse.Namespace) -> bool:
+    # Machine-readable and dry-run modes are always non-interactive, even when
+    # a caller also supplies --interactive.
+    if _wants_json(args) or getattr(args, "dry_run", False):
+        return False
     if getattr(args, "interactive", False):
         return True
     if getattr(args, "no_interactive", False) or getattr(args, "yes", False):
-        return False
-    if _wants_json(args) or getattr(args, "dry_run", False):
         return False
     if (
         args.profile
@@ -1417,21 +1625,33 @@ def _ask_default_executor(*, use_color: bool, language: str) -> str:
     options = [
         {
             "choice": "1",
+            "value": "choose",
+            "label": "Ask every time",
+            "description": "Preserve the Hermes baseline and choose an owner per coding request.",
+        },
+        {
+            "choice": "2",
             "value": "hermes",
             "label": tr(language, "executor_hermes_label"),
             "description": tr(language, "executor_hermes_desc"),
         },
         {
-            "choice": "2",
+            "choice": "3",
             "value": "codex",
             "label": tr(language, "executor_codex_label"),
             "description": tr(language, "executor_codex_desc"),
         },
         {
-            "choice": "3",
+            "choice": "4",
             "value": "claude-code",
             "label": tr(language, "executor_claude_label"),
             "description": tr(language, "executor_claude_desc"),
+        },
+        {
+            "choice": "5",
+            "value": "generic",
+            "label": "Other coding agent",
+            "description": "Prepare copy-ready prompts without selecting a native runtime.",
         },
     ]
     value = _ask_single_choice(
@@ -1441,7 +1661,7 @@ def _ask_default_executor(*, use_color: bool, language: str) -> str:
             tr(language, "executor_intro_2"),
         ],
         options,
-        default_choice="1",
+        default_choice="2",
         use_color=use_color,
         language=language,
     )
@@ -1731,6 +1951,8 @@ def _print_setup_summary(payload: dict[str, object], *, language: str = "en") ->
     title = tr(language, "setup_preview_complete") if dry_run else tr(language, "setup_complete")
     print("")
     print(_color(title, "1;36", use_color))
+    if dry_run:
+        print(f"Dry run (--dry-run): {tr(language, 'setup_status_dry_run')}")
     print(_color(tr(language, "summary"), "1;32", use_color))
     scope_label = tr(language, "setup_scope_" + str(operator_summary.get("scope", "custom")))
     mcp_mode_label = tr(language, "setup_mcp_mode_" + str(operator_summary.get("mcp_mode", "none")))
@@ -1744,7 +1966,10 @@ def _print_setup_summary(payload: dict[str, object], *, language: str = "en") ->
         else:
             print(f"  {tr(language, 'command_path_missing')}")
             print(f"  {tr(language, 'command_path_missing_next')}")
-    print(f"  {tr(language, 'skills_line', count=len(skills), path=hermes_native.get('skills_dir', ''))}")
+    if dry_run:
+        print(f"  OMJ workflows: {len(skills)} would be installed at {hermes_native.get('skills_dir', '')}")
+    else:
+        print(f"  {tr(language, 'skills_line', count=len(skills), path=hermes_native.get('skills_dir', ''))}")
 
     discovery_status = str(hermes_native.get("discovery_status", ""))
     if discovery_status == "config_registered_reload_required":
@@ -1763,13 +1988,14 @@ def _print_setup_summary(payload: dict[str, object], *, language: str = "en") ->
         if executor:
             print(f"  {tr(language, 'default_handoff', summary=_executor_summary(language, executor))}")
 
-    if isinstance(topology, dict):
+    if isinstance(topology, dict) and not dry_run:
         print(
             f"  {tr(language, 'target_topology', mode=topology.get('mode', 'unknown'), count=topology.get('known_target_count', 0))}"
         )
     plugin = payload.get("plugin_distribution")
     if isinstance(plugin, dict):
-        print(f"  {tr(language, 'plugin_bridge', status=_plugin_status_label(language, str(plugin.get('status', 'installed'))))}")
+        plugin_status = "would_install" if dry_run else str(plugin.get("status", "installed"))
+        print(f"  {tr(language, 'plugin_bridge', status=_plugin_status_label(language, plugin_status))}")
 
     menubar = steps.get("menubar")
     if isinstance(menubar, dict) and str(menubar.get("status", "not_requested")) != "not_requested":
@@ -1781,7 +2007,10 @@ def _print_setup_summary(payload: dict[str, object], *, language: str = "en") ->
 
     team_profiles = payload.get("team_profiles")
     if isinstance(team_profiles, list) and team_profiles:
-        print(f"  {tr(language, 'team_activated', count=len(team_profiles))}")
+        if dry_run:
+            print(f"  Visible team preset: {len(team_profiles)} profile pack(s) would be installed.")
+        else:
+            print(f"  {tr(language, 'team_activated', count=len(team_profiles))}")
 
     hermes_runtime = steps.get("hermes_runtime")
     if isinstance(hermes_runtime, dict):
@@ -2405,6 +2634,8 @@ def _short_summary(value: str, *, limit: int) -> str:
 
 
 def _config_change_label(language: str, message: str) -> str:
+    if ";" in message:
+        return "; ".join(_config_change_label(language, part.strip()) for part in message.split(";") if part.strip())
     key = "config_" + message.replace(".", "_").replace(" ", "_").replace("-", "_")
     translated = tr(language, key)
     return translated if translated != key else message
@@ -2763,6 +2994,9 @@ def _add_common_install_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--language", default=None, help=f"Human output language for setup/install/update ({', '.join(LANGUAGE_CODES)}).")
     p.add_argument("--force", action="store_true")
     p.add_argument("--dry-run", action="store_true")
+    profile = p.add_mutually_exclusive_group()
+    profile.add_argument("--core", dest="skill_profile", action="store_const", const=CORE_SKILL_PROFILE, help="Install the core OMJ workflow subset without deleting existing skills.")
+    profile.add_argument("--full", dest="skill_profile", action="store_const", const=DEFAULT_SKILL_PROFILE, help="Install the complete OMJ workflow catalog.")
 
 
 def _add_top_level_commands(sub) -> None:
@@ -2775,6 +3009,11 @@ def _add_top_level_commands(sub) -> None:
         help="Install to user-wide ~/.omj/~/.hermes or project-local ./.omj/./.hermes paths.",
     )
     setup.add_argument("--json", action="store_true", help="Print the full machine-readable setup payload.")
+    setup.add_argument("--model-setup", action="store_true", help="Preview local model metadata and explicit Hermes alias activation.")
+    setup.add_argument("--confirm-model", action="append", default=[], metavar="PROVIDER/MODEL", help="Preview one locally available model as active.")
+    setup.add_argument("--model-alias", action="append", default=[], metavar="ALIAS=MODEL", help="Preview one editable Hermes model alias.")
+    setup.add_argument("--model-config-digest", default="", help="Expected Hermes config SHA-256 for the read-only model preview.")
+    setup.add_argument("--star", action="store_true", help="Record a GitHub star via gh after setup (opt-in; never prompted).")
     setup.add_argument("--yes", action="store_true", help="Use default setup choices without interactive prompts.")
     setup.add_argument("--interactive", action="store_true", help="Force the interactive setup wizard.")
     setup.add_argument("--no-interactive", action="store_true", help="Disable the interactive setup wizard.")
@@ -2862,12 +3101,30 @@ def _add_top_level_commands(sub) -> None:
     install = sub.add_parser("install", help="Refresh the managed OMJ skill pack without changing Hermes registration.")
     _add_common_install_options(install)
     install.add_argument("--json", action="store_true", help="Print the full machine-readable install payload.")
+    install.add_argument("--target", choices=("hermes", "agents"), default="hermes", help="Install managed Hermes skills or the portable Agent Skills projection.")
+    install.add_argument("--host", choices=("claude", "codex", "cursor", "openclaw", "opencode", "pi"), required=False, default=None, help="Install only this host's portable target.")
+    install.add_argument("--scope", dest="agents_scope", choices=("project", "user"), default=None, help="Agent Skills scope: project or user.")
+    install.add_argument("--status", action="store_true", help="Inspect portable Agent Skills freshness without writing.")
     install.set_defaults(func=cmd_install)
 
     update = sub.add_parser("update", help="Refresh OMJ from a preview, stable, local, or explicit package source.")
     _add_common_install_options(update)
     update.add_argument("--json", action="store_true", help="Print the full machine-readable update payload.")
+    update.add_argument("--without-plugin", action="store_true", help="Refresh workflows without updating the managed plugin or Hermes registration.")
     update.set_defaults(func=cmd_update)
+
+    skill_profile = sub.add_parser("skill-profile", help="Inspect managed skill membership or explicitly reconcile it.")
+    profile_commands = skill_profile.add_subparsers(dest="skill_profile_command", required=True)
+    profile_status = profile_commands.add_parser("status", help="Inspect requested and physically installed skill profiles without writing.")
+    profile_status.add_argument("--json", action="store_true")
+    profile_status.set_defaults(func=cmd_skill_profile_status)
+    profile_reconcile = profile_commands.add_parser("reconcile", help="Preview or apply removal of unchanged OMJ-owned full-only skills.")
+    profile_reconcile.add_argument("--to", choices=(CORE_SKILL_PROFILE,), required=True)
+    profile_reconcile.add_argument("--json", action="store_true")
+    profile_mode = profile_reconcile.add_mutually_exclusive_group()
+    profile_mode.add_argument("--dry-run", action="store_true")
+    profile_mode.add_argument("--apply", action="store_true", help="Apply the ownership-checked reconciliation; otherwise preview only.")
+    profile_reconcile.set_defaults(func=cmd_skill_profile_reconcile)
 
     convert = sub.add_parser("convert", help="Import a local skills directory into the managed OMJ skill pack.")
     convert.add_argument("--from-skills-dir", required=True)
@@ -2900,6 +3157,7 @@ def _add_top_level_commands(sub) -> None:
     doctor = sub.add_parser("doctor", help="Check local OMJ install health and Hermes skill registration.")
     doctor.add_argument("--json", action="store_true", help="Print the full machine-readable doctor payload.")
     doctor.add_argument("--language", default=None, help=f"Human output language ({', '.join(LANGUAGE_CODES)}).")
+    doctor.add_argument("--profile-isolation", nargs=2, metavar=("A", "B"), help="Compare two OMJ_HOME[,HERMES_HOME] profiles without opening or writing either.")
     doctor.set_defaults(func=cmd_doctor)
 
     recommend = sub.add_parser("recommend", help="Map a task description to likely OMJ workflow skills.")

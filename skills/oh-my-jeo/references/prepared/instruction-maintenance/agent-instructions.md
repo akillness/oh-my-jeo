@@ -67,7 +67,7 @@ Keep the section plan, the command verification record, and the region update in
 - SHA256: `acdb8eb6a411cc1e4b0345151fda6d70f443fb0ccf170d037c18b960aeb91fe9`
 
 ## Method references
-- `omh-agent-instructions/references/instruction-file-method.md` (pinned `skills/omh-agent-instructions/references/instruction-file-method.md`)
+- `agent-instructions/omh-agent-instructions/references/instruction-file-method.md` (pinned `skills/omh-agent-instructions/references/instruction-file-method.md`)
 
 ## Source gaps
 - None declared

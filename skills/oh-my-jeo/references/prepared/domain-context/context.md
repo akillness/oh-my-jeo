@@ -63,8 +63,8 @@ Keep terminology lookup, source inspection, and decision-frontier facilitation i
 - SHA256: `372aa8e9d50db2e0f7e60988e1b9ee0bfd13a0a4e64dbd24d8e0d40067b3d80b`
 
 ## Method references
-- `ulw-context/references/decision-frontier.md` (pinned `skills/ulw-context/references/decision-frontier.md`)
-- `ulw-context/references/project-terms.md` (pinned `skills/ulw-context/references/project-terms.md`)
+- `context/ulw-context/references/decision-frontier.md` (pinned `skills/ulw-context/references/decision-frontier.md`)
+- `context/ulw-context/references/project-terms.md` (pinned `skills/ulw-context/references/project-terms.md`)
 
 ## Source gaps
 - None declared

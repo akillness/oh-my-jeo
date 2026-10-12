@@ -13,6 +13,9 @@ from .catalog import (
     memory_context_policy_for_skill,
     omj_description,
     primary_harness_for_skill,
+    portable_skill_definition,
+    portable_skill_names,
+    portability_for_skill,
     skill_exposure_payload,
     surface_exposure_for_skill,
     workflow_reference_definitions,
@@ -120,11 +123,19 @@ def _definitions_by_name() -> dict[str, SkillDefinition]:
     return {definition.name: definition for definition in builtin_definitions()}
 
 
-def _frontmatter(name: str, description: str) -> str:
+def _frontmatter(name: str, description: str, *, portable: bool = False) -> str:
     definition = _definitions_by_name().get(name)
     category = definition.category if definition else "workflow"
     phase = definition.phase if definition else "general"
     description = omj_description(description)
+    if portable:
+        from .host_adapters import portable_skill_name
+
+        return (
+            f"---\nname: {portable_skill_name(name)}\ndescription: {description}\nmetadata:\n"
+            f"  omj:\n    portability: {portability_for_skill(name)}\n"
+            f"    category: {category}\n    phase: {phase}\n---\n"
+        )
     return (
         f"---\nname: {name}\ndescription: {description}\nmetadata:\n"
         f"  hermes:\n    tags: [workflow, oh-my-jeo, {category}]\n"
@@ -221,10 +232,12 @@ def _quality_rubric_sections(definition: SkillDefinition) -> str:
 {_tuple_list(definition.recovery_notes)}"""
 
 
-def _skill_metadata_block(definition: SkillDefinition) -> str:
+def _skill_metadata_block(definition: SkillDefinition, *, portable: bool = False) -> str:
+    role = "Host-owned workflow responsibility" if portable else f"Hermes role: `{definition.hermes_role}`"
+    readiness = "" if portable else _executor_readiness_skill_note(definition)
     return f"""Category: `{definition.category}`
 Phase: `{definition.phase}`
-Hermes role: `{definition.hermes_role}`
+{role}
 Quality tier: `{definition.quality_tier}`
 
 Quality bar:
@@ -233,7 +246,7 @@ Quality bar:
 
 Handoff policy:
 
-{definition.handoff_policy}{_executor_readiness_skill_note(definition)}
+{definition.handoff_policy}{readiness}
 
 Required inputs:
 
@@ -490,7 +503,101 @@ Record only what is observed. If Hermes or a chosen oh-my runtime does not expos
 """.rstrip() + "\n"
 
 
-def router_skill() -> SkillTemplate:
+def _portable_workflow_skill(name: str) -> SkillTemplate:
+    definition = portable_skill_definition(name)
+    classification = portability_for_skill(name)
+    dependency = (
+        "This workflow requires an explicitly configured local `omj` CLI for its OMJ-specific ledger or inspection operations. "
+        "Check command availability before using those operations; if unavailable, report the missing prerequisite, do not install anything, "
+        "and keep that operation unsupported. CLI records prove only the observations they contain, not host execution."
+        if classification == "requires-omj-cli"
+        else "This workflow uses the selected host's existing tools; the OMJ CLI is not required to follow its guidance. "
+        "Optional OMJ metadata persistence is a separately configured operation, never an implicit dependency."
+    )
+    references = (
+        "[Reviewed workflow inventory](references/portable-workflows.md)\n"
+        "[Native and historical provenance](references/native-provenance.md)"
+        if name == "oh-my-jeo"
+        else "[Native and historical provenance](../omj/references/native-provenance.md)"
+    )
+    if name in {template.skill_name for template in portable_procedure_reference_templates()}:
+        references += f"\n[Source-owned procedural guidance](references/procedures/{name}.md)"
+    body = f"""# {name.replace('-', ' ').title()}
+
+Portability: `{classification}`. This is host-neutral guidance, not a native plugin, persona replacement, or runtime hook.
+
+## Host and Dependency Boundary
+
+{dependency}
+
+The host owns tools, skill discovery, permissions, project trust, duplicate resolution, and delegation. Use only capabilities the host actually exposes. Missing tools require an explicit fallback or unresolved prerequisite, never hidden execution or permission bypass.
+
+{_quality_rubric_sections(definition)}
+
+## Use When
+
+{definition.use_when}
+
+Strong routing signals: {', '.join(f'`{trigger}`' for trigger in definition.triggers)}
+
+## Catalog Metadata
+
+{_skill_metadata_block(definition, portable=True)}
+
+## Execution and Handoff Discipline
+
+1. State the target, constraints, acceptance criteria, authority, and stop condition before work.
+2. Planning and coordination do not take ownership of code implicitly. Keep the selected first-class coding owner explicit, including the current host when selected.
+3. Read supporting references only when needed using available host file tools; loading guidance is not dispatch or plan acceptance.
+4. Take acceptance only from the user's actual answer. A timeout, dismissal, or missing answer leaves the plan unaccepted; prepare no handoff and start nothing.
+5. A selected owner, task card, plan, or prepared handoff stays `prepared_not_observed` until observed execution evidence exists. Preserve failures and unresolved criteria.
+6. Verify behavior with the smallest relevant observed check. Current loader admission is not evidence of a live session; local fresh files do not prove host discovery, execution, review, CI, or merge.
+7. Network operations, configuration or memory writes, external publishing, and new authority remain separately approval-gated. Do not activate unsupported services.
+
+## Supporting Context
+
+{references}
+"""
+    return SkillTemplate(name, _frontmatter(name, definition.description, portable=True) + "\n" + body)
+
+
+@lru_cache(maxsize=1)
+def portable_procedure_reference_templates() -> tuple[SkillReferenceTemplate, ...]:
+    """Frame the one source-owned method producer for host-owned consumers."""
+    from .procedure_references import procedure_reference_templates
+
+    methods: dict[str, list[str]] = {}
+    for template in procedure_reference_templates():
+        if portability_for_skill(template.skill_name) == "hermes-only":
+            continue
+        methods.setdefault(template.skill_name, []).append(template.content)
+    boundary = (
+        "# Source-Owned Host-Owned Procedures\n\n"
+        "The procedural criteria below are operative host-neutral guidance. Native tool names and runtime examples are conditional source context, not required host tools or installed dependencies.\n\n"
+        "Do not assume an imported skill, native runtime, plugin, or session store is available. Use only explicitly selected sources and host-exposed capabilities; otherwise report the missing prerequisite. "
+        "Host-owned tools, permissions, trust, and delegation remain authoritative. Source/session inspection is read-only and requires the user's explicit source scope; diagnosis does not authorize mutation or replay. "
+        "OMJ-specific ledger or inspection commands require an already configured local OMJ CLI; unavailable commands remain unsupported and must not trigger an installation.\n\n"
+    )
+    return tuple(
+        SkillReferenceTemplate(name, f"references/procedures/{name}.md", boundary + "\n\n".join(contents))
+        for name, contents in methods.items()
+    )
+
+
+def portable_workflow_registry_reference() -> SkillReferenceTemplate:
+    from .host_adapters import portable_skill_name
+
+    rows = ["# Reviewed Portable Workflows", "", "Selection uses the host's own skill surface; this registry does not register commands or dispatch work.", ""]
+    for name in portable_skill_names():
+        definition = portable_skill_definition(name)
+        folder = portable_skill_name(name)
+        rows.append(f"- [{folder}](../../{folder}/SKILL.md) — `{portability_for_skill(name)}`: {definition.description}")
+    return SkillReferenceTemplate("oh-my-jeo", "references/portable-workflows.md", "\n".join(rows) + "\n")
+
+
+def router_skill(*, portable: bool = False) -> SkillTemplate:
+    if portable:
+        return _portable_workflow_skill("oh-my-jeo")
     body = f"""# Oh My Jeo Router
 
 Use this skill when the user mentions oh-my-jeo or a workflow keyword such as {router_keyword_summary()}.
@@ -576,7 +683,9 @@ Load these only when exact detail matters:
     return SkillTemplate("oh-my-jeo", _frontmatter("oh-my-jeo", DESCRIPTIONS["oh-my-jeo"]) + "\n" + body)
 
 
-def workflow_skill(name: str) -> SkillTemplate:
+def workflow_skill(name: str, *, portable: bool = False) -> SkillTemplate:
+    if portable:
+        return _portable_workflow_skill(name)
     definition = _definitions_by_name()[name]
     title = name.replace("-", " ").title()
     triggers = ", ".join(f"`{trigger}`" for trigger in definition.triggers)
@@ -891,3 +1000,5 @@ def _harness_payload(harness: HarnessDefinition) -> dict[str, object]:
         "fallback": harness.fallback,
         "harness_quality": harness_quality_contract(harness.name),
     }
+
+

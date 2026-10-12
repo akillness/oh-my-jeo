@@ -82,7 +82,7 @@ Keep axis scoring, the weighted total, the binding-constraint call, and the trad
 - SHA256: `b8d1ad604145a81d879ffc32b671f0df1f12f8fb58852932cffb44f350da54e6`
 
 ## Method references
-- `omh-award-bar-score/references/award-judging-model.md` (pinned `skills/omh-award-bar-score/references/award-judging-model.md`)
+- `award-bar-score/omh-award-bar-score/references/award-judging-model.md` (pinned `skills/omh-award-bar-score/references/award-judging-model.md`)
 
 ## Source gaps
 - None declared

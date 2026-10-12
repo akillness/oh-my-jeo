@@ -68,24 +68,16 @@ def _context_brief(
 ) -> tuple[dict[str, object], str]:
     try:
         from omj.context import build_context_brief as build_package_context_brief
-    except Exception:
+    except ImportError:
         return build_plugin_context_brief(
             message,
             source=source,
             max_hints=max_hints,
             include_prompt_context=include_prompt_context,
         ), "standalone_plugin_bundle_fallback"
-    try:
-        return build_package_context_brief(
-            message,
-            source=source,
-            max_hints=max_hints,
-            include_prompt_context=include_prompt_context,
-        ), "package_context"
-    except Exception:
-        return build_plugin_context_brief(
-            message,
-            source=source,
-            max_hints=max_hints,
-            include_prompt_context=include_prompt_context,
-        ), "standalone_plugin_bundle_fallback"
+    return build_package_context_brief(
+        message,
+        source=source,
+        max_hints=max_hints,
+        include_prompt_context=include_prompt_context,
+    ), "package_context"

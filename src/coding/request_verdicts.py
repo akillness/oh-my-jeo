@@ -353,53 +353,18 @@ MODEL_CONTRACT_COVERAGE_STATUSES: Final[tuple[str, ...]] = (
     "exact", "declared_inheritance", "dated_snapshot", "intentional_exclusion", "missing"
 )
 
-_MODEL_CONTRACTS: Final[dict[str, Mapping[str, object]]] = {
-    "gpt-6-sol": {
-        "schema_version": "model_contract/v1",
-        "model_id": "gpt-6-sol",
-        "family": "gpt",
-        "reasoning_mode": "standard",
-        "service_tier": "standard",
-        "reasoning_efforts": ("low", "medium", "high", "xhigh", "max"),
-        "effort_floor": "low",
-        "data_handling": {
-            "training_use": "not_recorded",
-            "retention": "not_recorded",
-            "account_scope": "vendor-documented default; negotiated agreement may differ; not account-level evidence",
-        },
-    },
-    "deepseek-v4.1-flash": {
-        "schema_version": "model_contract/v1",
-        "model_id": "deepseek-v4.1-flash",
-        "family": "deepseek",
-        "reasoning_mode": "thinking",
-        "service_tier": "standard",
-        "reasoning_efforts": (),
-        "effort_floor": "",
-        "data_handling": {
-            "training_use": "not_recorded",
-            "retention": "not_recorded",
-            "account_scope": "vendor-documented default; negotiated agreement may differ; not account-level evidence",
-        },
-    },
-}
-MODEL_CONTRACTS: Final[dict[str, Mapping[str, object]]] = _MODEL_CONTRACTS
-DECLARED_MODEL_CONTRACT_PROJECTIONS: Final[dict[str, Mapping[str, str]]] = {
-    "deepseek-flash": {
-        "contract_model_id": "deepseek-v4.1-flash",
-        "reasoning_mode": "thinking",
-        "service_tier": "standard",
-    },
-}
-TRAINING_USE_EXCLUDED: Final[str] = "excluded"
-TRAINING_USE_INCLUDED: Final[str] = "included"
-TRAINING_USE_NOT_RECORDED: Final[str] = "not_recorded"
-RETENTION_NONE: Final[str] = "none"
-RETENTION_BOUNDED: Final[str] = "bounded"
-RETENTION_INDEFINITE: Final[str] = "indefinite"
-RETENTION_NOT_RECORDED: Final[str] = "not_recorded"
+from .model_contracts import (
+    DECLARED_MODEL_CONTRACT_PROJECTIONS,
+    MODEL_CONTRACTS,
+    model_contract_projection,
+)
+
+_MODEL_CONTRACTS: Final[dict[str, Mapping[str, object]]] = dict(MODEL_CONTRACTS)
 _DECLARED_PROJECTIONS = DECLARED_MODEL_CONTRACT_PROJECTIONS
-_MODEL_DOCS: Final[dict[str, tuple[str, ...]]] = {model: () for model in _MODEL_CONTRACTS}
+_MODEL_DOCS: Final[dict[str, tuple[str, ...]]] = {
+    str(model_id): tuple(str(source) for source in contract.get("sources", ()))
+    for model_id, contract in _MODEL_CONTRACTS.items()
+}
 _DATED_SNAPSHOT_SUFFIX: Final[re.Pattern[str]] = re.compile(
     r"^(?P<base>.+)-(?P<date>\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))$"
 )
@@ -411,43 +376,18 @@ def _unqualified_model_id(value: object) -> str:
 
 
 def _projection(model_id: object) -> dict[str, str] | None:
-    requested = str(model_id or "").strip()
-    canonical = _unqualified_model_id(requested)
-    if not canonical:
+    projection = model_contract_projection(str(model_id or ""))
+    if projection is None:
         return None
-    if canonical in _MODEL_CONTRACTS:
-        contract = _MODEL_CONTRACTS[canonical]
-        return {
-            "schema_version": "model_contract_projection/v1",
-            "requested_model": requested,
-            "canonical_model_id": canonical,
-            "contract_model_id": canonical,
-            "reasoning_mode": str(contract.get("reasoning_mode", "standard")),
-            "service_tier": str(contract.get("service_tier", "standard")),
-            "provenance": "exact",
-        }
-    declared = _DECLARED_PROJECTIONS.get(canonical)
-    if declared is not None and str(declared.get("contract_model_id", "")) in _MODEL_CONTRACTS:
-        return {
-            "schema_version": "model_contract_projection/v1",
-            "requested_model": requested,
-            "canonical_model_id": canonical,
-            "contract_model_id": str(declared["contract_model_id"]),
-            "reasoning_mode": str(declared.get("reasoning_mode", "standard")),
-            "service_tier": str(declared.get("service_tier", "standard")),
-            "provenance": "declared_inheritance",
-        }
-    match = _DATED_SNAPSHOT_SUFFIX.match(canonical)
-    if match and not _DATED_SNAPSHOT_SUFFIX.match(match.group("base")):
-        base = _projection(match.group("base"))
-        if base is not None:
-            return {
-                **base,
-                "requested_model": requested,
-                "canonical_model_id": canonical,
-                "provenance": "dated_snapshot",
-            }
-    return None
+    return {
+        "schema_version": str(projection.get("schema_version", "model_contract_projection/v1")),
+        "requested_model": str(projection.get("requested_model", model_id or "")),
+        "canonical_model_id": str(projection.get("canonical_model_id", "")),
+        "contract_model_id": str(projection.get("contract_model_id", "")),
+        "reasoning_mode": str(projection.get("reasoning_mode", "standard")),
+        "service_tier": str(projection.get("service_tier", "standard")),
+        "provenance": str(projection.get("provenance", "")),
+    }
 
 
 def _contract_for(model_id: object, contracts: Mapping[str, Mapping[str, object]]) -> Mapping[str, object] | None:
@@ -459,6 +399,14 @@ def _contract_for(model_id: object, contracts: Mapping[str, Mapping[str, object]
         if _unqualified_model_id(key) == canonical:
             return contract
     return None
+
+
+_MODEL_DOCS = {
+    model_id: tuple(str(source) for source in contract.get("sources", ()))
+    for model_id, contract in _MODEL_CONTRACTS.items()
+}
+
+
 
 
 _OPAQUE_REFERENCE: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$")
@@ -540,6 +488,12 @@ def _inventory_refs(inventory: Mapping[str, object]) -> tuple[tuple[str, ...], d
         key = ref.casefold()
         identities.setdefault(key, set()).add(ref)
         evidence.setdefault(key, set()).add((str(source or "supplied_models"), str(status or "supplied")))
+    def qualify(model: str, provider: str) -> str:
+        provider = provider.strip()
+        if "/" in model or not provider or provider.casefold() == model.casefold():
+            return model
+        return f"{provider}/{model}"
+
 
     raw_models = inventory.get("models", ())
     if isinstance(raw_models, (list, tuple)):
@@ -549,14 +503,14 @@ def _inventory_refs(inventory: Mapping[str, object]) -> tuple[tuple[str, ...], d
             elif isinstance(entry, Mapping):
                 model = _entry_model_id(entry, field="models.model_id")
                 provider = str(entry.get("provider", "")).strip()
-                add(model if "/" in model or not provider else f"{provider}/{model}", source=str(entry.get("source", "supplied_models")), status=str(entry.get("status", "supplied")))
+                add(qualify(model, provider), source=str(entry.get("source", "supplied_models")), status=str(entry.get("status", "supplied")))
     available = inventory.get("available_models", ())
     if isinstance(available, (list, tuple)):
         for entry in available:
             if isinstance(entry, Mapping):
                 model = _entry_model_id(entry, field="available_models.model_id")
                 provider = str(entry.get("provider", "")).strip()
-                add(model if "/" in model or not provider else f"{provider}/{model}", source="available_models", status="configured")
+                add(qualify(model, provider), source="available_models", status="configured")
     discovery = inventory.get("model_discovery")
     observations = discovery.get("observations", ()) if isinstance(discovery, Mapping) else ()
     if isinstance(observations, (list, tuple)):
@@ -564,7 +518,7 @@ def _inventory_refs(inventory: Mapping[str, object]) -> tuple[tuple[str, ...], d
             if isinstance(entry, Mapping):
                 model = _entry_model_id(entry, field="model_discovery.observations.model_id")
                 provider = str(entry.get("provider", "")).strip()
-                add(model if "/" in model or not provider else f"{provider}/{model}", source=str(entry.get("source", "model_discovery")), status=str(entry.get("status", "observed")))
+                add(qualify(model, provider), source=str(entry.get("source", "model_discovery")), status=str(entry.get("status", "observed")))
 
     refs = tuple(min(identities[key], key=lambda value: (value.casefold(), value)) for key in sorted(identities))
     records = {
@@ -824,9 +778,8 @@ __all__ = [
     "MODEL_CONTRACTS", "MODEL_CONTRACT_COVERAGE_CLAIM_BOUNDARY", "MODEL_CONTRACT_COVERAGE_SCHEMA_VERSION",
     "MODEL_CONTRACT_COVERAGE_STATUSES", "REASON_AXIS_NOT_DECLARED", "REASON_DOCUMENTED_DEFAULT_PERMITS",
     "REASON_NO_DOCUMENTED_CONTRACT", "REASON_POLICY_NOT_RECORDED", "REASON_RETENTION_INDEFINITE", "REASON_TEXT",
-    "REASON_TRAINING_USE_INCLUDES", "RETENTION_BOUNDED", "RETENTION_INDEFINITE", "RETENTION_NONE", "RETENTION_NOT_RECORDED",
-    "SENSITIVE_WORK_CHAIN_CLAIM_BOUNDARY", "SENSITIVE_WORK_CHAIN_SCHEMA_VERSION", "TRAINING_USE_EXCLUDED",
-    "TRAINING_USE_INCLUDED", "TRAINING_USE_NOT_RECORDED", "VERDICT_CONFLICTING", "VERDICT_PERMITTING", "VERDICT_UNKNOWN",
+    "REASON_TRAINING_USE_INCLUDES", "SENSITIVE_WORK_CHAIN_CLAIM_BOUNDARY", "SENSITIVE_WORK_CHAIN_SCHEMA_VERSION",
+    "VERDICT_CONFLICTING", "VERDICT_PERMITTING", "VERDICT_UNKNOWN",
     "build_model_contract_coverage", "complexity_class_for_skill", "coverage_exit_code", "data_handling_filtered_chain",
     "model_data_handling_verdict", "recommend_model_for_complexity", "score_request_complexity", "tier_for_score",
 ]

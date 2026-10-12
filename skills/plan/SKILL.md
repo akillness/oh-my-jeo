@@ -80,9 +80,10 @@ Quality tier: `acceptance-gated`
 Quality bar:
 
 - Make goals, non-goals, risks, acceptance criteria, and verification shape explicit.
-- Keep draft plans unapproved until a user or wrapper accepts them.
+- Keep draft plans unapproved until the user's actual answer accepts them; a wrapper may carry the user's answer and its response status/value but cannot originate acceptance.
 - Only prepare coding handoff guidance after the plan is accepted.
 - Bound Review Focus to five inputs and pass the four-question test-authoring gate.
+- Take plan acceptance only from the answer the user gave — the response status and value the question tool returns, or the user's own reply — never from the wording of the question you asked: when the acceptance question times out, is dismissed, or returns with no answer, the plan stays unaccepted, so record no acceptance, prepare no handoff, and start nothing; a missing answer is not a refusal either, so ask again later or report the plan as awaiting acceptance.
 
 Handoff policy:
 

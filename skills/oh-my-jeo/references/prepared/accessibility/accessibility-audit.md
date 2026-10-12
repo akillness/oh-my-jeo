@@ -76,7 +76,7 @@ Keep accessibility scope, WCAG mapping, focus-flow expectations, screen-reader s
 - SHA256: `90c554f1ed3cd2522c4c678f39de9a4aac8080c41c9ba9ffb0a3e1d712b3dca3`
 
 ## Method references
-- `omh-accessibility-audit/references/a11y-rules.md` (pinned `skills/omh-accessibility-audit/references/a11y-rules.md`)
+- `accessibility-audit/omh-accessibility-audit/references/a11y-rules.md` (pinned `skills/omh-accessibility-audit/references/a11y-rules.md`)
 
 ## Source gaps
 - None declared

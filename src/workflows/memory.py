@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
+import stat
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -29,6 +32,15 @@ PROJECT_MEMORY_REVIEW_CARD_SCHEMA_VERSION = "project_memory_review_card/v1"
 PROJECT_MEMORY_REVIEW_QUEUE_SCHEMA_VERSION = "project_memory_review_queue/v1"
 PROJECT_MEMORY_REVIEW_RECORD_SCHEMA_VERSION = "project_memory_review_record/v1"
 PROJECT_MEMORY_RECALL_PACK_SCHEMA_VERSION = "project_memory_recall_pack/v1"
+_PROJECT_MEMORY_RECORD_SCHEMAS = frozenset({PROJECT_MEMORY_RECORD_SCHEMA_VERSION, "project_memory_record/v2", "project_memory_record/v3"})
+_PROJECT_MEMORY_CANDIDATE_SCHEMAS = frozenset({PROJECT_MEMORY_CANDIDATE_SCHEMA_VERSION, "project_memory_candidate/v2"})
+_APPROVED_MEMORY_STATES = frozenset({"approved", "approved_manual", "approved_auto_safe", "auto-safe"})
+_REFUSED_MEMORY_STATES = frozenset({"pending_review", "rejected", "blocked", "expired", "superseded", "retired", "archived"})
+MAX_MEMORY_JSON_BYTES = 1_000_000
+_MAX_MEMORY_JSON_DEPTH = 1000
+MAX_MEMORY_SCAN_FILES = 4096
+_MEMORY_STATUS_LABELS = _APPROVED_MEMORY_STATES | _REFUSED_MEMORY_STATES | {"blocked_review_required"}
+_MEMORY_SCAN_ERRORS = frozenset({"symlink_directory", "symlink_path", "nonregular_file", "unreadable_directory", "unreadable_file", "corrupt_json", "file_budget_exceeded", "scan_budget_exceeded", "unsupported_record_schema", "duplicate_record"})
 
 SOURCE_TRUTH_LEVELS = {
     "runtime_evidence": "observed_evidence",
@@ -181,7 +193,7 @@ def build_project_memory_status(paths: OmjPaths) -> dict[str, object]:
     reviews = _read_project_memory_reviews(paths)
     candidate_status_counts: dict[str, int] = {}
     for candidate in candidates:
-        status = str(candidate.get("status", "unknown"))
+        status = _memory_status_label(candidate.get("status"))
         candidate_status_counts[status] = candidate_status_counts.get(status, 0) + 1
     return {
         "schema_version": PROJECT_MEMORY_STATUS_SCHEMA_VERSION,
@@ -325,7 +337,15 @@ def build_project_memory_review(
     if candidate_id:
         candidates = [candidate for candidate in candidates if candidate.get("candidate_id") == candidate_id]
     else:
-        candidates = [candidate for candidate in candidates if str(candidate.get("status", "")) in {"pending_review", "blocked_review_required"}]
+        candidates = [
+            candidate
+            for candidate in candidates
+            if str(candidate.get("status", "")) in {"pending_review", "blocked_review_required"}
+            or (
+                isinstance(candidate.get("admission"), dict)
+                and str(candidate["admission"].get("state", "")) == "pending_review"
+            )
+        ]
     cards = [build_project_memory_review_card(candidate) for candidate in candidates[: max(limit, 0)]]
     return {
         "schema_version": PROJECT_MEMORY_REVIEW_QUEUE_SCHEMA_VERSION,
@@ -349,6 +369,7 @@ def build_project_memory_review_card(candidate: dict[str, Any]) -> dict[str, obj
         "summary": str(candidate.get("summary", "")),
         "scope": _normalize_scope(candidate.get("scope", _scope("project", "default"))),
         "tags": _string_list(candidate.get("tags", [])),
+        "lifecycle": str(candidate.get("lifecycle", "") or "capture"),
         "safety": safety,
         "recommended_action": recommended_action,
         "actions": [
@@ -371,6 +392,61 @@ def approve_project_memory_candidate(paths: OmjPaths, candidate_id: str, *, appr
     safety = candidate.get("safety", {}) if isinstance(candidate.get("safety"), dict) else {}
     if safety.get("status") == "blocked":
         raise ValueError("blocked memory candidates must be rejected or recaptured without protected raw content")
+    if str(candidate.get("status", "")) == "approved":
+        record_id = str(candidate.get("record_id", ""))
+        revision = candidate.get("revision", candidate.get("candidate_revision"))
+        current = _read_project_memory_records(paths)
+        active = next(
+            (
+                row
+                for row in current
+                if row.get("record_id") == record_id and (revision is None or row.get("revision", 1) == revision)
+            ),
+            None,
+        )
+        if active is not None:
+            return {
+                "schema_version": PROJECT_MEMORY_REVIEW_RECORD_SCHEMA_VERSION,
+                "decision": "approved",
+                "candidate": candidate,
+                "record": active,
+                "review": {},
+                "claim_boundary": "Approved project memory is prepared context only; it is not execution, review, CI, merge, or Hermes internal-memory evidence.",
+            }
+        raise ValueError("candidate_already_approved")
+    lifecycle = str(candidate.get("lifecycle", ""))
+    if lifecycle in {"correction", "restore"}:
+        from .memory_lifecycle import apply_memory_reapproval, build_memory_reapproval, make_lifecycle_receipt
+        from .memory_lifecycle import LifecyclePlan
+
+        def executor(local_paths: OmjPaths, plan: LifecyclePlan) -> dict[str, object]:
+            outcomes: list[dict[str, object]] = []
+            for mutation in plan.mutations:
+                target = local_paths.memory_dir / mutation.target
+                _assert_under_memory_root(local_paths, target)
+                if mutation.action == "write" and isinstance(mutation.payload, dict):
+                    atomic_write_json(target, dict(mutation.payload), private=True)
+                    outcome = "written"
+                elif mutation.action == "move" and mutation.source:
+                    source = local_paths.memory_dir / mutation.source
+                    _assert_under_memory_root(local_paths, source)
+                    if not source.is_file() or source.is_symlink():
+                        raise FileNotFoundError(str(source))
+                    ensure_dir(target.parent, private=True)
+                    source.replace(target)
+                    outcome = "moved"
+                else:
+                    raise ValueError("unsupported_lifecycle_mutation")
+                outcomes.append({"target_id": mutation.target_id, "artifact_kind": mutation.artifact_kind, "outcome": outcome, "reason_code": "applied"})
+            return {"receipt": make_lifecycle_receipt(plan, outcomes)}
+
+        plan = build_memory_reapproval(paths, candidate_id, reviewer_claim=approved_by, now=datetime.now(timezone.utc))
+        if not plan.report.get("eligible"):
+            raise ValueError(str(plan.report.get("reason_code", "operation_rejected")))
+        result = apply_memory_reapproval(paths, plan, transaction_executor=executor)
+        record = next((row for row in _read_project_memory_records(paths) if row.get("record_id") == plan.record_id and row.get("revision") == plan.revision), {})
+        updated = _read_project_memory_candidate(paths, candidate_id) or candidate
+        return {"schema_version": PROJECT_MEMORY_REVIEW_RECORD_SCHEMA_VERSION, "decision": "approved", "candidate": updated, "record": record, "review": {}, "apply": result, "claim_boundary": "Approved project memory is prepared context only; it is not execution, review, CI, merge, or Hermes internal-memory evidence."}
     now = utc_now()
     record = _record_from_candidate(candidate, approved_by=approved_by, approved_at=now)
     _write_project_memory_record(paths, record)
@@ -442,30 +518,39 @@ def build_project_memory_recall_pack(
             scope_ref=scope_ref,
             reason="project_memory_disabled",
         )
-    records = _read_project_memory_records(paths)
+    scan = scan_governed_memory(paths, now=datetime.now(timezone.utc), limit=None)
     included: list[dict[str, object]] = []
     excluded: list[dict[str, object]] = []
-    for record in records:
-        if not _record_scope_matches(record, scope_kind=scope_kind, scope_ref=scope_ref):
+    safe_rows = {
+        str(row.get("id", "")): row
+        for row in scan.get("records", [])
+        if isinstance(row, dict) and str(row.get("id", ""))
+    }
+    for finding in scan.get("findings", []):
+        if not isinstance(finding, dict) or finding.get("kind") != "record":
             continue
-        staleness = _record_staleness(record)
-        if staleness["state"] == "expired":
-            excluded.append({"record_id": str(record.get("record_id", "")), "reason": "expired", "staleness": staleness})
+        record_id = str(finding.get("id", ""))
+        scope = safe_rows.get(record_id, {}).get("scope") if record_id else None
+        if scope and not _record_scope_matches({"scope": scope}, scope_kind=scope_kind, scope_ref=scope_ref):
             continue
-        if staleness["state"] == "stale" and not include_stale:
+        metadata = finding.get("metadata") if isinstance(finding.get("metadata"), dict) else {}
+        staleness = metadata.get("staleness") if isinstance(metadata.get("staleness"), dict) else {"state": "not_checked"}
+        excluded.append({"record_id": record_id, "reason": str(finding.get("diagnostic", "unreadable_record")), "staleness": staleness})
+    for eligible_row in scan.get("eligible", []):
+        if not isinstance(eligible_row, dict):
+            continue
+        record = eligible_row.get("record")
+        if not isinstance(record, dict) or not _record_scope_matches(record, scope_kind=scope_kind, scope_ref=scope_ref):
+            continue
+        metadata = eligible_row.get("metadata") if isinstance(eligible_row.get("metadata"), dict) else {}
+        staleness = metadata.get("staleness") if isinstance(metadata.get("staleness"), dict) else _record_staleness(record)
+        if staleness.get("state") == "stale" and not include_stale:
             excluded.append({"record_id": str(record.get("record_id", "")), "reason": "stale", "staleness": staleness})
             continue
         score = _memory_recall_score(record, query)
         if query and score <= 0:
             excluded.append({"record_id": str(record.get("record_id", "")), "reason": "no_query_overlap", "staleness": staleness})
             continue
-        # Failure-first: a query-relevant failed_attempt is a dead end the next run
-        # must not repeat, so it is surfaced ahead of everything else -- but ONLY when
-        # the query actually hits it (real token/tag overlap, never the unqueried or
-        # no-indexable-token score of 1). An unrelated dead end never crowds out relevant
-        # context. Ported from jeo-code memory.ts priorityOrder: resurfacing a known
-        # failure is higher-leverage than reinforcing what already works ("close the
-        # gaps, don't just polish strengths").
         failure_first = bool(query.strip()) and str(record.get("record_type", "")) == "failed_attempt" and score > 1
         included.append(_recall_item(record, score=score, staleness=staleness, failure_first=failure_first))
     included.sort(
@@ -826,7 +911,7 @@ def _build_project_memory_candidate(
     scope = _scope_for_project_memory(scope_kind, scope_ref)
     normalized_tags = _normalize_tags(tags)
     content_text = str(content or "")
-    safety = _project_memory_safety(summary, content_text, tags=normalized_tags)
+    safety = _project_memory_safety(summary, content_text, tags=normalized_tags, source=source, record_type=normalized_type)
     now = utc_now()
     ttl = _ttl_metadata(ttl_days, record_type=normalized_type, created_at=now)
     staleness = _staleness_metadata(stale_after_days, record_type=normalized_type, created_at=now)
@@ -839,11 +924,15 @@ def _build_project_memory_candidate(
         "tags": normalized_tags,
     }
     candidate_id = "cand_" + hashlib.sha256(_jsonish(candidate_basis).encode("utf-8")).hexdigest()[:16]
-    status = "blocked_review_required" if safety["status"] == "blocked" else "pending_review"
+    blocked = safety["status"] == "blocked"
+    status = "blocked_review_required" if blocked else "pending_review"
+    admission_reason = "safety_blocked" if blocked else "operator_review_required"
+    lifecycle = "correction" if normalized_type == "correction" else ("restore" if normalized_type == "restore" else "capture")
     return {
         "schema_version": PROJECT_MEMORY_CANDIDATE_SCHEMA_VERSION,
         "candidate_id": candidate_id,
         "status": status,
+        "lifecycle": lifecycle,
         "record_type": normalized_type,
         "summary": _redact(summary.strip())[:500],
         "scope": scope,
@@ -853,6 +942,7 @@ def _build_project_memory_candidate(
         "created_at": now,
         "ttl": ttl,
         "staleness": staleness,
+        "admission": {"state": status, "reason": admission_reason},
         "content_ref": {
             "sha256": hashlib.sha256(content_text.encode("utf-8")).hexdigest() if content_text else "",
             "length": len(content_text),
@@ -971,6 +1061,8 @@ def _memory_recall_score(record: dict[str, Any], query: str) -> int:
             [
                 str(record.get("summary", "")),
                 str(record.get("record_type", "")),
+                str(record.get("source", "")),
+                str(record.get("source_ref", "")),
                 " ".join(_normalize_tags(record.get("tags", []))),
             ]
         )
@@ -1015,17 +1107,20 @@ def _record_scope_matches(record: dict[str, Any], *, scope_kind: str | None, sco
     return (not scope_kind or scope["kind"] == scope_kind) and (not scope_ref or scope["ref"] == scope_ref)
 
 
-def _record_staleness(record: dict[str, Any]) -> dict[str, object]:
-    now = datetime.now(timezone.utc)
+def _record_staleness(record: dict[str, Any], *, now: datetime | None = None) -> dict[str, object]:
+    current_time = now or datetime.now(timezone.utc)
     ttl = record.get("ttl", {}) if isinstance(record.get("ttl"), dict) else {}
-    expires_at = _parse_utc(str(ttl.get("expires_at", "") or ""))
-    if expires_at and expires_at <= now:
-        return {"state": "expired", "expires_at": str(ttl.get("expires_at", ""))}
+    retention = record.get("retention", {}) if isinstance(record.get("retention"), dict) else {}
+    expires_text = str(ttl.get("expires_at") or record.get("expires_at") or retention.get("expires_at") or "")
+    expires_at = _parse_utc(expires_text)
+    if expires_at and expires_at <= current_time:
+        return {"state": "expired", "expires_at": expires_text}
     staleness = record.get("staleness", {}) if isinstance(record.get("staleness"), dict) else {}
-    stale_after = _parse_utc(str(staleness.get("stale_after", "") or ""))
-    if stale_after and stale_after <= now:
-        return {"state": "stale", "stale_after": str(staleness.get("stale_after", ""))}
-    return {"state": "fresh", "stale_after": str(staleness.get("stale_after", "")), "expires_at": str(ttl.get("expires_at", ""))}
+    stale_text = str(staleness.get("stale_after") or staleness.get("review_due_at") or record.get("review_due_at") or "")
+    stale_after = _parse_utc(stale_text)
+    if stale_after and stale_after <= current_time:
+        return {"state": "stale", "stale_after": stale_text}
+    return {"state": "fresh", "stale_after": stale_text, "expires_at": expires_text}
 
 
 _EN_QUANTITY = (
@@ -1078,9 +1173,28 @@ _FRENCH_TEMPORARY_PATTERNS = (
     re.compile(r"\b(?:workaround|contournement|correctif|solution|fix|hack|bricolage|rustine|patch)\s+(?:provisoire|temporaire)"),
     re.compile(r"\bcontournement\s+en\s+attendant"),
 )
+# Instruction cues refuse unattended facts, not reviewed operator text or
+# procedural descriptions. Decorative emoji alone is not an instruction.
+_UNTRUSTED_CANDIDATE_SOURCES = frozenset({"automatic", "model", "hermes_model"})
+_ENGLISH_INSTRUCTION_INJECTION_PATTERN = re.compile(
+    r"\bignore\s+(?:all\s+|any\s+|previous\s+|prior\s+)*instructions\b", re.IGNORECASE
+)
+_ENGLISH_SECOND_PERSON_MODAL_PATTERN = re.compile(
+    r"(?:^|[.!?;\n]\s*)(?:please\s+)?you\s+(?:must|should|need\s+to|have\s+to|ought\s+to|shall)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+_KOREAN_REQUEST_ENDINGS = ("해줘요", "해줘", "해 줘", "해주세요", "해 주세요", "하세요", "해라", "하십시오", "하라", "하시오")
+_KOREAN_REQUEST_ENDING_PATTERN = re.compile("|".join(re.escape(ending) for ending in _KOREAN_REQUEST_ENDINGS))
+_KOREAN_REQUEST_GREETINGS = ("안녕하세요", "수고하세요", "고생하세요")
+_INSTRUCTION_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff"))
+# Invisible characters may split a word or stand in for a word separator.
+_INSTRUCTION_WORD_SEPARATORS = dict.fromkeys(_INSTRUCTION_ZERO_WIDTH, " ")
+_INSTRUCTION_SENTENCE_END = frozenset(".!?。！？")
+_INSTRUCTION_EMOJI_MARKS = frozenset("\ufe0e\ufe0f\u20e3")
+_INSTRUCTION_KEYCAP_PATTERN = re.compile("[0-9#*]\ufe0f?\u20e3")
 
 
-def _project_memory_safety(summary: str, content: str, *, tags: list[str]) -> dict[str, object]:
+def _project_memory_safety(summary: str, content: str, *, tags: list[str], source: str = "", record_type: str = "fact") -> dict[str, object]:
     text = "\n".join([summary, content, " ".join(tags)])
     folded_text = _folded_text(text)
     reasons: list[str] = []
@@ -1108,6 +1222,34 @@ def _project_memory_safety(summary: str, content: str, *, tags: list[str]) -> di
         reasons.append("relative_time_phrase")
     if len(content) > 2400:
         reasons.append("long_content_requires_review")
+    if record_type == "fact" and str(source or "").strip().lower() in _UNTRUSTED_CANDIDATE_SOURCES:
+        normalized_instruction_text = unicodedata.normalize("NFKC", text)
+        instruction_text = normalized_instruction_text.translate(_INSTRUCTION_ZERO_WIDTH)
+        if (
+            _ENGLISH_INSTRUCTION_INJECTION_PATTERN.search(instruction_text)
+            or _ENGLISH_SECOND_PERSON_MODAL_PATTERN.search(instruction_text.lstrip())
+            or (
+                instruction_text != normalized_instruction_text
+                and _ENGLISH_SECOND_PERSON_MODAL_PATTERN.search(normalized_instruction_text.translate(_INSTRUCTION_WORD_SEPARATORS).lstrip())
+            )
+        ):
+            blocked = True
+            reasons.append("automatic_source_instruction_shaped_text")
+        for match in _KOREAN_REQUEST_ENDING_PATTERN.finditer(instruction_text):
+            if instruction_text[:match.end()].endswith(_KOREAN_REQUEST_GREETINGS):
+                continue
+            rest = _INSTRUCTION_KEYCAP_PATTERN.sub("", instruction_text[match.end():])
+            closers = 0
+            while closers < len(rest) and (
+                rest[closers].isspace()
+                or rest[closers] in _INSTRUCTION_EMOJI_MARKS
+                or unicodedata.category(rest[closers])[0] in "PS"
+            ):
+                closers += 1
+            if closers == len(rest) or _INSTRUCTION_SENTENCE_END.intersection(rest[:closers]):
+                blocked = True
+                reasons.append("automatic_source_korean_imperative_text")
+                break
     status = "blocked" if blocked else "needs_review" if reasons else "safe"
     return {
         "schema_version": "project_memory_safety/v1",
@@ -1148,9 +1290,13 @@ def _ttl_metadata(ttl_days: int | None, *, record_type: str, created_at: str) ->
 
 def _staleness_metadata(stale_after_days: int | None, *, record_type: str, created_at: str) -> dict[str, object]:
     default_days = 90 if record_type in {"fact", "decision", "lesson", "procedure", "failed_attempt"} and stale_after_days is None else stale_after_days
+    stale_after = _days_after(created_at, default_days) if default_days else ""
     return {
         "stale_after_days": default_days,
-        "stale_after": _days_after(created_at, default_days) if default_days else "",
+        "stale_after": stale_after,
+        # Ordinary confirmation (see workflows.memory_lifecycle.build_memory_confirmation)
+        # renews this deadline in place without bumping the revision.
+        "review_due_at": stale_after,
     }
 
 
@@ -1224,12 +1370,246 @@ def _read_project_memory_candidates(paths: OmjPaths) -> list[dict[str, Any]]:
     return _read_memory_json_files(paths, _memory_candidates_dir(paths))
 
 
-def _read_project_memory_records(paths: OmjPaths) -> list[dict[str, Any]]:
-    records = []
+def _read_project_memory_records(paths: OmjPaths, *, approved_only: bool = True) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
     for record in _read_memory_json_files(paths, _memory_records_dir(paths)):
-        if record.get("schema_version") == PROJECT_MEMORY_RECORD_SCHEMA_VERSION and record.get("review_status") == "approved":
+        if str(record.get("schema_version", "")) not in _PROJECT_MEMORY_RECORD_SCHEMAS:
+            continue
+        if not approved_only:
+            records.append(record)
+            continue
+        admission = record.get("admission") if isinstance(record.get("admission"), dict) else {}
+        state = str(admission.get("state") or record.get("admission_state") or record.get("review_status") or "")
+        if state in _APPROVED_MEMORY_STATES:
             records.append(record)
     return records
+
+
+def _record_eligibility(record: dict[str, Any], *, now: datetime | None = None, paths: OmjPaths | None = None) -> tuple[str, dict[str, object]]:
+    from .memory_lifecycle import lifecycle_replay_status
+
+    if str(record.get("schema_version", "")) not in _PROJECT_MEMORY_RECORD_SCHEMAS:
+        return "unsupported_record_schema", {}
+    moment = now or datetime.now(timezone.utc)
+    replay = lifecycle_replay_status(record, now=moment, paths=paths, include_stale=True)
+    reason = str(replay["reason_code"])
+    staleness = _record_staleness(record, now=moment)
+    if reason.startswith("expired_"):
+        staleness["state"] = "expired"
+    elif reason == "stale_review_required":
+        staleness["state"] = "stale"
+    metadata: dict[str, object] = {"staleness": staleness, "governance": replay}
+    if replay["replay_eligible"]:
+        return "eligible", metadata
+    if reason.startswith("expired_"):
+        return "expired", metadata
+    return {"unreadable_expiry": "malformed_ttl", "source_unreadable": "unreadable_source", "review_required": "not_approved"}.get(reason, reason), metadata
+
+
+def _memory_status_label(value: object) -> str:
+    return value if isinstance(value, str) and value in _MEMORY_STATUS_LABELS else "(other)"
+
+
+def _memory_admission_state(record: dict[str, Any]) -> str:
+    admission = record.get("admission")
+    if isinstance(admission, dict) and "state" in admission:
+        state = admission["state"]
+    else:
+        state = record.get("admission_state", record.get("review_status", ""))
+    normalized = {"approved": "approved_manual", "auto-safe": "approved_auto_safe", "blocked_review_required": "blocked"}.get(state, state) if isinstance(state, str) else "other"
+    return normalized if normalized in {"approved_manual", "approved_auto_safe"} | _REFUSED_MEMORY_STATES else "other"
+
+
+def _bounded_memory_inventory(directory: Path, *, max_entries: int) -> tuple[list[Path], str, int]:
+    if directory.is_symlink() or directory.parent.is_symlink():
+        return [], "symlink_directory", 0
+    descriptor = None
+    files: list[Path] = []
+    scanned = 0
+    try:
+        descriptor = os.open(directory, os.O_RDONLY | os.O_NONBLOCK | os.O_DIRECTORY | os.O_NOFOLLOW)
+        with os.scandir(descriptor) as entries:
+            for entry in entries:
+                if scanned >= max_entries:
+                    return sorted(files), "scan_budget_exceeded", scanned
+                scanned += 1
+                if entry.name.endswith(".json"):
+                    files.append(directory / entry.name)
+    except FileNotFoundError:
+        return [], "absent", 0
+    except OSError:
+        return [], "unreadable_directory", scanned
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    return sorted(files), "read", scanned
+
+
+def _read_bounded_memory_json(path: Path) -> tuple[dict[str, Any] | None, str, int]:
+    if path.is_symlink() or path.parent.is_symlink() or path.parent.parent.is_symlink():
+        return None, "symlink_path", 0
+    descriptor = None
+    parent_descriptor = None
+    consumed = 0
+    try:
+        parent_descriptor = os.open(path.parent, os.O_RDONLY | os.O_NONBLOCK | os.O_DIRECTORY | os.O_NOFOLLOW)
+        descriptor = os.open(path.name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=parent_descriptor)
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            return None, "nonregular_file", 0
+        if info.st_size > MAX_MEMORY_JSON_BYTES:
+            return None, "file_budget_exceeded", 0
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = None
+            raw = stream.read(MAX_MEMORY_JSON_BYTES + 1)
+        consumed = len(raw)
+        if consumed > MAX_MEMORY_JSON_BYTES:
+            return None, "file_budget_exceeded", consumed
+        parsed = json.loads(raw.decode("utf-8"))
+        if not isinstance(parsed, dict):
+            return None, "unsupported_record_schema", consumed
+        # Refuse deep input consistently across JSON decoder recursion limits.
+        containers = [iter((parsed,))]
+        while containers:
+            try:
+                value = next(containers[-1])
+            except StopIteration:
+                containers.pop()
+                continue
+            if isinstance(value, (dict, list)):
+                if len(containers) > _MAX_MEMORY_JSON_DEPTH:
+                    return None, "corrupt_json", consumed
+                containers.append(iter(value.values() if isinstance(value, dict) else value))
+        return parsed, "", consumed
+    except (ValueError, UnicodeError, RecursionError):
+        return None, "corrupt_json", consumed
+    except OSError:
+        return None, "unreadable_file", consumed
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if parent_descriptor is not None:
+            os.close(parent_descriptor)
+
+
+def scan_governed_memory(
+    paths: OmjPaths,
+    *,
+    query: str | None = None,
+    source: str | None = None,
+    now: datetime | None = None,
+    limit: int | None = None,
+) -> dict[str, object]:
+    """Read bounded regular files; refusals never establish a complete zero."""
+    from .memory_provenance import _redact_metadata
+
+    root = paths.memory_dir
+    findings: list[dict[str, object]] = []
+    record_refusals: list[dict[str, object]] = []
+    candidate_refusals: list[dict[str, object]] = []
+    eligible: list[dict[str, object]] = []
+    records: list[dict[str, object]] = []
+    candidates: list[dict[str, object]] = []
+    seen: dict[str, set[str]] = {"candidate": set(), "record": set()}
+    rows = entries_scanned = bytes_read = 0
+    sources: dict[str, dict[str, object]] = {}
+    for directory, kind, schemas in (
+        (root / "candidates", "candidate", _PROJECT_MEMORY_CANDIDATE_SCHEMAS),
+        (root / "records", "record", _PROJECT_MEMORY_RECORD_SCHEMAS),
+    ):
+        files, inventory_state, inspected = _bounded_memory_inventory(directory, max_entries=MAX_MEMORY_SCAN_FILES - entries_scanned)
+        entries_scanned += inspected
+        source_findings: list[dict[str, object]] = []
+        source_rows = source_bytes = 0
+        refusal_bucket = record_refusals if kind == "record" else candidate_refusals
+        if inventory_state not in {"read", "absent"}:
+            source_findings.append({"path": _redact_metadata(str(directory)), "kind": kind, "diagnostic": inventory_state})
+        for path in files:
+            rows += 1
+            source_rows += 1
+            parsed, error, consumed = _read_bounded_memory_json(path)
+            bytes_read += consumed
+            source_bytes += consumed
+            if error or parsed is None:
+                source_findings.append({"path": _redact_metadata(str(path)), "kind": kind, "diagnostic": error or "corrupt_json"})
+                continue
+            schema = str(parsed.get("schema_version", ""))
+            identity = str(parsed.get("candidate_id" if kind == "candidate" else "record_id", ""))
+            state = _memory_admission_state(parsed)
+            scope = _normalize_scope(parsed.get("scope", _scope("project", "default")))
+            safe_row = {
+                "schema_version": schema if schema in schemas else "unsupported",
+                "id": _redact_metadata(identity),
+                "source": _redact_metadata(parsed.get("source", "")),
+                "review_status": _memory_status_label(parsed.get("review_status")),
+                "admission": {"state": state},
+                "admission_state": state,
+                "admitted": schema in schemas and state in {"approved_manual", "approved_auto_safe"},
+                "status": _memory_status_label(parsed.get("status")),
+                "created_at": _redact_metadata(parsed.get("created_at", "")),
+                "scope": {key: _redact_metadata(value) for key, value in scope.items()},
+            }
+            (candidates if kind == "candidate" else records).append(safe_row)
+            if schema not in schemas:
+                source_findings.append({"path": _redact_metadata(str(path)), "kind": kind, "diagnostic": "unsupported_record_schema", "id": _redact_metadata(identity)})
+                continue
+            duplicate = bool(identity and identity in seen[kind])
+            if identity:
+                seen[kind].add(identity)
+            if duplicate:
+                safe_row["admitted"] = False
+                source_findings.append({"path": _redact_metadata(str(path)), "kind": kind, "diagnostic": "duplicate_record", "id": _redact_metadata(identity)})
+                continue
+            if kind == "candidate":
+                if str(parsed.get("status", "")) in {"pending_review", "blocked_review_required"} or state == "pending_review":
+                    source_findings.append({"path": _redact_metadata(str(path)), "kind": kind, "diagnostic": "pending_review", "id": _redact_metadata(identity)})
+                continue
+            if source and str(parsed.get("source", "")) != source:
+                continue
+            eligibility, metadata = _record_eligibility(parsed, now=now, paths=paths)
+            if eligibility == "eligible":
+                if not query or _memory_recall_score(parsed, query) > 0:
+                    eligible.append({"record": parsed, "eligibility": eligibility, "metadata": metadata})
+            else:
+                source_findings.append({"path": _redact_metadata(str(path)), "kind": kind, "diagnostic": eligibility, "id": _redact_metadata(identity), "metadata": metadata})
+        findings.extend(source_findings)
+        refusal_bucket.extend(source_findings)
+        read_errors = [item for item in source_findings if item.get("diagnostic") in _MEMORY_SCAN_ERRORS]
+        source_complete = not read_errors
+        if any(item.get("diagnostic") in {"scan_budget_exceeded", "file_budget_exceeded"} for item in read_errors):
+            read_state = "budget_exceeded"
+        elif read_errors:
+            read_state = "partial" if source_rows else "refused"
+        else:
+            read_state = inventory_state
+        sources[directory.name] = {"read_state": read_state, "complete": source_complete, "entries_scanned": inspected, "files_inspected": source_rows, "bytes_read": source_bytes}
+    eligible.sort(key=lambda item: str(item.get("record", {}).get("record_id", "")))
+    if limit is not None:
+        eligible = eligible[: max(0, int(limit))]
+    errors = [item for item in findings if item.get("diagnostic") in _MEMORY_SCAN_ERRORS]
+    complete = not errors
+    limit_reached = any(item.get("diagnostic") in {"scan_budget_exceeded", "file_budget_exceeded"} for item in errors)
+    state = "budget_exceeded" if limit_reached else "partial" if errors and rows else "refused" if errors else "absent" if all(item["read_state"] == "absent" for item in sources.values()) else "read"
+    return {
+        "schema_version": "omj_memory_governed_scan/v1",
+        "rows": rows,
+        "records": records,
+        "candidates": candidates,
+        "eligible": eligible,
+        "findings": findings,
+        "record_refusals": record_refusals,
+        "candidate_refusals": candidate_refusals,
+        "errors": errors,
+        "read_state": state,
+        "complete": complete,
+        "limit_reached": limit_reached,
+        "sources": sources,
+        "budget": {"max_files": MAX_MEMORY_SCAN_FILES, "files_inspected": rows, "entries_scanned": entries_scanned, "max_file_bytes": MAX_MEMORY_JSON_BYTES, "bytes_read": bytes_read, "complete": complete},
+        "counts": {"eligible": len(eligible), "records": len(records), "admitted_records": sum(bool(row["admitted"]) for row in records), "candidates": len(candidates), "findings": len(findings), "rows": rows},
+        "query": bool(query),
+        "source": _redact_metadata(source or ""),
+        "claim_boundary": "Read-only metadata diagnostics; no native memory provider, journal, raw payload or deletion authority.",
+    }
 
 
 def _read_project_memory_reviews(paths: OmjPaths) -> list[dict[str, Any]]:
@@ -1251,16 +1631,22 @@ def _read_memory_json_files(paths: OmjPaths, directory: Path) -> list[dict[str, 
 
 
 def _write_project_memory_candidate(paths: OmjPaths, candidate: dict[str, object]) -> None:
-    path = _memory_candidate_path(paths, str(candidate.get("candidate_id", "")))
-    atomic_write_json(path, candidate, private=True)
-    _write_memory_index(paths)
+    from .memory_lifecycle import memory_lifecycle_lock
+
+    with memory_lifecycle_lock(paths):
+        path = _memory_candidate_path(paths, str(candidate.get("candidate_id", "")))
+        atomic_write_json(path, candidate, private=True)
+        _write_memory_index(paths)
 
 
 def _write_project_memory_record(paths: OmjPaths, record: dict[str, object]) -> None:
+    from .memory_lifecycle import memory_lifecycle_lock
+
     errors = validate_project_memory_record(record)
     if errors:
         raise ValueError("; ".join(errors))
-    atomic_write_json(_memory_record_path(paths, str(record.get("record_id", ""))), record, private=True)
+    with memory_lifecycle_lock(paths):
+        atomic_write_json(_memory_record_path(paths, str(record.get("record_id", ""))), record, private=True)
 
 
 def validate_project_memory_record(value: Any, *, label: str = "project_memory_record") -> list[str]:

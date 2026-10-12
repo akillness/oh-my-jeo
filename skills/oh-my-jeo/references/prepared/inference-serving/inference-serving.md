@@ -62,8 +62,8 @@ Keep engine/quantization decisions, runbook preparation, and benchmark design in
 - SHA256: `40846949cfeefef13cd6029c61fb41c92e5a53c13f199a25e65609b22ec2286f`
 
 ## Method references
-- `omh-inference-serving/references/serving-bench.md` (pinned `skills/omh-inference-serving/references/serving-bench.md`)
-- `omh-inference-serving/references/serving-runbooks.md` (pinned `skills/omh-inference-serving/references/serving-runbooks.md`)
+- `inference-serving/omh-inference-serving/references/serving-bench.md` (pinned `skills/omh-inference-serving/references/serving-bench.md`)
+- `inference-serving/omh-inference-serving/references/serving-runbooks.md` (pinned `skills/omh-inference-serving/references/serving-runbooks.md`)
 
 ## Source gaps
 - None declared

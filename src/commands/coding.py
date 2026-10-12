@@ -29,6 +29,8 @@ from ..hermes_planning import (
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..installer import OmjError
 from ..memory import memory_recall_pack_for_handoff, read_handoff_context_pack_file
+from ..profiles.setup import require_enabled_workflow
+from ..routing.chat import route_chat_message
 from ..routing.intent import META_OR_FEEDBACK_INTENTS, classify_workflow_intent
 from ..routing.localization import normalized_phrase, routing_tokens
 from ..runtime.artifacts import (
@@ -97,6 +99,8 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
         else:
             message = " ".join(args.message).strip()
         source_metadata.update(_explicit_source_metadata(args))
+        route = route_chat_message(message, source=args.source, limit=args.limit)
+        require_enabled_workflow(str(route.get("selected_skill", "")), paths)
         memory_recall_pack = memory_recall_pack_for_handoff(
             paths, message, executor_target=executor_target
         )
@@ -116,6 +120,7 @@ def cmd_coding_delegate(args: argparse.Namespace) -> int:
             plan_artifact=plan_artifact,
             handoff_contract=handoff_contract,
             codegraph_context=codegraph_context,
+            paths=paths,
         )
         if graph_note is not None:
             payload["codegraph_context_not_attached"] = graph_note

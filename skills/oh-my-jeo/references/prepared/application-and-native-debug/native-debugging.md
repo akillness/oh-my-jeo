@@ -71,7 +71,7 @@ Keep the fault statement, hypothesis set, distinguishing observations, and the d
 - SHA256: `ff35522cac4f4b3f11cbbcfe15cdb4a7d8c7c644dac43b506e3c278621152cba`
 
 ## Method references
-- `omh-native-debugging/references/native-debug-loop.md` (pinned `skills/omh-native-debugging/references/native-debug-loop.md`)
+- `native-debugging/omh-native-debugging/references/native-debug-loop.md` (pinned `skills/omh-native-debugging/references/native-debug-loop.md`)
 
 ## Source gaps
 - None declared

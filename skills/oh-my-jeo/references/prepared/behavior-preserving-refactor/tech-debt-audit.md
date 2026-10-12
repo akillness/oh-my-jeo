@@ -60,7 +60,7 @@ Hermes owns the orientation, the dimension audit, and the ledger; detection comm
 - SHA256: `e8c5ce7eda593b4a824f67e3391e09dfc81ef52ab963c5e5d74c3574d9f47469`
 
 ## Method references
-- `omh-tech-debt-audit/references/debt-dimensions.md` (pinned `skills/omh-tech-debt-audit/references/debt-dimensions.md`)
+- `tech-debt-audit/omh-tech-debt-audit/references/debt-dimensions.md` (pinned `skills/omh-tech-debt-audit/references/debt-dimensions.md`)
 
 ## Source gaps
 - None declared

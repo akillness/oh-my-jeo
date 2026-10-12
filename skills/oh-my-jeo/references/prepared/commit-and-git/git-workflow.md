@@ -65,7 +65,7 @@ Keep the pushed-state inventory, the step plan, and the recovery points in Herme
 - SHA256: `0cebabc56c4a5c3442f7a7098869b766f4ed7685fdf37bcf97c2d877c1e2759b`
 
 ## Method references
-- `omh-git-workflow/references/git-repair-method.md` (pinned `skills/omh-git-workflow/references/git-repair-method.md`)
+- `git-workflow/omh-git-workflow/references/git-repair-method.md` (pinned `skills/omh-git-workflow/references/git-repair-method.md`)
 
 ## Source gaps
 - None declared

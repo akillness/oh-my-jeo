@@ -36,7 +36,8 @@ from ..harness_quality import with_wrapper_actions
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..isolation import build_isolation_plan
 from ..memory import render_memory_prompt_section, validate_handoff_context_blocked, validate_handoff_context_pack, validate_project_memory_recall_pack
-
+from ..paths import OmjPaths
+from ..profiles.setup import accepted_parallelism_policy, validate_parallelism_policy
 from ..routing.recommend import recommend_skills
 from ..skills.catalog import (
     CODING_INTENT_PRIORITY,
@@ -173,7 +174,6 @@ class CodingDelegation:
         data["verification"] = list(self.verification)
         return data
 
-
 def build_coding_delegation_payload(
     message: str,
     *,
@@ -191,6 +191,8 @@ def build_coding_delegation_payload(
     force_coding_handoff: bool = False,
     handoff_contract: Mapping[str, Any] | None = None,
     codegraph_context: Mapping[str, Any] | None = None,
+    parallelism_policy: Mapping[str, Any] | None = None,
+    paths: OmjPaths | None = None,
 ) -> dict[str, object]:
     message = message.strip()
     declared_handoff_contract = (
@@ -204,6 +206,13 @@ def build_coding_delegation_payload(
         raise ValueError(f"unsupported coding delegate executor: {executor_target}")
     if limit < 1:
         raise ValueError("coding delegate --limit must be at least 1")
+    if parallelism_policy is None and paths is not None:
+        parallelism_policy = accepted_parallelism_policy(paths)
+    validated_parallelism = (
+        validate_parallelism_policy(parallelism_policy)
+        if parallelism_policy is not None
+        else None
+    )
 
     full_recommendations = recommend_skills(message, limit=max(limit, 5), apply_guardrails=False)
     full_recommendations = _prioritize_preferred_workflow(
@@ -294,6 +303,14 @@ def build_coding_delegation_payload(
         payload["prompt_handoff"] = _prompt_handoff(selection.selected_executor_profile, delegation, isolation_plan=isolation_plan)
         _attach_context_pack(payload["prompt_handoff"], context_pack)
         _attach_memory_recall_pack(payload["prompt_handoff"], memory_recall_pack)
+    for handoff_key in ("executor_handoff", "runtime_handoff", "prompt_handoff"):
+        handoff = payload.get(handoff_key)
+        if isinstance(handoff, dict):
+            _attach_parallelism_policy(
+                handoff,
+                validated_parallelism,
+                owner=selection.selected_executor_profile,
+            )
     if declared_handoff_contract is not None:
         _attach_handoff_contract(payload, declared_handoff_contract)
     if codegraph_context is not None:
@@ -343,6 +360,32 @@ def build_coding_delegation_event_payload(
         include_message=include_message,
         source_metadata=extract_source_metadata(event),
     )
+def _attach_parallelism_policy(
+    handoff: dict[str, object],
+    policy: dict[str, Any] | None,
+    *,
+    owner: str | None,
+) -> None:
+    if not policy or not owner:
+        return
+    projected_policy = {
+        field: policy[field]
+        for field in ("default_concurrency", "global_concurrency", "lane_budget_default")
+        if field in policy
+    }
+    owner_policy: object = None
+    if owner in policy:
+        owner_policy = policy[owner]
+    else:
+        per_owner = policy.get("per_owner")
+        if isinstance(per_owner, dict):
+            owner_policy = per_owner.get(owner)
+    if isinstance(owner_policy, dict):
+        projected_policy.update(owner_policy)
+    if projected_policy:
+        handoff["parallelism_policy"] = projected_policy
+
+
 
 
 def _attach_context_pack(handoff: object, context_pack: dict[str, object] | None) -> None:

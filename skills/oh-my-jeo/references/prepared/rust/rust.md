@@ -73,8 +73,8 @@ Keep the ownership shape, error-type choice, API surface, gate list, and the UB 
 - SHA256: `8810fd2a8d52e2d4bf36b86c1921b84722fa3f01e6875562987679dcab7e86c2`
 
 ## Method references
-- `omh-rust/references/rust-discipline.md` (pinned `skills/omh-rust/references/rust-discipline.md`)
-- `omh-rust/references/ub-escalation.md` (pinned `skills/omh-rust/references/ub-escalation.md`)
+- `rust/omh-rust/references/rust-discipline.md` (pinned `skills/omh-rust/references/rust-discipline.md`)
+- `rust/omh-rust/references/ub-escalation.md` (pinned `skills/omh-rust/references/ub-escalation.md`)
 
 ## Source gaps
 - None declared

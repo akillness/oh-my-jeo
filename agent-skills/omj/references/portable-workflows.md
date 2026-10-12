@@ -1,0 +1,43 @@
+# Reviewed Portable Workflows
+
+Selection uses the host's own skill surface; this registry does not register commands or dispatch work.
+
+- [omj](../../omj/SKILL.md) — `portable`: [omj] Conservatively route explicit requests to reviewed workflows; ask when intent conflicts.
+- [omj-ralph](../../omj-ralph/SKILL.md) — `portable`: [omj] Continue concrete accepted work through implementation, verification, and review with one accountable owner.
+- [omj-ultragoal](../../omj-ultragoal/SKILL.md) — `requires-omj-cli`: [omj] Maintain durable .omj/goals ledgers, checkpoint progress, and require final evidence gates.
+- [omj-loop](../../omj-loop/SKILL.md) — `requires-omj-cli`: [omj] Cycle through interview, planning, research, building, and independent review until a real acceptance gate.
+- [omj-ultraprocess](../../omj-ultraprocess/SKILL.md) — `portable`: [omj] Carry one accepted task through source research, reviewed planning, selected implementation, review, and PR preparation.
+- [omj-deep-interview](../../omj-deep-interview/SKILL.md) — `portable`: [omj] Clarify materially ambiguous requirements one question at a time before planning or execution.
+- [omj-team](../../omj-team/SKILL.md) — `portable`: [omj] Coordinate independent work lanes with explicit ownership, verification, and integration boundaries.
+- [omj-ultrawork](../../omj-ultrawork/SKILL.md) — `requires-omj-cli`: [omj] Execute accepted disjoint lanes with dependency, red/green, ruling, and evidence-ledger discipline.
+- [omj-web-research](../../omj-web-research/SKILL.md) — `portable`: [omj] Gather current source-backed evidence with primary sources, citations, freshness, confidence, and retrieval gaps.
+- [omj-source-finder](../../omj-source-finder/SKILL.md) — `portable`: [omj] Prepare typed paper, web, dataset, repository, presentation, or document candidates and acquisition status before downstream work.
+- [omj-research-brief](../../omj-research-brief/SKILL.md) — `portable`: [omj] Scope a business question and produce source-backed research with explicit evidence and inference boundaries.
+- [omj-paper-learning](../../omj-paper-learning/SKILL.md) — `portable`: [omj] Explain a supplied paper at the selected level, section by section, preserving source grounding and a full coverage ledger.
+- [omj-strategy-brief](../../omj-strategy-brief/SKILL.md) — `portable`: [omj] Turn goals and evidence into options, tradeoffs, a recommendation, and a decision-ready brief.
+- [omj-meeting-brief](../../omj-meeting-brief/SKILL.md) — `portable`: [omj] Prepare an agenda, discussion prompts, decisions, and a meeting record template.
+- [omj-feedback-triage](../../omj-feedback-triage/SKILL.md) — `portable`: [omj] Cluster feedback, bugs, and feature requests before choosing research, planning, or an accepted coding handoff.
+- [omj-ops-review](../../omj-ops-review/SKILL.md) — `portable`: [omj] Summarize observed operating status, risks, blockers, priorities, and explicit follow-up actions.
+- [omj-operating-rhythm](../../omj-operating-rhythm/SKILL.md) — `portable`: [omj] Maintain meeting, scrum, sprint, retrospective, decision, and follow-up records with separate action-item authority.
+- [omj-report-package](../../omj-report-package/SKILL.md) — `portable`: [omj] Turn supplied inputs into a report, executive brief, slide outline, or upload package without claiming delivery.
+- [omj-materials-package](../../omj-materials-package/SKILL.md) — `portable`: [omj] Plan decks, PDFs, spreadsheets, documents, HWP, or Markdown with target formats, inputs, QA, and explicit binary-export handoffs.
+- [omj-img-summary](../../omj-img-summary/SKILL.md) — `portable`: [omj] Prepare source-specific visual prompt cards with audience, domain, poster archetype, imagery, texture, camera, and lighting; do not claim image generation.
+- [omj-automation-blueprint](../../omj-automation-blueprint/SKILL.md) — `requires-omj-cli`: [omj] Prepare recurring-operation blueprints with schedule, delivery, silence, context chain, and observed-only status; never activate scheduling implicitly.
+- [omj-reliability-review](../../omj-reliability-review/SKILL.md) — `portable`: [omj] Review incident, SLO, and error-budget evidence; prepare accepted remediation and claim closure only from observed results.
+- [omj-idea-to-deploy](../../omj-idea-to-deploy/SKILL.md) — `portable`: [omj] Shape an idea into decisions, an accepted plan, implementation handoff, verification, release, rollback, and monitoring gates.
+- [omj-cto-loop](../../omj-cto-loop/SKILL.md) — `portable`: [omj] Turn operating signals into roadmap decisions, technical tradeoffs, delivery risk, release readiness, and accepted follow-up handoffs.
+- [omj-deploy-and-monitor](../../omj-deploy-and-monitor/SKILL.md) — `portable`: [omj] Prepare release checklists, health signals, rollback criteria, and post-deploy status without claiming infrastructure execution.
+- [omj-ultraqa](../../omj-ultraqa/SKILL.md) — `portable`: [omj] Design adversarial scenarios and run bounded hypothesis, flaky-test, race, and fix-verification loops.
+- [omj-plan](../../omj-plan/SKILL.md) — `portable`: [omj] Create a structured plan with target, constraints, acceptance criteria, and explicit acceptance before implementation.
+- [omj-ralplan](../../omj-ralplan/SKILL.md) — `portable`: [omj] Compare source-backed options, architecture, risks, and validation through reviewed consensus planning before acceptance.
+- [omj-code-review](../../omj-code-review/SKILL.md) — `portable`: [omj] Review code bug-first; cite concrete evidence and separate findings from accepted fixes.
+- [omj-ai-slop-cleaner](../../omj-ai-slop-cleaner/SKILL.md) — `portable`: [omj] Scope behavior-preserving cleanup and require regression checks before and after edits.
+- [omj-best-practice-research](../../omj-best-practice-research/SKILL.md) — `portable`: [omj] Research bounded official or upstream guidance before decisions that depend on current facts.
+- [omj-autoresearch-goal](../../omj-autoresearch-goal/SKILL.md) — `portable`: [omj] Maintain validator-gated research artifacts and checkpoints without converting research into unaccepted code work.
+- [omj-performance-goal](../../omj-performance-goal/SKILL.md) — `portable`: [omj] Measure a performance baseline and evaluator-backed improvements without weakening correctness gates.
+- [omj-wiki](../../omj-wiki/SKILL.md) — `portable`: [omj] Capture durable project knowledge in source-grounded Markdown artifacts.
+- [omj-ask](../../omj-ask/SKILL.md) — `portable`: [omj] Consult an explicitly configured external advisor only when useful; evaluate advice and authorize mutations separately.
+- [omj-doctor](../../omj-doctor/SKILL.md) — `requires-omj-cli`: [omj] Inspect OMJ command, managed files, explicitly selected native registration, and runtime readiness as separate evidence boundaries.
+- [omj-memory-curation-review](../../omj-memory-curation-review/SKILL.md) — `requires-omj-cli`: [omj] Review stale, duplicate, conflicting, or unsafe memory candidates; require approval-bound revision evidence for every write.
+- [omj-deliverable-package](../../omj-deliverable-package/SKILL.md) — `portable`: [omj] Track documents and attachments through prepared, generated, QA, approved, and attached states using observed evidence.
+- [omj-agent-ops-review](../../omj-agent-ops-review/SKILL.md) — `requires-omj-cli`: [omj] Explain agent progress, blockers, gates, throughput, and bounded read-only session evidence without claiming unseen work.

@@ -64,7 +64,7 @@ Keep the control definition, sample design, evidence requests, re-performance re
 - SHA256: `7964b9b5c72d96eafef71e148d7cbac97b7b47a358a019ddd09abc4296cc3fe2`
 
 ## Method references
-- `omh-internal-audit/references/control-audit-method.md` (pinned `skills/omh-internal-audit/references/control-audit-method.md`)
+- `internal-audit/omh-internal-audit/references/control-audit-method.md` (pinned `skills/omh-internal-audit/references/control-audit-method.md`)
 
 ## Source gaps
 - None declared

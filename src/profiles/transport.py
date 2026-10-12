@@ -29,8 +29,10 @@ from .setup import (
     SETUP_PROFILE_SCHEMA_VERSION,
     read_setup_profile,
     setup_profile_choices,
+    validate_parallelism_policy,
     write_setup_profile,
 )
+from ..capabilities.families import validate_disabled_families
 from .team import operating_model_ids
 
 
@@ -86,6 +88,8 @@ _PROFILE_WRITER_FIELDS = {
     "dispatch_policy",
     "memory_mode",
     "memory_policy",
+    "parallelism_policy",
+    "capability_policy",
 }
 _MAX_PACK_BYTES = 1_000_000
 _MAX_PACK_DEPTH = 16
@@ -695,12 +699,14 @@ def apply_setup_profile_pack(
         profile.get("selected_categories")
     )
     disabled, family_reason = _accepted_families(pack.get("capability_policy"))
+    parallelism_policy, parallelism_reason = _accepted_parallelism(profile.get("parallelism_policy"))
     for field, value, reason in (
         ("default_executor", executor, executor_reason),
         ("operating_model_id", operating_model, operating_model_reason),
         ("memory_mode", memory_mode, memory_mode_reason),
         ("selected_categories", list(categories), category_reason),
         ("capability_policy.disabled_families", list(disabled), family_reason),
+        ("parallelism_policy", parallelism_policy, parallelism_reason),
     ):
         fields.append(_field_row(field, value, reason, status=status))
 
@@ -725,12 +731,16 @@ def apply_setup_profile_pack(
             "MCP host configuration remains source-bound; inspect the recipe and merge it in the host config explicitly"
         )
 
-    accepted_any = bool(
-        executor_reason == ""
-        or operating_model_reason == ""
-        or memory_mode_reason == ""
-        or category_reason == ""
-        or family_reason == ""
+    accepted_any = all(
+        reason == ""
+        for reason in (
+            executor_reason,
+            operating_model_reason,
+            memory_mode_reason,
+            category_reason,
+            family_reason,
+            parallelism_reason,
+        )
     )
     profile_after: dict[str, Any] | None = None
     if not dry_run and accepted_any:
@@ -762,6 +772,8 @@ def apply_setup_profile_pack(
                 default_executor=executor_to_write,
                 operating_model=operating_model_to_write,
                 memory_mode=memory_mode_to_write,
+                parallelism_policy=parallelism_policy,
+                capability_policy=dict(pack.get("capability_policy", {})),
             )
         except (OSError, ValueError, json.JSONDecodeError) as error:
             raise SetupProfilePackError(
@@ -850,21 +862,20 @@ def _accepted_families(policy: Any) -> tuple[tuple[str, ...], str]:
     declared = policy.get("disabled_families")
     if not isinstance(declared, list):
         return (), "the pack's capability policy declares no disabled_families list"
-    accepted: list[str] = []
-    rejected: list[str] = []
-    for item in declared:
-        text = str(item).strip()
-        if not text or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", text):
-            rejected.append(str(item))
-        else:
-            accepted.append(text)
-    if rejected:
-        return (
-            tuple(sorted(set(accepted))),
-            f"this OMJ does not accept capability family {', '.join(repr(item) for item in rejected)}",
-        )
-    return tuple(sorted(set(accepted))), ""
+    try:
+        accepted = validate_disabled_families(declared)
+    except ValueError as error:
+        return (), str(error)
+    return tuple(sorted(accepted)), ""
 
+
+def _accepted_parallelism(value: Any) -> tuple[dict[str, Any] | None, str]:
+    if value is None:
+        return None, ""
+    try:
+        return validate_parallelism_policy(value), ""
+    except ValueError as error:
+        return None, str(error)
 
 def configured_field_summary(
     profile: dict[str, Any] | None, *, capability_policy: Any = None

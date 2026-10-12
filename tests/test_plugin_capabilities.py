@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import textwrap
@@ -512,9 +513,14 @@ merge_observed=false
                 """
             )
 
+            child_env = os.environ.copy()
+            for ambient_home in ("HERMES_HOME", "OMJ_HOME"):
+                child_env.pop(ambient_home, None)
+            child_env.pop("PYTHONPATH", None)
             result = subprocess.run(
                 [sys.executable, "-S", "-c", script],
                 cwd=str(root),
+                env=child_env,
                 text=True,
                 capture_output=True,
                 check=False,

@@ -96,10 +96,10 @@ Keep the rail choices, schema shape, prompt-artifact layout, and eval design in 
 - SHA256: `744ba340ab2332d10315c350a05cc82c55371e0522038beecc2772644c54f6a3`
 
 ## Method references
-- `omh-llm-app-dev/references/build-rails.md` (pinned `skills/omh-llm-app-dev/references/build-rails.md`)
-- `omh-llm-app-dev/references/eval-harness.md` (pinned `skills/omh-llm-app-dev/references/eval-harness.md`)
-- `omh-llm-app-dev/references/public-board.md` (pinned `skills/omh-llm-app-dev/references/public-board.md`)
-- `omh-llm-app-dev/references/stateful-contracts.md` (pinned `skills/omh-llm-app-dev/references/stateful-contracts.md`)
+- `llm-app-dev/omh-llm-app-dev/references/build-rails.md` (pinned `skills/omh-llm-app-dev/references/build-rails.md`)
+- `llm-app-dev/omh-llm-app-dev/references/eval-harness.md` (pinned `skills/omh-llm-app-dev/references/eval-harness.md`)
+- `llm-app-dev/omh-llm-app-dev/references/public-board.md` (pinned `skills/omh-llm-app-dev/references/public-board.md`)
+- `llm-app-dev/omh-llm-app-dev/references/stateful-contracts.md` (pinned `skills/omh-llm-app-dev/references/stateful-contracts.md`)
 
 ## Source gaps
 - None declared

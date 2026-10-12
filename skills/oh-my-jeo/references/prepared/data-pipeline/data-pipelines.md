@@ -64,7 +64,7 @@ Keep the lineage map, schema impact, idempotency contract, replay or backfill pl
 - SHA256: `085ff980578de449585a9b2e8b9751c681d1c24513060b35c47fa1d1a23d9238`
 
 ## Method references
-- `omh-data-pipelines/references/pipeline-method.md` (pinned `skills/omh-data-pipelines/references/pipeline-method.md`)
+- `data-pipelines/omh-data-pipelines/references/pipeline-method.md` (pinned `skills/omh-data-pipelines/references/pipeline-method.md`)
 
 ## Source gaps
 - None declared

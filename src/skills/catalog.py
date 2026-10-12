@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 
 from ..harness_quality import build_harness_quality_contract, unknown_harness_quality_contract
@@ -118,6 +118,10 @@ _HANDOFF_FINAL_CHECKLIST = (
 _HANDOFF_RECOVERY_NOTES = (
     "If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.",
     "If dispatch or result evidence is missing, keep the handoff prepared_not_observed and expose the next observable action.",
+)
+
+PLAN_ACCEPTANCE_ANSWER_RULE = (
+    "Take plan acceptance only from the answer the user gave — the response status and value the question tool returns, or the user's own reply — never from the wording of the question you asked: when the acceptance question times out, is dismissed, or returns with no answer, the plan stays unaccepted, so record no acceptance, prepare no handoff, and start nothing; a missing answer is not a refusal either, so ask again later or report the plan as awaiting acceptance.",
 )
 
 _CATEGORY_FINAL_CHECKLISTS = {
@@ -2622,9 +2626,10 @@ _DEFINITIONS = [
         quality_tier="acceptance-gated",
         quality_bar=(
             "Make goals, non-goals, risks, acceptance criteria, and verification shape explicit.",
-            "Keep draft plans unapproved until a user or wrapper accepts them.",
+            "Keep draft plans unapproved until the user's actual answer accepts them; a wrapper may carry the user's answer and its response status/value but cannot originate acceptance.",
             "Only prepare coding handoff guidance after the plan is accepted.",
             "Bound Review Focus to five inputs and pass the four-question test-authoring gate.",
+            PLAN_ACCEPTANCE_ANSWER_RULE[0],
         ),
         final_checklist=(
             "The plan names current state, target state, non-goals, and the next decision boundary.",
@@ -2693,6 +2698,7 @@ _DEFINITIONS = [
             "Record unresolved tradeoffs and evidence gaps instead of flattening uncertainty.",
             "End with a selected executor/runtime handoff shape only after the plan is accepted.",
             "Do not implement directly from consensus planning.",
+            PLAN_ACCEPTANCE_ANSWER_RULE[0],
         ),
         why_this_exists="`ralplan` exists to make planning reviewable before execution: Hermes should gather codebase/source facts, compare options, expose risks, define acceptance criteria, and prepare a handoff without pretending implementation already happened.",
         do_not_use_when=(
@@ -3655,8 +3661,9 @@ _HARNESSES = [
             "Make goals, non-goals, decision drivers, options, risks, and test strategy explicit.",
             "Record at least one rejected option and why it lost before presenting the preferred path.",
             "Tie every acceptance criterion to a validation command, artifact, or explicit manual evidence gap.",
-            "Keep draft plans unapproved until a user or wrapper accepts them.",
+            "Keep draft plans unapproved until the user's actual answer accepts them; a wrapper may carry the user's answer and its response status/value but cannot originate acceptance.",
             "Prepare coding handoff guidance only after acceptance.",
+            PLAN_ACCEPTANCE_ANSWER_RULE[0],
         ),
         evidence_ladder=(
             "request_clarified",
@@ -4807,6 +4814,140 @@ def installable_skill_names() -> tuple[str, ...]:
     return tuple(definition.name for definition in installable_skill_definitions())
 
 
+# Reviewed workflow intent and dependency class, not a fallback for new entries.
+# Native catalog definitions remain the Hermes contract; portable definitions
+# translate structured fields explicitly rather than renaming native prose.
+_PORTABLE_WORKFLOWS = {
+    "oh-my-jeo": ("portable", "Conservatively route explicit requests to reviewed workflows; ask when intent conflicts."),
+    "ralph": ("portable", "Continue concrete accepted work through implementation, verification, and review with one accountable owner."),
+    "ultragoal": ("requires-omj-cli", "Maintain durable .omj/goals ledgers, checkpoint progress, and require final evidence gates."),
+    "loop": ("requires-omj-cli", "Cycle through interview, planning, research, building, and independent review until a real acceptance gate."),
+    "ultraprocess": ("portable", "Carry one accepted task through source research, reviewed planning, selected implementation, review, and PR preparation."),
+    "deep-interview": ("portable", "Clarify materially ambiguous requirements one question at a time before planning or execution."),
+    "team": ("portable", "Coordinate independent work lanes with explicit ownership, verification, and integration boundaries."),
+    "ultrawork": ("requires-omj-cli", "Execute accepted disjoint lanes with dependency, red/green, ruling, and evidence-ledger discipline."),
+    "web-research": ("portable", "Gather current source-backed evidence with primary sources, citations, freshness, confidence, and retrieval gaps."),
+    "source-finder": ("portable", "Prepare typed paper, web, dataset, repository, presentation, or document candidates and acquisition status before downstream work."),
+    "research-brief": ("portable", "Scope a business question and produce source-backed research with explicit evidence and inference boundaries."),
+    "research-department": ("hermes-only", "Compose native research profiles, scheduling, knowledge storage, synthesis tooling, and delivery readiness."),
+    "paper-learning": ("portable", "Explain a supplied paper at the selected level, section by section, preserving source grounding and a full coverage ledger."),
+    "strategy-brief": ("portable", "Turn goals and evidence into options, tradeoffs, a recommendation, and a decision-ready brief."),
+    "meeting-brief": ("portable", "Prepare an agenda, discussion prompts, decisions, and a meeting record template."),
+    "feedback-triage": ("portable", "Cluster feedback, bugs, and feature requests before choosing research, planning, or an accepted coding handoff."),
+    "ops-review": ("portable", "Summarize observed operating status, risks, blockers, priorities, and explicit follow-up actions."),
+    "operating-rhythm": ("portable", "Maintain meeting, scrum, sprint, retrospective, decision, and follow-up records with separate action-item authority."),
+    "report-package": ("portable", "Turn supplied inputs into a report, executive brief, slide outline, or upload package without claiming delivery."),
+    "materials-package": ("portable", "Plan decks, PDFs, spreadsheets, documents, HWP, or Markdown with target formats, inputs, QA, and explicit binary-export handoffs."),
+    "img-summary": ("portable", "Prepare source-specific visual prompt cards with audience, domain, poster archetype, imagery, texture, camera, and lighting; do not claim image generation."),
+    "automation-blueprint": ("requires-omj-cli", "Prepare recurring-operation blueprints with schedule, delivery, silence, context chain, and observed-only status; never activate scheduling implicitly."),
+    "reliability-review": ("portable", "Review incident, SLO, and error-budget evidence; prepare accepted remediation and claim closure only from observed results."),
+    "idea-to-deploy": ("portable", "Shape an idea into decisions, an accepted plan, implementation handoff, verification, release, rollback, and monitoring gates."),
+    "cto-loop": ("portable", "Turn operating signals into roadmap decisions, technical tradeoffs, delivery risk, release readiness, and accepted follow-up handoffs."),
+    "deploy-and-monitor": ("portable", "Prepare release checklists, health signals, rollback criteria, and post-deploy status without claiming infrastructure execution."),
+    "ultraqa": ("portable", "Design adversarial scenarios and run bounded hypothesis, flaky-test, race, and fix-verification loops."),
+    "plan": ("portable", "Create a structured plan with target, constraints, acceptance criteria, and explicit acceptance before implementation."),
+    "ralplan": ("portable", "Compare source-backed options, architecture, risks, and validation through reviewed consensus planning before acceptance."),
+    "code-review": ("portable", "Review code bug-first; cite concrete evidence and separate findings from accepted fixes."),
+    "ai-slop-cleaner": ("portable", "Scope behavior-preserving cleanup and require regression checks before and after edits."),
+    "best-practice-research": ("portable", "Research bounded official or upstream guidance before decisions that depend on current facts."),
+    "autoresearch-goal": ("portable", "Maintain validator-gated research artifacts and checkpoints without converting research into unaccepted code work."),
+    "performance-goal": ("portable", "Measure a performance baseline and evaluator-backed improvements without weakening correctness gates."),
+    "wiki": ("portable", "Capture durable project knowledge in source-grounded Markdown artifacts."),
+    "ask": ("portable", "Consult an explicitly configured external advisor only when useful; evaluate advice and authorize mutations separately."),
+    "cancel": ("hermes-only", "Cancel native workflow and runtime state through its owning runtime."),
+    "skill": ("hermes-only", "Manage the native skill inventory and its runtime-specific loading and installation surface."),
+    "doctor": ("requires-omj-cli", "Inspect OMJ command, managed files, explicitly selected native registration, and runtime readiness as separate evidence boundaries."),
+    "memory-curation-review": ("requires-omj-cli", "Review stale, duplicate, conflicting, or unsafe memory candidates; require approval-bound revision evidence for every write."),
+    "deliverable-package": ("portable", "Track documents and attachments through prepared, generated, QA, approved, and attached states using observed evidence."),
+    "agent-ops-review": ("requires-omj-cli", "Explain agent progress, blockers, gates, throughput, and bounded read-only session evidence without claiming unseen work."),
+    "workflow-learning": ("hermes-only", "Review native workflow traces and missed routes before promoting approved learning into native managed guidance."),
+}
+
+
+def portability_for_skill(name: str) -> str:
+    try:
+        return _PORTABLE_WORKFLOWS[name][0]
+    except KeyError as exc:
+        raise ValueError(f"Unreviewed Agent Skills portability: {name}") from exc
+
+
+def portable_skill_names() -> tuple[str, ...]:
+    return tuple(name for name in installable_skill_names() if portability_for_skill(name) != "hermes-only")
+
+
+_PORTABLE_FIELD_OVERRIDES = {
+    "Hermes home": "explicitly selected native source home, only when its inspection is requested",
+    "Hermes skill discovery context": "host-provided installed skill descriptions",
+    "Do not imply hidden Hermes runtime behavior.": "Do not imply hidden host or executor runtime behavior.",
+    "Do not claim to override Hermes core routing.": "Do not override the host's routing or trust policy.",
+    "Do not claim sources were fetched unless Hermes or the wrapper observed them.": "Claim source retrieval only from observed tool results.",
+    "Name retrieval gaps when Hermes or the wrapper cannot access the web.": "Name retrieval gaps when the selected host cannot access the web.",
+    "Separate Hermes guidance from executor or wrapper behavior unless evidence proves the step happened.": "Separate workflow guidance from executor or wrapper behavior unless evidence proves the step happened.",
+    "Keep Hermes as coordinator and status narrator while coding lanes become runtime handoffs with explicit ownership.": "Keep the coordinator and implementation owners explicit; report lane status only from evidence.",
+    "Keep Hermes responsible for orchestration/status; when Hermes itself is selected for coding, still preserve runtime evidence boundaries.": "Keep orchestration and implementation ownership explicit, even when the current host is the selected coding owner.",
+    "If the selected executor is unavailable, ask for Codex, Claude Code, Hermes, or another runtime before retrying.": "If the selected executor is unavailable, ask for an available coding owner before retrying.",
+    "If no implementation owner is selected, keep the work prepared_not_observed and ask for Codex, Claude Code, Hermes, or another runtime.": "If no implementation owner is selected, keep the work prepared_not_observed and ask for an available coding owner.",
+    "The user expects Hermes to secretly execute coding lanes instead of preparing explicit selected-runtime handoffs.": "The user expects hidden coding execution rather than explicit ownership and observed results.",
+    "The user expects hidden Hermes code execution rather than explicit executor handoff and observed verification evidence.": "The user expects hidden code execution rather than explicit executor ownership and observed verification evidence.",
+    "The wrapper wants to claim Hermes reload, skill execution, or plugin behavior that was not observed.": "The wrapper wants to claim host reload, skill execution, or plugin behavior that was not observed.",
+    "Command availability, managed skills, Hermes registration, runtime state, and optional surfaces are grouped separately.": "Command availability, managed files, explicitly selected native registration, runtime state, and optional surfaces are grouped separately.",
+    "If skills.external_dirs or Hermes config is missing, route to setup repair rather than editing hidden runtime state.": "If explicitly selected native registration is missing, report it and request authorized setup repair; never edit hidden runtime state.",
+    "Plugin install, plugin import/register smoke, and Hermes runtime load are not collapsed into one claim.": "Plugin installation, import/register smoke, current loader admission, and live session loading are separate claims.",
+    "Do not claim host cron, Hermes automation, gateway delivery, source retrieval, no-agent execution, plugin load, or connector work from a prepared blueprint.": "Do not claim scheduler activation, gateway delivery, retrieval, unattended execution, plugin loading, or connector work from a prepared blueprint.",
+    "A memory curation review is not Hermes internal memory, MEMORY.md, USER.md, or skill-file modification evidence until an approved write is observed.": "A memory review is not memory-store, MEMORY.md, USER.md, or skill-file modification evidence until an approved write is observed.",
+    "Use `omj chat native-command` contracts for Discord, Slack, Telegram, or Hermes command/menu registration; treat registration and button rendering as adapter-owned observed evidence.": "Host command/menu registration and rendering remain host-owned; selecting guidance does not prove registration or execution.",
+    "The request lacks the required inputs or would overclaim work that Hermes did not observe.": "The request lacks required inputs or would overclaim unobserved work.",
+    "The prompt names a real workflow surface that Hermes can orchestrate without hiding execution.": "The prompt names a real workflow surface without hiding execution.",
+    "Classify the request, name the retained Hermes lane or prepared coding handoff, and expose the observed/prepared evidence boundary.": "Classify the request, name the selected workflow or prepared coding handoff, and expose the observed/prepared evidence boundary.",
+    "Run the Hermes web-research lane, ask for or state source boundaries and freshness, then summarize citations, confidence, and retrieval gaps.": "Use available host research tools, state source boundaries and freshness, and summarize citations, confidence, and retrieval gaps.",
+    "Ask for observed Hermes/gateway delivery evidence or report the delivery as not_observed instead of claiming it happened.": "Ask for observed delivery evidence or report delivery as not_observed.",
+    "Inspect managed skills, Hermes registration, runtime state, and next repair action with explicit proof boundaries.": "Inspect managed files, explicitly selected native registration, runtime readiness, and the next authorized repair with explicit proof boundaries.",
+    "doctor after omj update says setup is next but Hermes skills still look stale.": "doctor after omj update says setup is next but managed skills still look stale.",
+    "./loop make OMJ a credible Hermes workflow pack with install, docs, QA, and feedback cycles.": "loop improve the explicitly selected workflow pack through install, docs, QA, and feedback cycles.",
+    "Prepare hermes_ops_blueprint/v1 with schedule intent, Slack delivery policy, silence rule, research/report skills, missing evidence, and next confirmation.": "Prepare an OMJ operations blueprint with schedule intent, delivery policy, silence, research/report guidance, missing evidence, and next confirmation.",
+}
+
+
+def portable_skill_definition(name: str) -> SkillDefinition:
+    classification = portability_for_skill(name)
+    if classification == "hermes-only":
+        raise ValueError(f"Hermes-only workflow is not portable: {name}")
+    definition = next(item for item in installable_skill_definitions() if item.name == name)
+    intent = _PORTABLE_WORKFLOWS[name][1]
+
+    def field(value: str) -> str:
+        translated = _PORTABLE_FIELD_OVERRIDES.get(value, value)
+        if any(token in translated for token in ("Hermes", "skills_list", "skill_view", "skills.external_dirs")):
+            raise ValueError(f"Unreviewed portable field in {name}: {value}")
+        return translated
+
+    tuples = {
+        key: tuple(field(value) for value in getattr(definition, key))
+        for key in ("required_inputs", "expected_outputs", "artifact_expectations", "safety_rules", "quality_bar", "do_not_use_when", "final_checklist", "recovery_notes")
+    }
+    examples = {
+        key: replace(example, prompt=field(example.prompt), expected=field(example.expected), why=field(example.why))
+        for key in ("good_example", "bad_example")
+        if (example := getattr(definition, key)) is not None
+    }
+    handoff = definition.handoff_policy
+    if "Hermes" in handoff:
+        handoff = (
+            f"{intent} Keep planning, coordination, and implementation ownership explicit. "
+            "Prepare a selected coding-owner handoff only for accepted code work. "
+            "External effects and memory/configuration writes require their own approval; prepared artifacts are not execution evidence."
+        )
+    return replace(
+        definition,
+        description=intent,
+        use_when=intent,
+        why_this_exists=f"`{name}` makes this workflow explicit: {intent}",
+        handoff_policy=field(handoff),
+        **tuples,
+        **examples,
+    )
+
+
 def surface_exposure_for_skill(name: str) -> SurfaceExposure:
     return _surface_exposure_by_name().get(name, _default_surface_exposure(name))
 
@@ -4968,5 +5109,24 @@ def explicit_memory_context_skill_names() -> tuple[str, ...]:
     return _EXPLICIT_MEMORY_CONTEXT_SKILLS
 
 
-CORE_SKILLS = list(installable_skill_names())
+CORE_SKILLS = (
+    "oh-my-jeo",
+    "doctor",
+    "skill",
+    "cancel",
+    "agent-ops-review",
+)
+CORE_PROFILE_SKILLS = (
+    "oh-my-jeo",
+    "doctor",
+    "skill",
+    "cancel",
+    "agent-ops-review",
+    "plan",
+    "web-research",
+    "source-finder",
+    "research-brief",
+    "ask",
+    "code-review",
+)
 DESCRIPTIONS = {definition.name: definition.description for definition in _DEFINITIONS}

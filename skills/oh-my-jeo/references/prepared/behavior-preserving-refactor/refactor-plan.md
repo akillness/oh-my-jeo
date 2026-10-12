@@ -61,8 +61,8 @@ Hermes owns reconnaissance and the phased plan; implementation of any approved p
 - SHA256: `205d3ecac0b4101b105d69ba0b33e80c2ee5fa120de7982ba98b6f58686014b7`
 
 ## Method references
-- `omh-refactor-plan/references/dependency-upgrade.md` (pinned `skills/omh-refactor-plan/references/dependency-upgrade.md`)
-- `omh-refactor-plan/references/refactor-phases.md` (pinned `skills/omh-refactor-plan/references/refactor-phases.md`)
+- `refactor-plan/omh-refactor-plan/references/dependency-upgrade.md` (pinned `skills/omh-refactor-plan/references/dependency-upgrade.md`)
+- `refactor-plan/omh-refactor-plan/references/refactor-phases.md` (pinned `skills/omh-refactor-plan/references/refactor-phases.md`)
 
 ## Source gaps
 - None declared

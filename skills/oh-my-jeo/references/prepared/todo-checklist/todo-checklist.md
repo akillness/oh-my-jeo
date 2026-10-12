@@ -52,9 +52,9 @@ Declare and update the checklist directly with `omh_todo`; a checklist item is a
 - SHA256: `a20344d5082437113e8e84cc63262d7e9d08a882dbeb3e50fb79fd0e09afd458`
 
 ## Method references
-- `omh-todo-checklist/references/checklist-discipline.md` (pinned `skills/omh-todo-checklist/references/checklist-discipline.md`)
-- `omh-todo-checklist/references/closing-a-story.md` (pinned `skills/omh-todo-checklist/references/closing-a-story.md`)
-- `omh-todo-checklist/references/requirements-quality-checklist.md` (pinned `skills/omh-todo-checklist/references/requirements-quality-checklist.md`)
+- `todo-checklist/omh-todo-checklist/references/checklist-discipline.md` (pinned `skills/omh-todo-checklist/references/checklist-discipline.md`)
+- `todo-checklist/omh-todo-checklist/references/closing-a-story.md` (pinned `skills/omh-todo-checklist/references/closing-a-story.md`)
+- `todo-checklist/omh-todo-checklist/references/requirements-quality-checklist.md` (pinned `skills/omh-todo-checklist/references/requirements-quality-checklist.md`)
 
 ## Source gaps
 - None declared

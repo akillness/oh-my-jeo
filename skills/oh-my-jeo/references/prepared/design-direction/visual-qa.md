@@ -148,7 +148,7 @@ Keep the QA plan, evidence manifest, target-lineage rule, and verdict narration 
 - SHA256: `fd2f822e85dd8b5f0bc9bed0f2b1aa20d3b16889d6cb32d5c78db1b302543d30`
 
 ## Method references
-- `omh-visual-qa/references/visual-verdict-contract.md` (pinned `skills/omh-visual-qa/references/visual-verdict-contract.md`)
+- `visual-qa/omh-visual-qa/references/visual-verdict-contract.md` (pinned `skills/omh-visual-qa/references/visual-verdict-contract.md`)
 
 ## Source gaps
 - None declared

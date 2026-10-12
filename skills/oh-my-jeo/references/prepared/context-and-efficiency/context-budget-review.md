@@ -65,8 +65,8 @@ Keep budget design and status narration in Hermes. Provider billing, exact token
 - SHA256: `12360627394861d52f22a27438a25dd81be94ed4b8e1d1aabc21c23c3e347126`
 
 ## Method references
-- `omh-context-budget-review/references/cache-placement.md` (pinned `skills/omh-context-budget-review/references/cache-placement.md`)
-- `omh-context-budget-review/references/route-capacity.md` (pinned `skills/omh-context-budget-review/references/route-capacity.md`)
+- `context-budget-review/omh-context-budget-review/references/cache-placement.md` (pinned `skills/omh-context-budget-review/references/cache-placement.md`)
+- `context-budget-review/omh-context-budget-review/references/route-capacity.md` (pinned `skills/omh-context-budget-review/references/route-capacity.md`)
 
 ## Source gaps
 - None declared
