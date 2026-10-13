@@ -60,6 +60,10 @@ runtime parity or evidence of live host execution.
   `omj install --target agents --host cursor --scope project --dry-run --json`
   previews the project-local copy. A copy or receipt does not prove host
   discovery, plugin loading, or workflow execution.
+- **Pi adapters are included in clean checkouts.** The generated Pi install
+  helpers and manifest are tracked while other local `.pi/` state remains
+  ignored. CI checks all portable outputs before unit tests can generate files
+  that would otherwise mask a publication omission.
 - **Selected-home plugin and profile consistency.** Installed OMJ-home bindings
   reach native interaction and capability consumers. Explicit home overrides
   retain their precedence. Setup synchronizes registered Hermes profiles against

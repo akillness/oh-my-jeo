@@ -43,5 +43,8 @@ uv.lock
 .vscode/
 *.swp
 
-# jeo-pi (pi CLI) local session/agent state when OMJ is hosted from this repo
-.pi/
+# Pi local session/agent state; retain the generated OMJ host adapter files
+.pi/*
+!.pi/install.sh
+!.pi/install.ps1
+!.pi/manifest.json
