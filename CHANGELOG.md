@@ -64,6 +64,11 @@ runtime parity or evidence of live host execution.
   helpers and manifest are tracked while other local `.pi/` state remains
   ignored. CI checks all portable outputs before unit tests can generate files
   that would otherwise mask a publication omission.
+- **Stable GitHub Actions runners.** CI and Pages jobs explicitly use Ubuntu
+  24.04 instead of the floating `ubuntu-latest` label, preventing the announced
+  Ubuntu 26.04 migration from changing the verified environment. All existing
+  checks and deployment guards remain enabled. The official Pages action is
+  retained; its nonfatal upstream Node `DEP0040` warning is not suppressed.
 - **Selected-home plugin and profile consistency.** Installed OMJ-home bindings
   reach native interaction and capability consumers. Explicit home overrides
   retain their precedence. Setup synchronizes registered Hermes profiles against
