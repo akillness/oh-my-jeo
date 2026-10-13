@@ -67,6 +67,7 @@ class ProceduralParityTests(unittest.TestCase):
             "Reviewers are dispatched by the coordinator",
             "After the second re-review, stop dispatching reviewers",
             "the whole set runs once more against the final tree",
+            "when it prints nothing, `HEAD`",
             "A deferred defect never turns an acceptance criterion it touches into a pass",
         ):
             with self.subTest(fragment=fragment):
@@ -92,11 +93,23 @@ class ProceduralParityTests(unittest.TestCase):
             "git -C <sub> rev-parse HEAD",
             "git -C <sub> status --porcelain",
             "collected-test list",
+            "`git -c core.quotePath=false ls-files --others -- <fenced dirs>`, without `--exclude-standard`",
+            "`.git/info/exclude`",
+            "core.excludesFile",
+            "A line ending in `/` there is a nested repository; read the files inside it as well.",
+            "from both listings in step 3",
+            "a compiled or generated file with no matching tracked source fails",
+            "Skip status comes from the acceptance run's own output, never from a collection-only listing",
+            "fails unless the record lists it as skipped at launch",
+            "the tests reported as skipped by a launch run of the test command the acceptance checks run",
+            "are the POSIX shell forms",
+            "`Test-Path`, `Get-ChildItem -Recurse -Force`, and `Get-FileHash -Algorithm SHA256`",
             "The iteration fails, whatever the acceptance check returned",
             "The record is prepared design, not an observed run",
         ):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, content)
+        self.assertNotIn("or now reports skipped", content)
 
     def test_session_forensics_is_role_aware_bounded_and_user_authorized(self) -> None:
         content = self._reference("references/session-forensics.md")
@@ -121,19 +134,39 @@ class ProceduralParityTests(unittest.TestCase):
 
     def test_debugging_procedure_counts_same_command_and_surfaces_hidden_faults(self) -> None:
         content = self._reference("references/hypothesis-and-race-method.md")
+        start = content.index("## 6. After three failed fixes")
+        section = content[start : content.index("\n## ", start + 1)]
+        probe = next(paragraph for paragraph in section.split("\n\n") if "hidden behind the first" in paragraph)
         for fragment in (
             "Count fix attempts from executed results, never from the conversation",
             "same reproduction command",
             "A run that was planned but not executed, or a run of some other command, does not count",
             "The new symptom may have been there all along, hidden behind the first",
             "add that as a hypothesis in section 2",
-            "After the third failed fix, stop fixing",
-            "Prepare no fourth fix",
-            "Name the shared assumptions",
-            "end the turn with the next step as a question the user owns",
+            "with the section-1 loop at the same run count",
+            "for an intermittent symptom, run the probe with the section-1 loop at the same run count",
+            "cannot run on its own or its result is inconclusive",
+            "record it as not observed. The next fix may proceed",
+            "the probe stays open in the record as not observed",
+            "until it is observed the fix under test counts toward the three as a failed fix",
+            "If the pre-fix tree already shows the new symptom, the fix is not counted as failed",
+            "the new symptom is a separate fault with its own reproduction record and count",
+            "its hypothesis is not eliminated",
+            "verified under section 7 once the reproduction passes",
+            "If it does not, the fix moved the fault, and a fault that moved is a failed fix, not progress.",
         ):
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, content)
+                self.assertIn(fragment, probe)
+        for fragment in (
+            "After the third failed fix, stop fixing.",
+            "Prepare no fourth fix.",
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, section)
+        self.assertNotIn("the fix holds", section)
+        recording = next(paragraph for paragraph in section.split("\n\n") if "the root cause is open again" in paragraph)
+        moved = recording.index("When the fault moved")
+        self.assertIn("record its hypothesis as unresolved, not eliminated", recording[moved:])
 
     def test_tdd_reference_requires_reuse_and_bug_owned_red_evidence(self) -> None:
         content = self._reference("references/tdd-red-green.md")

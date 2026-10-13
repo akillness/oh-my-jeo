@@ -70,7 +70,7 @@ Run as a Hermes-side research lane when web or repository access is available; H
 - SHA256: `90170cd524122c559233b11bdd3d857a355061a04afd045c8e6ea220a3c2fe9d`
 
 ## Method references
-- `ulw-research/references/briefing-format.md` (pinned `skills/ulw-research/references/briefing-format.md`)
+- `research/ulw-research/references/briefing-format.md` (pinned `skills/ulw-research/references/briefing-format.md`)
 
 ## Source gaps
 - None declared

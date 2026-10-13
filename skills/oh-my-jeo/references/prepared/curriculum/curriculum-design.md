@@ -56,7 +56,7 @@ Keep domain framing, clarification, source/evidence synthesis, draft outputs, an
 - SHA256: `b875809f5ca70f5ac59274e4ec520b16ad19457151c6a1f0799de810335c2e06`
 
 ## Method references
-- `omh-curriculum-design/references/procedure.md` (pinned `skills/omh-curriculum-design/references/procedure.md`)
+- `curriculum-design/omh-curriculum-design/references/procedure.md` (pinned `skills/omh-curriculum-design/references/procedure.md`)
 
 ## Source gaps
 - The source names `references/procedure.md`; retain the verified source method only and do not infer an OMJ provider or runtime from it.

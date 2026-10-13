@@ -22,6 +22,7 @@ from ..workflows.plan_variants import (
 )
 from ..ingress import CHAT_SOURCES, extract_message_text, extract_source_metadata
 from ..installer import OmjError
+from ..profiles.setup import require_enabled_workflow
 from ..hermes_bootstrap import (
     DEFAULT_INSTALL_METHOD,
     INSTALL_METHODS,
@@ -59,8 +60,10 @@ def cmd_hermes_plan(args: argparse.Namespace) -> int:
             limit=args.limit,
             source_metadata=source_metadata,
         )
+        paths = _paths(args)
+        require_enabled_workflow(str(payload["plan"]["recommended_workflow"]), paths)
         if args.record:
-            artifact = write_hermes_plan(_paths(args), payload)
+            artifact = write_hermes_plan(paths, payload)
             payload["artifact"] = artifact
             attach_plan_artifact_to_wrapper_contract(payload, artifact)
     except (OSError, json.JSONDecodeError, ValueError) as exc:

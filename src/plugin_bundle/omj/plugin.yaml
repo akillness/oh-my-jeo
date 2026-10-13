@@ -2,6 +2,9 @@ name: omj
 version: "1.0.1"
 description: "Oh My Jeo native bridge for metadata-only runtime status, HUD, role context, bounded evidence probes, and evidence-boundary context."
 author: oh-my-jeo maintainers
+sdk: hermes
+kind: standalone
+requires_hermes: ">=0.21.1,<0.22.0"
 provides_tools:
   - omj_capabilities
   - omj_context

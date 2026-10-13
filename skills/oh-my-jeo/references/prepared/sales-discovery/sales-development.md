@@ -54,7 +54,7 @@ Keep domain framing, clarification, source/evidence synthesis, draft outputs, an
 - SHA256: `7f6c72f1d9e7b5e4ecefb0aca6899c7439f0929994af734dfda9d2c149157f96`
 
 ## Method references
-- `omh-sales-development/references/procedure.md` (pinned `skills/omh-sales-development/references/procedure.md`)
+- `sales-development/omh-sales-development/references/procedure.md` (pinned `skills/omh-sales-development/references/procedure.md`)
 
 ## Source gaps
 - None declared

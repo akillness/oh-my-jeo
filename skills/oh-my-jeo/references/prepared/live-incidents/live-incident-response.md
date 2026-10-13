@@ -68,7 +68,7 @@ Keep severity, role assignment, the timeline, mitigation records, and recovery v
 - SHA256: `0a912c1377e1897560692f79fc771e0ea61ce70a8928b2573a48c71c4187e1c9`
 
 ## Method references
-- `omh-live-incident-response/references/incident-command-method.md` (pinned `skills/omh-live-incident-response/references/incident-command-method.md`)
+- `live-incident-response/omh-live-incident-response/references/incident-command-method.md` (pinned `skills/omh-live-incident-response/references/incident-command-method.md`)
 
 ## Source gaps
 - None declared

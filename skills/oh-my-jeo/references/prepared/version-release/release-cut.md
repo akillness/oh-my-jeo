@@ -70,7 +70,7 @@ Keep the release contents, the version decision, the rollout stages, the rollbac
 - SHA256: `eae75507d98e6f4dfdbcfce89d05a674e64b31112dd3178ead2bc1c33a8146a6`
 
 ## Method references
-- `omh-release-cut/references/release-and-rollback-method.md` (pinned `skills/omh-release-cut/references/release-and-rollback-method.md`)
+- `release-cut/omh-release-cut/references/release-and-rollback-method.md` (pinned `skills/omh-release-cut/references/release-and-rollback-method.md`)
 
 ## Source gaps
 - None declared

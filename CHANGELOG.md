@@ -24,6 +24,69 @@
   or verification claim. The asset metadata records the generation prompt,
   processing steps, and source size for provenance.
 
+### Breaking Changes
+
+- **The installer is command-only by default.** `install.sh` now defaults to
+  `OMJ_AUTOPILOT=0` instead of `1`. It still installs the local OMJ package and
+  command, but no longer automatically runs setup or bootstraps Hermes. To
+  retain the previous one-shot behavior, opt in on the piped shell:
+
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/akillness/oh-my-jeo/main/install.sh | OMJ_AUTOPILOT=1 sh
+  ```
+
+  Alternatively, run `omj setup` explicitly after installation; add
+  `--with-hermes` when runtime bootstrap is required, or use
+  `omj setup --autopilot` for the existing explicit autopilot path. See
+  [Installation](docs/INSTALLATION.md).
+
+### Functional & Configuration Alignment
+
+The following selected adoptions are audited against current oh-my-hermes commit
+`74fa6e68226567649f33b66e212e413ca8307d37`, separately from the earlier v3.0.2
+baseline above. They improve OMJ's actual local consumers, not full upstream
+runtime parity or evidence of live host execution.
+
+- **Managed skill ownership and layout.** Native managed installation uses
+  categorized paths, while tap and portable projections remain flat. Repository
+  imports exclude duplicate host mirrors. Updates and reconciliation preserve
+  independently imported skills and locally edited resources instead of adopting
+  their current bytes as managed ownership. `omj skill-profile status` inspects
+  real membership; `omj skill-profile reconcile --to core --dry-run` previews
+  removal of unchanged full-only skills before explicit application.
+- **Portable installation for six hosts.** Claude Code, Codex, Cursor, OpenClaw,
+  OpenCode, and Pi have local namespaced projections, manifests, install helpers,
+  and freshness receipts. For example,
+  `omj install --target agents --host cursor --scope project --dry-run --json`
+  previews the project-local copy. A copy or receipt does not prove host
+  discovery, plugin loading, or workflow execution.
+- **Selected-home plugin and profile consistency.** Installed OMJ-home bindings
+  reach native interaction and capability consumers. Explicit home overrides
+  retain their precedence. Setup synchronizes registered Hermes profiles against
+  the actual installed skill store, while uninstall preserves foreign files and
+  unrelated configuration.
+- **Read-only diagnostics and loader boundaries.** Doctor now reports local
+  configuration advisories without updating runtime state. Profile-isolation
+  checks and plugin descriptor/import/admission checks distinguish local
+  readiness from an actual Hermes loader observation; unresolved evidence is
+  not promoted to successful execution.
+- **Source-backed model configuration previews.**
+  `omj providers model-inventory`, `omj providers model-status`, and
+  `omj providers model-setup-preview` read selected configuration and report
+  identities, provenance, and proposed confirmations. They do not access a
+  provider or mutate its configuration; model confirmations remain explicit.
+- **Governed local memory and truthful evidence.** Production recall excludes
+  ineligible records, and pending corrections retain the live revision until
+  replacement approval. Lifecycle mutations use shared locks and identity-bound
+  successful receipts. `omj memory evidence --json` reports bounded OMJ-local
+  and explicitly supplied session metadata; incomplete evidence returns exit
+  status 3 rather than fabricated successful totals. Invalid replay deadlines
+  do not expose credentials. These reports do not inspect opaque Hermes memory.
+- **Effective capability policy at real consumers.** Selected-home policy is
+  enforced before planning and coding-handoff preparation, with the catalog's
+  required core front doors retained when optional families are disabled.
+  Prepared handoffs remain executor-neutral and are not execution evidence.
+
 ### Hermes Bootstrap & Auto-Install
 
 - Bare `omj` now offers a one-time interactive install prompt when the Hermes
@@ -45,8 +108,8 @@
 - OMJ is now Hermes-first out of the box. A plain `omj setup` (interactive or
   `--yes`) records **Hermes** as the default coding owner
   (`default_executor: hermes`, `dispatch_policy: prepare_only`) instead of
-  `choose`; the interactive wizard lists Hermes as option 1; and the
-  `solo-operator` operating model defaults to the Hermes runtime handoff.
+  `choose`; the interactive wizard presents Hermes as the default choice; and
+  the `solo-operator` operating model defaults to the Hermes runtime handoff.
   Zero-config chat/plan/delegate interactions resolve to a prepared Hermes
   runtime handoff (`executor_resolution.source: hermes_baseline`) instead of
   demanding an executor choice; storing `--default-executor choose` restores

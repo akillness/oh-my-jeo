@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Iterable, cast
 
 from ..plugin_bundle.omj.awareness import awareness_lane_examples, awareness_primer_payload
-from ..skills.catalog import installable_skill_names
+from ..skills.catalog import CORE_SKILLS, installable_skill_names
 
 CAPABILITY_FAMILY_SCHEMA_VERSION = "omj_capability_families/v1"
 
@@ -135,50 +135,72 @@ _WORKFLOW_FAMILY_OVERRIDES = {
 }
 
 
-def capability_family_projection(available_workflows: Iterable[str] | None = None) -> dict[str, object]:
-    """Return the user-facing OMJ capability-family projection."""
+def capability_family_projection(
+    available_workflows: Iterable[str] | None = None,
+    *,
+    disabled_families: Iterable[str] | None = None,
+) -> dict[str, object]:
+    """Return the user-facing capability projection after known policy filters."""
     awareness = awareness_primer_payload()
     lane_by_id = {
         str(lane.get("id")): lane
         for lane in _dict_list(awareness.get("lanes", []))
     }
     available = _available_workflows(available_workflows)
+    disabled = validate_disabled_families(disabled_families)
     families = [
-        _family_payload(definition, lane_by_id, available)
+        _family_payload(definition, lane_by_id, available, disabled)
         for definition in _FAMILY_DEFINITIONS
     ]
-    workflow_to_family = _workflow_to_family(families, lane_by_id, available)
+    workflow_to_family = _workflow_to_family(families, lane_by_id, available, disabled)
+    baseline_mapping = _workflow_to_family(families, lane_by_id, available, frozenset())
+    disabled_workflows = sorted(set(baseline_mapping) - set(workflow_to_family))
+    retained_core_workflows = sorted(
+        workflow for workflow in CORE_SKILLS
+        if baseline_mapping.get(workflow) in disabled and workflow in available
+    )
     return {
         "schema_version": CAPABILITY_FAMILY_SCHEMA_VERSION,
         "determinism": "static_projection_no_runtime_clock",
-        "purpose": (
-            "User-facing front-door families for explaining OMJ without making normal users learn backend commands."
-        ),
+        "purpose": "User-facing front-door families for explaining OMJ without making normal users learn backend commands.",
+        "disabled_families": sorted(disabled),
+        "disabled_workflows": disabled_workflows,
+        "retained_core_workflows": retained_core_workflows,
+        "effective_offering": {
+            "enabled_families": [str(family["id"]) for family in families if family.get("enabled")],
+            "disabled_families": sorted(disabled),
+            "disabled_workflows": disabled_workflows,
+            "retained_core_workflows": retained_core_workflows,
+        },
         "families": families,
         "workflow_to_family": workflow_to_family,
         "family_order": [str(family["id"]) for family in families],
-        "claim_boundary": (
-            "Capability families are routing and handoff guidance only; prepared cards, prompts, or handoffs "
-            "are not observed execution, generation, review, CI, merge, delivery, or Hermes plugin-use evidence."
-        ),
+        "claim_boundary": "Capability families are routing and handoff guidance only; prepared cards, prompts, or handoffs are not observed execution, generation, review, CI, merge, delivery, or Hermes plugin-use evidence.",
     }
 
 
-def capability_family_cards(available_workflows: Iterable[str] | None = None) -> list[dict[str, object]]:
+def capability_family_cards(
+    available_workflows: Iterable[str] | None = None,
+    *,
+    disabled_families: Iterable[str] | None = None,
+) -> list[dict[str, object]]:
     """Return compact cards for picker, quickstart, and README-like surfaces."""
-    return deepcopy(_dict_list(capability_family_projection(available_workflows).get("families", [])))
+    return deepcopy(_dict_list(capability_family_projection(available_workflows, disabled_families=disabled_families).get("families", [])))
 
 
-def family_for_workflow(workflow: str, available_workflows: Iterable[str] | None = None) -> dict[str, object]:
+def family_for_workflow(
+    workflow: str,
+    available_workflows: Iterable[str] | None = None,
+    *,
+    disabled_families: Iterable[str] | None = None,
+) -> dict[str, object]:
     """Return the family card for one workflow or an empty dict when unknown."""
     key = str(workflow or "").strip()
     if not key:
         return {}
-    projection = capability_family_projection(available_workflows)
+    projection = capability_family_projection(available_workflows, disabled_families=disabled_families)
     workflow_to_family = _string_mapping(projection.get("workflow_to_family", {}))
-    family_id = workflow_to_family.get(key)
-    if not family_id:
-        family_id = workflow_to_family.get(key.casefold())
+    family_id = workflow_to_family.get(key) or workflow_to_family.get(key.casefold())
     if not family_id:
         return {}
     for family in _dict_list(projection.get("families", [])):
@@ -193,24 +215,48 @@ def family_id_for_workflow(workflow: str) -> str:
     return str(family.get("id", ""))
 
 
+def capability_family_ids() -> tuple[str, ...]:
+    """Return canonical policy identifiers from the source registry."""
+    return tuple(str(definition["id"]) for definition in _FAMILY_DEFINITIONS)
+
+
+def validate_disabled_families(value: Iterable[str] | None) -> frozenset[str]:
+    requested: set[str] = set()
+    for item in (() if value is None else value):
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError("capability policy disabled_families entries must be nonblank strings")
+        requested.add(item.strip())
+    unknown = requested - set(capability_family_ids())
+    if unknown:
+        raise ValueError(f"unsupported capability family: {', '.join(sorted(unknown))}")
+    # Coding handoff remains the public core even when optional families are disabled.
+    return frozenset(requested - {"delegate_coding_and_ship"})
+
+
 def _available_workflows(available_workflows: Iterable[str] | None) -> set[str]:
     if available_workflows is None:
         return set(installable_skill_names()) | CONCEPTUAL_WORKFLOW_SURFACES | {"oh-my-jeo"}
     return {str(item) for item in available_workflows if str(item)} | CONCEPTUAL_WORKFLOW_SURFACES | {"oh-my-jeo"}
-
-
 def _family_payload(
     definition: dict[str, object],
     lane_by_id: dict[str, dict[str, object]],
     available: set[str],
+    disabled: frozenset[str],
 ) -> dict[str, object]:
     source_lanes = _string_tuple(definition.get("source_lanes", ()))
     source_workflows = _source_workflows(source_lanes, lane_by_id, available)
     family_id = str(definition["id"])
+    enabled = family_id not in disabled
     primary_workflows = [
         workflow
-        for workflow in _dedupe([*_string_tuple(definition.get("primary_workflows", ())), *source_workflows])
-        if workflow in available and _workflow_belongs_to_family(workflow, family_id, source_lanes)
+        for workflow in _dedupe([
+            *_string_tuple(definition.get("primary_workflows", ())),
+            *source_workflows,
+            *(CORE_SKILLS if not enabled else ()),
+        ])
+        if (enabled or workflow in CORE_SKILLS)
+        and workflow in available
+        and _workflow_belongs_to_family(workflow, family_id, source_lanes)
     ]
     payload = {
         "id": family_id,
@@ -218,7 +264,10 @@ def _family_payload(
         "owner_role": str(definition["owner_role"]),
         "source_lanes": list(source_lanes),
         "use_for": str(definition["use_for"]),
+        "enabled": enabled,
+        "availability": "enabled" if enabled else "disabled_by_policy",
         "primary_workflows": primary_workflows,
+        "retained_core_workflows": sorted(workflow for workflow in primary_workflows if not enabled),
         "next_action": str(definition["next_action"]),
         "example_prompt": str(definition["example_prompt"]),
         "route_summary": str(definition["route_summary"]),
@@ -253,15 +302,18 @@ def _workflow_to_family(
     families: list[dict[str, object]],
     lane_by_id: dict[str, dict[str, object]],
     available: set[str],
+    disabled: frozenset[str],
 ) -> dict[str, str]:
     mapping: dict[str, str] = {}
-    family_ids = {str(family["id"]) for family in families}
+    family_ids = {str(family["id"]) for family in families if family["id"] not in disabled}
     for workflow, family_id in sorted(_WORKFLOW_FAMILY_OVERRIDES.items()):
-        if workflow in available and family_id in family_ids:
+        if workflow in available and (family_id in family_ids or workflow in CORE_SKILLS):
             mapping[workflow] = family_id
             mapping[workflow.casefold()] = family_id
     for family in families:
         family_id = str(family["id"])
+        if family_id in disabled and not family.get("retained_core_workflows"):
+            continue
         for workflow in _string_list(family.get("primary_workflows", [])):
             mapping.setdefault(workflow, family_id)
             mapping.setdefault(workflow.casefold(), family_id)
@@ -271,9 +323,10 @@ def _workflow_to_family(
         if not default_family:
             continue
         for workflow in _string_list(lane.get("skills", [])):
-            if workflow in available:
-                mapping.setdefault(workflow, default_family)
-                mapping.setdefault(workflow.casefold(), default_family)
+            family_id = _WORKFLOW_FAMILY_OVERRIDES.get(workflow, default_family)
+            if workflow in available and (family_id not in disabled or workflow in CORE_SKILLS):
+                mapping.setdefault(workflow, family_id)
+                mapping.setdefault(workflow.casefold(), family_id)
     return mapping
 
 

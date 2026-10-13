@@ -74,9 +74,9 @@ Keep the service contract, auth boundary, error-path table, and migration plan i
 - SHA256: `1579e0f0651b81b79bfac370ebdf9be910cddfa5460431244f144a767c191a42`
 
 ## Method references
-- `omh-backend/references/consumer-impact.md` (pinned `skills/omh-backend/references/consumer-impact.md`)
-- `omh-backend/references/schema-migration.md` (pinned `skills/omh-backend/references/schema-migration.md`)
-- `omh-backend/references/service-contract.md` (pinned `skills/omh-backend/references/service-contract.md`)
+- `backend/omh-backend/references/consumer-impact.md` (pinned `skills/omh-backend/references/consumer-impact.md`)
+- `backend/omh-backend/references/schema-migration.md` (pinned `skills/omh-backend/references/schema-migration.md`)
+- `backend/omh-backend/references/service-contract.md` (pinned `skills/omh-backend/references/service-contract.md`)
 
 ## Source gaps
 - None declared

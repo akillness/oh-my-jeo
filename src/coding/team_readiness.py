@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..config_adapter import external_dirs, read_config
 from ..executors import (
     CODING_RUNTIME_HANDOFF_TARGETS,
     HERMES_CODING_TEAM_START_MODE_IDS,
@@ -12,7 +13,9 @@ from ..executors import (
     runtime_profile_contract,
     runtime_templates_for_profile,
 )
+from ..install.installer import skill_install_relative_dir
 from ..local_store import read_json_object_result
+from ..manifest import installed_managed_skill_path, read_manifest
 from ..paths import OmjPaths
 from ..runtime.artifacts import (
     read_runtime_observations_result,
@@ -39,7 +42,8 @@ def build_team_worker_readiness(paths: OmjPaths, *, target_limit: int | None = D
     runtime_profiles = [runtime_profile_contract(profile) for profile in CODING_RUNTIME_HANDOFF_TARGETS]
     runtime_observation = _runtime_observation_readiness(paths, target_limit=target_limit)
     installed_skill_count = sum(1 for skill in skill_surfaces if skill["installed_for_hermes"])
-    hermes_visible = all(
+    skills_registered = str(paths.skills_dir) in external_dirs(read_config(paths.hermes_config_path))
+    hermes_visible = skills_registered and all(
         skill["installed_for_hermes"] for skill in skill_surfaces if skill["name"] in {"team", "ultrawork"}
     )
     contract_status = "available" if not missing_required_skills else "missing"
@@ -102,16 +106,21 @@ def build_team_worker_readiness(paths: OmjPaths, *, target_limit: int | None = D
 
 def _skill_surfaces(paths: OmjPaths) -> list[dict[str, Any]]:
     template_names = {template.name for template in builtin_skill_templates()}
-    return [
-        {
-            "name": name,
-            "available_in_package": name in template_names,
-            "installed_for_hermes": (paths.skills_dir / name / "SKILL.md").is_file(),
-            "managed_skill_path": str(paths.skills_dir / name / "SKILL.md"),
-            "purpose": _skill_purpose(name),
-        }
-        for name in TEAM_WORKER_SKILLS
-    ]
+    manifest = read_manifest(paths.manifest_path)
+    surfaces: list[dict[str, Any]] = []
+    for name in TEAM_WORKER_SKILLS:
+        relative = skill_install_relative_dir(name) / "SKILL.md"
+        installed_path = installed_managed_skill_path(paths.skills_dir, manifest, relative)
+        surfaces.append(
+            {
+                "name": name,
+                "available_in_package": name in template_names,
+                "installed_for_hermes": installed_path is not None,
+                "managed_skill_path": str(paths.skills_dir / relative),
+                "purpose": _skill_purpose(name),
+            }
+        )
+    return surfaces
 
 
 def _skill_purpose(name: str) -> str:

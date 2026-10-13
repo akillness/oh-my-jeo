@@ -89,7 +89,7 @@ Keep the event record, the reachability call, the ordered containment plan, and 
 - SHA256: `3364c8da9f0f3267d95d0d171479ada6efbd8dc9d13f90f4c21d4e651852d1a6`
 
 ## Method references
-- `omh-security-event-response/references/event-containment-order.md` (pinned `skills/omh-security-event-response/references/event-containment-order.md`)
+- `security-event-response/omh-security-event-response/references/event-containment-order.md` (pinned `skills/omh-security-event-response/references/event-containment-order.md`)
 
 ## Source gaps
 - None declared

@@ -17,6 +17,8 @@ from .schema import (
 )
 from .skills import prepared_skill_index, prepared_skill_inspect, skill_capabilities
 from .tools import tool_requirements_manifest
+from ..paths import OmjPaths
+from ..profiles.setup import accepted_disabled_families
 from ..plugin_bundle.omj.awareness import awareness_lane_examples, awareness_primer_payload
 
 _PREPARED_SECTIONS = frozenset({"prepared", "prepared_skills", "prepared-guidance"})
@@ -67,7 +69,7 @@ LANE_PLAYBOOK_IDS = {
 }
 
 
-def capability_snapshot() -> dict[str, object]:
+def capability_snapshot(paths: OmjPaths | None = None) -> dict[str, object]:
     agent_roles = agent_role_capabilities()
     skills = skill_capabilities()
     hooks = hook_manifest()
@@ -76,7 +78,7 @@ def capability_snapshot() -> dict[str, object]:
     playbooks = playbook_capabilities()
     tools = tool_requirements_manifest()
     awareness = awareness_primer_payload()
-    families = capability_family_projection()
+    families = capability_family_projection(disabled_families=_disabled_families(paths))
     snapshot = {
         "schema_version": CAPABILITY_MANIFEST_SCHEMA_VERSION,
         "manifest_id": "omj_capabilities",
@@ -115,13 +117,19 @@ def capability_snapshot() -> dict[str, object]:
     return deepcopy(snapshot)
 
 
-def capability_summary() -> dict[str, object]:
-    snapshot = capability_snapshot()
+def capability_summary(paths: OmjPaths | None = None) -> dict[str, object]:
+    snapshot = capability_snapshot(paths)
     awareness = snapshot["omj_awareness"]
     skills = {str(item.get("id")): item for item in snapshot["skills"] if isinstance(item, dict)}
     playbooks = {str(item.get("id")): item for item in snapshot["playbooks"] if isinstance(item, dict)}
     lanes = awareness.get("lanes", []) if isinstance(awareness, dict) else []
     families = snapshot.get("capability_families", {})
+    disabled_workflows = set(families.get("disabled_workflows", [])) if isinstance(families, dict) else set()
+    skills = {identifier: skill for identifier, skill in skills.items() if identifier not in disabled_workflows}
+    playbooks = {
+        identifier: playbook for identifier, playbook in playbooks.items()
+        if not disabled_workflows.intersection(playbook.get("pipeline", []))
+    }
     return {
         "schema_version": "omj_capability_summary/v1",
         "manifest_id": snapshot["manifest_id"],
@@ -134,6 +142,8 @@ def capability_summary() -> dict[str, object]:
         "totals": snapshot["summary"],
         "capability_families": families.get("families", []) if isinstance(families, dict) else [],
         "workflow_to_family": families.get("workflow_to_family", {}) if isinstance(families, dict) else {},
+        "effective_offering": families.get("effective_offering", {}) if isinstance(families, dict) else {},
+        "retained_core_workflows": families.get("retained_core_workflows", []) if isinstance(families, dict) else [],
         "lanes": [
             _summary_lane(lane, skills, playbooks)
             for lane in lanes
@@ -173,7 +183,12 @@ def _prepared_section(section: str | None) -> bool:
     return str(section or "").strip().lower().replace("_", "-") in {"prepared", "prepared-skills", "prepared-guidance"}
 
 
-def filtered_capability_snapshot(section: str | None = None) -> dict[str, object]:
+def filtered_capability_snapshot(
+    section: str | None = None,
+    *,
+    paths: OmjPaths | None = None,
+) -> dict[str, object]:
+    _disabled_families(paths)
     if _prepared_section(section):
         return {
             "schema_version": "prepared_guidance_index/v1",
@@ -181,7 +196,7 @@ def filtered_capability_snapshot(section: str | None = None) -> dict[str, object
             "section": "prepared_skills",
             "prepared_skills": prepared_skill_index(),
         }
-    snapshot = capability_snapshot()
+    snapshot = capability_snapshot(paths)
     canonical_section = normalize_capability_section(section)
     if not canonical_section:
         return snapshot
@@ -195,7 +210,12 @@ def filtered_capability_snapshot(section: str | None = None) -> dict[str, object
     }
 
 
-def list_capabilities(section: str | None = None) -> dict[str, object]:
+def list_capabilities(
+    section: str | None = None,
+    *,
+    paths: OmjPaths | None = None,
+) -> dict[str, object]:
+    _disabled_families(paths)
     if _prepared_section(section):
         index = prepared_skill_index()
         return {
@@ -203,7 +223,7 @@ def list_capabilities(section: str | None = None) -> dict[str, object]:
             "sections": [{"section": "prepared_skills", "ids": [entry["canonical_id"] for entry in index["entries"]]}],
             "prepared_index": index,
         }
-    snapshot = capability_snapshot()
+    snapshot = capability_snapshot(paths)
     canonical_section = normalize_capability_section(section)
     sections = [canonical_section] if canonical_section else list(CAPABILITY_SECTIONS)
     unknown = [item for item in sections if item not in CAPABILITY_SECTIONS]
@@ -221,9 +241,15 @@ def list_capabilities(section: str | None = None) -> dict[str, object]:
     }
 
 
-def inspect_capability(identifier: str, section: str | None = None) -> dict[str, object]:
+def inspect_capability(
+    identifier: str,
+    section: str | None = None,
+    *,
+    paths: OmjPaths | None = None,
+) -> dict[str, object]:
     if not identifier:
         raise ValueError("capabilities inspect requires an id")
+    _disabled_families(paths)
     if _prepared_section(section):
         capability = prepared_skill_inspect(identifier)
         return {
@@ -234,7 +260,7 @@ def inspect_capability(identifier: str, section: str | None = None) -> dict[str,
             "resolved_id": str(capability.get("canonical_id") or identifier),
             "capability": capability,
         }
-    snapshot = capability_snapshot()
+    snapshot = capability_snapshot(paths)
     canonical_section = normalize_capability_section(section)
     sections = [canonical_section] if canonical_section else list(CAPABILITY_SECTIONS)
     for name in sections:
@@ -373,3 +399,8 @@ def _capability_id(item: object, fallback: str) -> str:
     if isinstance(item, dict):
         return str(item.get("id") or item.get("name") or item.get("skill") or fallback)
     return fallback
+
+def _disabled_families(paths: OmjPaths | None) -> frozenset[str]:
+    if paths is None:
+        return frozenset()
+    return accepted_disabled_families(paths)

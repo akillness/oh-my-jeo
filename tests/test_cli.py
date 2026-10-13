@@ -807,6 +807,7 @@ class CliTests(unittest.TestCase):
             with self.assertRaises(json.JSONDecodeError):
                 json.loads(stdout)
 
+            doctor_before = {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}
             with patch("omj.command_path.shutil.which", return_value="/usr/local/bin/omj"):
                 status, stdout, stderr = run_cli(base + ["doctor"], output_json=False)
 
@@ -823,10 +824,11 @@ class CliTests(unittest.TestCase):
             self.assertIn("Plugin bridge: ready locally", stdout)
             self.assertIn("Hermes runtime: not observed yet", stdout)
             self.assertIn("Use OMJ request-to-handoff", stdout)
-            self.assertIn("State log:", stdout)
-            self.assertIn("last_doctor", stdout)
+            self.assertNotIn("State log:", stdout)
+            self.assertNotIn("last_doctor", stdout)
             self.assertIn("Boundary: restart or reload Hermes", stdout)
             self.assertIn("For machine-readable output, rerun with `--json`.", stdout)
+            self.assertEqual({path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}, doctor_before)
 
             dry_root = root / "dry"
             dry_base = ["--omj-home", str(dry_root / ".omj"), "--hermes-home", str(dry_root / ".hermes")]
@@ -855,6 +857,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(setup_payload["steps"]["profile"]["operating_model_id"], "solo-operator")
             self.assertEqual(setup_payload["operator_summary"]["operating_model_id"], "solo-operator")
 
+            doctor_json_before = {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}
             with patch("omj.command_path.shutil.which", return_value="/usr/local/bin/omj"):
                 status, stdout, stderr = run_cli(base + ["doctor", "--json"], output_json=False)
 
@@ -864,10 +867,10 @@ class CliTests(unittest.TestCase):
             self.assertTrue(doctor_payload["ok"])
             self.assertEqual(doctor_payload["summary"]["schema_version"], "doctor_summary/v1")
             self.assertEqual(doctor_payload["summary"]["status"], "ok")
-            self.assertIn("request-to-handoff", doctor_payload["recommended_next_action"])
-            self.assertEqual(doctor_payload["state_log"]["entry"], "last_doctor")
+            self.assertEqual(doctor_payload["state_log"], {})
             command_check = {check["name"]: check for check in doctor_payload["checks"]}["command_path"]
             self.assertEqual(command_check["severity"], "ok")
+            self.assertEqual({path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}, doctor_json_before)
             self.assertTrue(command_check["observed"])
 
     def test_quickstart_card_shows_first_use_path_without_recording_runtime_evidence(self) -> None:
@@ -1485,10 +1488,9 @@ class CliTests(unittest.TestCase):
                 [
                     "1",
                     "y",
-                    "1",
+                    "2",
                     "y",
                     "y",
-                    "n",
                 ]
             ) + "\n"
 
@@ -1499,12 +1501,12 @@ class CliTests(unittest.TestCase):
             self.assertIn("OMJ setup", stdout)
             self.assertIn("Default coding agent", stdout)
             self.assertIn("Choose who Hermes should suggest for coding work", stdout)
-            self.assertIn("1) Hermes", stdout)
-            self.assertIn("2) Codex", stdout)
-            self.assertIn("3) Claude Code", stdout)
+            self.assertIn("1) Ask every time", stdout)
+            self.assertIn("2) Hermes", stdout)
+            self.assertIn("3) Codex", stdout)
+            self.assertIn("4) Claude Code", stdout)
+            self.assertIn("5) Other coding agent", stdout)
             self.assertIn("Show advanced tool bridge options", stdout)
-            self.assertNotIn("Ask every time", stdout)
-            self.assertNotIn("Other coding agent", stdout)
             self.assertNotIn("Oh-my runtime", stdout)
             self.assertNotIn("Add an optional visible team role preset", stdout)
             self.assertNotIn("every OMJ workflow is still installed", stdout)
@@ -1523,7 +1525,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(state["last_setup"]["mcp_setup"]["mode"], "bridge_requested")
             self.assertFalse(state["last_setup"]["mcp_setup"]["observed"])
 
-    def test_setup_interactive_wizard_uses_defaults_on_eof(self) -> None:
+    def test_setup_interactive_wizard_eof_does_not_star_or_crash(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             omj_home = root / ".omj"
@@ -1540,10 +1542,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(stderr, "")
             self.assertIn("OMJ setup", stdout)
             self.assertIn("OMJ setup complete.", stdout)
-            star.assert_called_once_with()
-            profile = json.loads((omj_home / "setup-profile.json").read_text(encoding="utf-8"))
-            self.assertEqual(profile["selected_categories"], ["hermes-retained"])
-            self.assertEqual(profile["default_executor"], "hermes")
+            star.assert_not_called()
             self.assertTrue((hermes_home / "plugins" / "omj" / "plugin.yaml").exists())
 
     def test_setup_project_scope_uses_project_local_paths(self) -> None:
@@ -1621,6 +1620,8 @@ class CliTests(unittest.TestCase):
             self.assertNotIn("관리 스킬", stdout)
             self.assertIn("기계가 읽는 출력", stdout)
 
+            state_path = root / ".omj" / "runtime" / "state.json"
+            before_doctor = state_path.read_bytes()
             status, stdout, stderr = run_cli(base + ["doctor", "--language", "ko"], output_json=False)
 
             self.assertEqual(status, 0, stderr)
@@ -1635,7 +1636,9 @@ class CliTests(unittest.TestCase):
                 or "설치기가 출력한 절대 경로" in stdout
             )
             self.assertNotIn("Use the absolute command path printed by the installer", stdout)
-            self.assertIn("상태 로그:", stdout)
+            self.assertEqual(state_path.read_bytes(), before_doctor)
+            self.assertNotIn("last_doctor", json.loads(before_doctor.decode("utf-8")))
+            self.assertNotIn("상태 로그:", stdout)
 
             install_root = root / "install"
             status, stdout, stderr = run_cli(["--omj-home", str(install_root / ".omj"), "install", "--language", "zh"], output_json=False)
@@ -1653,7 +1656,13 @@ class CliTests(unittest.TestCase):
             hermes_home = root / ".hermes"
             plugin_dir = hermes_home / "plugins" / "omj"
             plugin_dir.mkdir(parents=True)
-            (plugin_dir / "README.txt").write_text("operator-owned\n", encoding="utf-8")
+            readme = plugin_dir / "README.txt"
+            readme.write_text("operator-owned\n", encoding="utf-8")
+            before_files = {
+                path.relative_to(plugin_dir): path.read_bytes()
+                for path in plugin_dir.rglob("*")
+                if path.is_file()
+            }
 
             status, stdout, stderr = run_cli(
                 [
@@ -1662,7 +1671,6 @@ class CliTests(unittest.TestCase):
                     "--hermes-home",
                     str(hermes_home),
                     "setup",
-                    "--dry-run",
                     "--no-interactive",
                     "--language",
                     "en",
@@ -1671,11 +1679,47 @@ class CliTests(unittest.TestCase):
             )
 
             self.assertEqual(status, 2)
-            self.assertIn("Installing OMJ workflows", stdout)
             self.assertIn("OMJ status helper location already exists", stderr)
             self.assertIn("omj setup --force", stderr)
             self.assertNotIn("plugin manifest", stderr.lower())
             self.assertNotIn("PluginPackError", stderr)
+            after_files = {
+                path.relative_to(plugin_dir): path.read_bytes()
+                for path in plugin_dir.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(after_files, before_files)
+            self.assertFalse((plugin_dir / "plugin.yaml").exists())
+
+    def test_uninstall_human_summary_translates_composed_config_changes(self) -> None:
+        expected_keys = (
+            "config_removed_external_dir",
+            "config_removed_plugins_entries_omj_settings_omj_home",
+            "config_removed_plugin_from_plugins_enabled",
+        )
+        for language in ("en", "ko", "ja", "zh"):
+            with self.subTest(language=language), TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                omj_home = root / ".omj"
+                hermes_home = root / ".hermes"
+                base = ["--omj-home", str(omj_home), "--hermes-home", str(hermes_home)]
+
+                setup_status, _, setup_stderr = run_cli(base + ["setup", "--with-plugin"])
+                self.assertEqual(setup_status, 0, setup_stderr)
+
+                status, stdout, stderr = run_cli(
+                    base + ["uninstall", "--language", language],
+                    output_json=False,
+                )
+
+                self.assertEqual(status, 0, stderr)
+                self.assertEqual(stderr, "")
+                self.assertIn(MESSAGES[language]["uninstall_complete"], stdout)
+                self.assertIn(MESSAGES[language]["uninstall_removed"].split(":", 1)[0], stdout)
+                for key in expected_keys:
+                    self.assertIn(MESSAGES[language][key], stdout)
+                self.assertNotIn("KeyError", stdout)
+                self.assertNotIn("KeyError", stderr)
 
     def test_language_catalogs_have_matching_keys(self) -> None:
         expected_keys = set(MESSAGES["en"])
@@ -8120,20 +8164,21 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(run_cli(["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "install"])[0], 0)
             self.assertEqual(run_cli(["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "install"])[0], 0)
-            skill_file = omj_home / "skills" / "ralph" / "SKILL.md"
+            manifest = json.loads((omj_home / "manifest.json").read_text(encoding="utf-8"))
+            ralph_record = next(record for record in manifest["skills"] if record["name"] == "ralph")
+            skill_file = omj_home / "skills" / ralph_record["path"]
             skill_file.write_text(skill_file.read_text(encoding="utf-8") + "\nlocal edit\n", encoding="utf-8")
-
             status, _, stderr = run_cli(["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "install"])
             self.assertEqual(status, 2)
-            self.assertIn("local modifications detected", stderr)
+            self.assertIn("preflight conflicts", stderr)
+            self.assertIn("modified owned file", stderr)
 
             doctor_status, doctor_stdout, _ = run_cli(["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "doctor"])
             self.assertEqual(doctor_status, 1)
             checks = {check["name"]: check for check in json.loads(doctor_stdout)["checks"]}
             self.assertFalse(checks["local_modifications"]["ok"])
             self.assertEqual(checks["local_modifications"]["severity"], "blocking")
-            self.assertIn("omj install --force", checks["local_modifications"]["next_action"])
-            self.assertIn("ralph/SKILL.md", checks["local_modifications"]["message"])
+            self.assertIn(ralph_record["path"], checks["local_modifications"]["message"])
             self.assertEqual(run_cli(["--omj-home", str(omj_home), "--hermes-home", str(hermes_home), "install", "--force"])[0], 0)
 
     def test_doctor_reports_wrong_runtime_home(self) -> None:
@@ -9085,7 +9130,10 @@ class CliTests(unittest.TestCase):
             checks = {check["name"]: check for check in json.loads(stdout)["checks"]}
             self.assertFalse(checks["runtime_artifacts"]["ok"])
             self.assertEqual(checks["runtime_artifacts"]["severity"], "blocking")
-            self.assertIn("writable --omj-home", checks["runtime_artifacts"]["next_action"])
+            self.assertEqual(
+                checks["runtime_artifacts"]["next_action"],
+                "Repair the OMJ runtime path or malformed state artifact, then rerun `omj doctor`.",
+            )
 
     def test_doctor_reports_malformed_runtime_state_without_crashing(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -9100,6 +9148,8 @@ class CliTests(unittest.TestCase):
             self.assertEqual(status, 1)
             checks = {check["name"]: check for check in json.loads(stdout)["checks"]}
             self.assertFalse(checks["runtime_state"]["ok"])
+            self.assertIn("runtime state unreadable", checks["runtime_state"]["message"])
+            self.assertTrue(state_path.is_dir())
 
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -9107,6 +9157,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(run_cli(["--omj-home", str(omj_home), "install"])[0], 0)
             state_path = omj_home / "runtime" / "state.json"
             state_path.write_text('"bad"', encoding="utf-8")
+            before_doctor = state_path.read_bytes()
 
             status, stdout, stderr = run_cli(["--omj-home", str(omj_home), "doctor"])
 
@@ -9114,6 +9165,9 @@ class CliTests(unittest.TestCase):
             self.assertEqual(status, 1)
             checks = {check["name"]: check for check in json.loads(stdout)["checks"]}
             self.assertFalse(checks["runtime_state"]["ok"])
+            self.assertIn("runtime state unreadable", checks["runtime_state"]["message"])
+            self.assertEqual(state_path.read_bytes(), before_doctor)
+            self.assertNotIn("last_doctor", state_path.read_text(encoding="utf-8"))
 
     def test_runtime_status_and_record_tolerate_malformed_state(self) -> None:
         with TemporaryDirectory() as tmp:

@@ -41,6 +41,64 @@ def cmd_docs_workflows(args: argparse.Namespace) -> int:
     print(content.rstrip())
     return 0
 
+def cmd_docs_agent_skills(args: argparse.Namespace) -> int:
+    from ..install.agent_skills_projection import agent_skill_files
+    from ..skills.host_adapter_render import host_adapter_files
+
+    root = Path(args.output or "agent-skills").expanduser().absolute()
+    files = agent_skill_files()
+    adapters = host_adapter_files(files, source=root.name)
+    if args.check:
+        actual = {
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*")
+            if path.is_file() or path.is_symlink()
+        } if root.exists() else set()
+        missing = sorted(set(files) - actual)
+        extra = sorted(actual - set(files))
+        stale = sorted(
+            relative for relative in set(files) & actual
+            if (root / relative).is_symlink()
+            or not (root / relative).is_file()
+            or (root / relative).read_bytes() != files[relative].encode("utf-8")
+        )
+        adapter_missing = sorted(path for path in adapters if not (root.parent / path).exists())
+        adapter_stale = sorted(
+            path for path, content in adapters.items()
+            if path not in adapter_missing
+            and (
+                (root.parent / path).is_symlink()
+                or (root.parent / path).parent.is_symlink()
+                or not (root.parent / path).is_file()
+                or (root.parent / path).read_bytes() != content.encode("utf-8")
+            )
+        )
+        payload = {
+            "ok": not (missing or extra or stale or adapter_missing or adapter_stale),
+            "checked": str(root),
+            "missing": missing,
+            "stale": stale,
+            "extra": extra,
+            "file_count": len(files),
+            "adapter_file_count": len(adapters),
+            "adapter_missing": adapter_missing,
+            "adapter_stale": adapter_stale,
+        }
+        _print_json(payload)
+        return 0 if payload["ok"] else 1
+    try:
+        for relative, content in files.items():
+            atomic_write_text(root / relative, content)
+        for relative, content in adapters.items():
+            path = root.parent / relative
+            atomic_write_text(path, content)
+            if path.suffix == ".sh":
+                path.chmod(0o755)
+    except OSError as exc:
+        raise OmjError(f"Agent Skills docs projection failed: {exc}") from exc
+    _print_json({"written": str(root), "file_count": len(files), "adapter_file_count": len(adapters)})
+    return 0
+
 
 def _tap_skills_check_payload(skills_root: Path) -> dict[str, object]:
     templates = {template.name: template for template in builtin_skill_templates()}
@@ -100,6 +158,11 @@ def _add_docs_commands(sub) -> None:
     docs_workflows.add_argument("--check", action="store_true")
     docs_workflows.add_argument("--json", action="store_true", help="Print machine-readable workflow and harness catalog metadata.")
     docs_workflows.set_defaults(func=cmd_docs_workflows)
+
+    docs_agents = docs_sub.add_parser("agent-skills", help="Generate or byte-check the portable Agent Skills tree.")
+    docs_agents.add_argument("--output", default=None, help="Projection root (default: agent-skills).")
+    docs_agents.add_argument("--check", action="store_true")
+    docs_agents.set_defaults(func=cmd_docs_agent_skills)
 
 
 def _add_harness_commands(sub) -> None:

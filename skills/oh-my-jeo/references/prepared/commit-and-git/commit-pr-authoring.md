@@ -60,7 +60,7 @@ Keep the convention read, the drafted text, and the evidence ledger in Hermes. T
 - SHA256: `0ceaee44829a03cdcf6d0333ee0d828f1c6d078c025f81ef56e35b3076031ea4`
 
 ## Method references
-- `omh-commit-pr-authoring/references/commit-and-pr-conventions.md` (pinned `skills/omh-commit-pr-authoring/references/commit-and-pr-conventions.md`)
+- `commit-pr-authoring/omh-commit-pr-authoring/references/commit-and-pr-conventions.md` (pinned `skills/omh-commit-pr-authoring/references/commit-and-pr-conventions.md`)
 
 ## Source gaps
 - None declared

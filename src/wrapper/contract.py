@@ -8,7 +8,7 @@ from ..ingress import CHAT_SOURCES, compact_source_metadata, extract_message_tex
 from ..routing.catalog_questions import is_skill_catalog_question as _is_skill_catalog_question
 from ..routing.chat import public_route_payload, route_chat_message
 from ..coding_delegation import CODING_EXECUTOR_TARGETS, build_coding_delegation_payload
-from ..capabilities.families import capability_family_cards
+from ..capabilities.families import capability_family_cards, capability_family_projection
 from ..context import build_context_brief
 from ..executors import executor_label
 from ..goal_loop import build_loop_start_card
@@ -22,6 +22,7 @@ from ..probe import probe_capabilities
 from ..quickstart import build_quickstart_card
 from ..skills.catalog import installable_skill_definitions, primary_harness_for_skill, retained_delegation_skill_names
 from ..setup_profiles import read_setup_profile
+from ..profiles.setup import accepted_disabled_families, require_enabled_workflow
 from ..visual_summary import image_generation_setup_fallback
 from .hermes_runtime import (
     hermes_coding_team_body,
@@ -585,6 +586,7 @@ def build_chat_interaction_payload(
     message = extract_message_text(event_or_message)
     metadata = _source_metadata(event_or_message, source_metadata)
     route = route_chat_message(message, source=source, limit=limit, min_confidence=min_confidence)
+    require_enabled_workflow(str(route.get("selected_skill", "")), paths)
     resolved_mode = _resolve_mode(mode, route, message=message)
     base = _base_interaction(message, source=source, source_metadata=metadata, mode=resolved_mode, include_message=include_message)
     route_payload = public_route_payload(route, include_message=include_message)
@@ -647,6 +649,7 @@ def build_chat_interaction_payload(
             thread_key=str(base["thread_key"]),
             message=message,
             include_message=include_message,
+            paths=paths,
         )
         base["next_action"] = str(_nested(base["chat_response"], "state").get("next_action", "show_command_preview"))
         return _finish_interaction(base, target_notice)
@@ -668,6 +671,7 @@ def build_chat_interaction_payload(
             )
             if paths
             else None,
+            paths=paths,
         )
         delegation["executor_resolution"] = executor_resolution
         base["delegation"] = delegation
@@ -682,6 +686,7 @@ def build_chat_interaction_payload(
             thread_key=str(base["thread_key"]),
             message=message,
             include_message=include_message,
+            paths=paths,
         )
         base["next_action"] = str(_nested(base["chat_response"], "state").get("next_action", "answer_clarification"))
         return _finish_interaction(base, target_notice)
@@ -692,6 +697,7 @@ def build_chat_interaction_payload(
             thread_key=str(base["thread_key"]),
             message=message,
             include_message=include_message,
+            paths=paths,
         )
         if _route_requires_coding_owner(route_payload, route_response, message):
             return _finish_interaction(
@@ -716,6 +722,7 @@ def build_chat_interaction_payload(
             base["loop_start_card"] = loop_start_card
         return _finish_interaction(base, target_notice)
 
+    require_enabled_workflow("plan", paths)
     plan = build_hermes_plan_payload(
         message,
         source=source,
@@ -814,6 +821,7 @@ def _attach_coding_owner_handoff(
         )
         if paths
         else None,
+        paths=paths,
     )
     delegation["executor_resolution"] = executor_resolution
     delegation["route_context"] = {
@@ -925,16 +933,18 @@ def build_chat_response_from_route(
     thread_key: str = "",
     message: str = "",
     include_message: bool = False,
+    paths: OmjPaths | None = None,
 ) -> dict[str, object]:
     action = str(decision.get("action", "fallback"))
+    require_enabled_workflow(str(decision.get("selected_skill", "")), paths)
     if _is_command_preview_invocation(message):
         return _command_preview_response(decision, thread_key=thread_key, message=message)
     if _is_generic_skill_catalog_route(message, decision):
-        return _skill_picker_response(decision, thread_key=thread_key, message=message)
+        return _skill_picker_response(decision, thread_key=thread_key, message=message, paths=paths)
     if action == "dispatch":
         selected = str(decision.get("selected_skill", "the selected workflow"))
         if selected == _ROUTER_SKILL and _is_skill_picker_invocation(message):
-            return _skill_picker_response(decision, thread_key=thread_key, message=message)
+            return _skill_picker_response(decision, thread_key=thread_key, message=message, paths=paths)
         if selected == "cancel":
             return _chat_response(
                 kind="cancellation",
@@ -2897,10 +2907,16 @@ def _command_preview_prefix(token: str) -> str:
     return ""
 
 
-def _skill_picker_response(decision: dict[str, object], *, thread_key: str = "", message: str = "") -> dict[str, object]:
-    picker = _skill_picker_state(message, source=str(decision.get("source", "generic")))
+def _skill_picker_response(
+    decision: dict[str, object],
+    *,
+    thread_key: str = "",
+    message: str = "",
+    paths: OmjPaths | None = None,
+) -> dict[str, object]:
+    picker = _skill_picker_state(message, source=str(decision.get("source", "generic")), paths=paths)
     catalog_question = _is_skill_catalog_question(message)
-    primer = _context_primer_state()
+    primer = _context_primer_state(paths=paths)
     extra_state = {
         "route_action": decision.get("action", "dispatch"),
         "confidence": decision.get("confidence", "low"),
@@ -2911,11 +2927,11 @@ def _skill_picker_response(decision: dict[str, object], *, thread_key: str = "",
         "direct_invocation_aliases": ["./omj", "/omj", "./skills", "/skills"],
     }
     if catalog_question:
-        extra_state["capability_summary"] = _catalog_capability_summary()
+        extra_state["capability_summary"] = _catalog_capability_summary(paths=paths)
     return _chat_response(
         kind="skill_picker",
         headline="Here are the OMJ workflows." if catalog_question else "Choose an OMJ workflow.",
-        body=_skill_picker_body(catalog_question=catalog_question),
+        body=_skill_picker_body(catalog_question=catalog_question, paths=paths),
         phase="skill_selection",
         next_action="choose_skill",
         thread_key=thread_key,
@@ -2941,9 +2957,9 @@ def _skill_picker_response(decision: dict[str, object], *, thread_key: str = "",
     )
 
 
-def _skill_picker_body(*, catalog_question: bool) -> str:
+def _skill_picker_body(*, catalog_question: bool, paths: OmjPaths | None = None) -> str:
     family_heading = "Capability families:" if catalog_question else "Families:"
-    family_lines = _skill_picker_family_body_lines()
+    family_lines = _skill_picker_family_body_lines(paths=paths)
     if catalog_question:
         return "\n".join(
             [
@@ -2971,23 +2987,38 @@ def _skill_picker_body(*, catalog_question: bool) -> str:
     )
 
 
-def _skill_picker_family_body_lines() -> list[str]:
+def _skill_picker_family_body_lines(*, paths: OmjPaths | None = None) -> list[str]:
     lines = []
-    for family in capability_family_cards():
+    disabled_families = accepted_disabled_families(paths) if paths is not None else frozenset()
+    for family in capability_family_cards(disabled_families=disabled_families):
+        retained_core = _as_string_list(family.get("retained_core_workflows", []))
+        if not family.get("enabled") and not retained_core:
+            continue
         workflows = _as_string_list(family.get("primary_workflows", []))[:4]
         workflow_text = ", ".join(workflows)
         executor_choices = _as_string_list(family.get("executor_choices", []))[:3]
         if executor_choices:
             workflow_text = f"{workflow_text}; executors: {', '.join(executor_choices)}"
         lines.append(f"- {family.get('label', '')}: {workflow_text}.")
+        if retained_core:
+            lines.append(f"  Retained core despite disabled optional family: {', '.join(retained_core)}.")
     return lines
 
-
-def _skill_picker_state(message: str, *, source: str) -> dict[str, object]:
+def _skill_picker_state(
+    message: str,
+    *,
+    source: str,
+    paths: OmjPaths | None = None,
+) -> dict[str, object]:
     installed = {definition.name: definition for definition in installable_skill_definitions()}
+    disabled_families = accepted_disabled_families(paths) if paths is not None else frozenset()
+    projection = capability_family_projection(installed, disabled_families=disabled_families)
+    disabled_workflows = set(_as_string_list(projection.get("disabled_workflows", [])))
     options = []
     for skill_id, label, description, direct_invocation in _SKILL_PICKER_ENTRIES:
         definition = installed.get(skill_id)
+        if skill_id in disabled_workflows:
+            continue
         if definition is None:
             continue
         options.append(
@@ -3011,7 +3042,7 @@ def _skill_picker_state(message: str, *, source: str) -> dict[str, object]:
         if option["id"] == _ROUTER_SKILL
     ]
     groups = _skill_picker_groups(options)
-    family_cards = _skill_picker_family_cards(options)
+    family_cards = _skill_picker_family_cards(options, disabled_families=disabled_families)
     return {
         "schema_version": SKILL_PICKER_SCHEMA_VERSION,
         "trigger": _first_token(message),
@@ -3031,10 +3062,14 @@ def _skill_picker_state(message: str, *, source: str) -> dict[str, object]:
     }
 
 
-def _skill_picker_family_cards(options: list[dict[str, object]]) -> list[dict[str, object]]:
+def _skill_picker_family_cards(
+    options: list[dict[str, object]],
+    *,
+    disabled_families: frozenset[str] = frozenset(),
+) -> list[dict[str, object]]:
     option_ids = {str(option["id"]) for option in options}
     cards = []
-    for family in capability_family_cards(option_ids):
+    for family in capability_family_cards(option_ids, disabled_families=disabled_families):
         workflows = [
             workflow
             for workflow in _as_string_list(family.get("primary_workflows", []))
@@ -3058,6 +3093,11 @@ def _compact_family_card(family: dict[str, object]) -> dict[str, object]:
         "label": str(family.get("label", "")),
         "primary_workflows": _as_string_list(family.get("primary_workflows", []))[:8],
     }
+    card["retained_core_workflows"] = _as_string_list(family.get("retained_core_workflows", []))
+    if "enabled" in family:
+        card["enabled"] = bool(family["enabled"])
+    if "availability" in family:
+        card["availability"] = str(family["availability"])
     executor_choices = _as_string_list(family.get("executor_choices", []))
     if executor_choices:
         card["executor_choices"] = executor_choices
@@ -3099,11 +3139,18 @@ def _compact_picker_option(option: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _context_primer_state() -> dict[str, object]:
+def _context_primer_state(*, paths: OmjPaths | None = None) -> dict[str, object]:
     installed = {definition.name for definition in installable_skill_definitions()}
+    disabled_families = accepted_disabled_families(paths) if paths is not None else frozenset()
+    projection = capability_family_projection(installed, disabled_families=disabled_families)
+    disabled_workflows = set(_as_string_list(projection.get("disabled_workflows", [])))
     groups = []
     for group in _CONTEXT_PRIMER_GROUPS:
-        workflows = tuple(workflow for workflow in group["workflows"] if workflow in installed)
+        workflows = tuple(
+            workflow
+            for workflow in group["workflows"]
+            if workflow in installed and workflow not in disabled_workflows
+        )
         if not workflows:
             continue
         groups.append(
@@ -3120,7 +3167,15 @@ def _context_primer_state() -> dict[str, object]:
             "OMJ is a Hermes workflow layer. It helps Hermes route natural-language work into skills, plans, "
             "deliverables, coding handoffs, loops, and status updates without treating prepared guidance as observed work."
         ),
-        "capability_families": _compact_family_cards(capability_family_cards(installed)),
+        "capability_families": _compact_family_cards(
+            [
+                family
+                for family in capability_family_cards(
+                    installed, disabled_families=disabled_families
+                )
+                if family.get("enabled") or family.get("retained_core_workflows")
+            ]
+        ),
         "workflow_groups": groups,
         "workflow_context_cards": workflow_context_cards(),
         "routing_rule": "Use Route for me when the user did not choose a workflow; use explicit workflow names when the user did.",
@@ -3129,10 +3184,10 @@ def _context_primer_state() -> dict[str, object]:
     }
 
 
-def _catalog_capability_summary() -> dict[str, object]:
+def _catalog_capability_summary(*, paths: OmjPaths | None = None) -> dict[str, object]:
     from ..capabilities.registry import capability_summary
 
-    summary = capability_summary()
+    summary = capability_summary(paths=paths)
     compact_lanes = []
     for lane in _as_dict_list(summary.get("lanes", [])):
         compact_lanes.append(

@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import subprocess
+import tempfile
 import struct
 import zlib
 from pathlib import Path
@@ -1468,7 +1470,7 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("omj harness inspect planning", installation)
         self.assertIn("OMJ_WITH_PLUGIN", install_sh)
         self.assertIn('OMJ_RUN_SETUP="${OMJ_RUN_SETUP:-0}"', install_sh)
-        self.assertIn('OMJ_AUTOPILOT="${OMJ_AUTOPILOT:-1}"', install_sh)
+        self.assertIn('OMJ_AUTOPILOT="${OMJ_AUTOPILOT:-0}"', install_sh)
         self.assertIn('if [ "$OMJ_RUN_SETUP" = "1" ] || [ "$OMJ_AUTOPILOT" = "1" ]; then', install_sh)
         self.assertIn('if [ "$OMJ_DO_SETUP" = "1" ]; then', install_sh)
         self.assertIn("set -- \"$@\" --autopilot --yes", install_sh)
@@ -1786,6 +1788,49 @@ class RouterContentTests(unittest.TestCase):
         self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", site_css)
         self.assertIn(".flagship-item--docs", site_css)
         self.assertIn("grid-template-columns: repeat(4, minmax(0, 1fr));", site_css)
+
+    def test_documented_autopilot_pipeline_passes_opt_in_to_shell(self) -> None:
+        command_pattern = re.compile(
+            r"(?:"
+            r"OMJ_AUTOPILOT=1\s+curl(?: -fsSL)? "
+            r"(?:\.\.\.|https://raw\.githubusercontent\.com/akillness/oh-my-jeo/main/install\.sh)"
+            r" \| sh"
+            r"|"
+            r"curl(?: -fsSL)? "
+            r"(?:\.\.\.|https://raw\.githubusercontent\.com/akillness/oh-my-jeo/main/install\.sh)"
+            r" \| OMJ_AUTOPILOT=1\s+sh"
+            r")"
+        )
+        documents = (Path("CHANGELOG.md"), Path("docs/INSTALLATION.md"))
+
+        with tempfile.TemporaryDirectory(prefix="omj-autopilot-docs-") as temp:
+            root = Path(temp)
+            curl = root / "curl"
+            curl.write_text(
+                "#!/bin/sh\n"
+                "printf '%s\\n' '#!/bin/sh'\n"
+                "printf '%s\\n' 'printf \"%s\\n\" \"${OMJ_AUTOPILOT-<unset>}\"'\n",
+                encoding="utf-8",
+            )
+            curl.chmod(0o755)
+            env = {"PATH": f"{root}:/bin:/usr/bin", "LC_ALL": "C"}
+
+            for document in documents:
+                text = document.read_text(encoding="utf-8")
+                commands = command_pattern.findall(text)
+                self.assertEqual(len(commands), 1, document)
+
+                result = subprocess.run(
+                    ["/bin/sh", "-c", commands[0]],
+                    cwd=root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), "1", document)
+                self.assertEqual(result.stderr, "", document)
 
     def test_direction_and_agent_contract_lock_product_boundary(self) -> None:
         direction = Path("docs/DIRECTION.md").read_text(encoding="utf-8")

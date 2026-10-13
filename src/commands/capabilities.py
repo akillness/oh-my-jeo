@@ -5,12 +5,12 @@ import argparse
 from ..capabilities.registry import capability_summary, filtered_capability_snapshot, inspect_capability, list_capabilities
 from ..capabilities.schema import CAPABILITY_SECTION_CHOICES
 from ..installer import OmjError
-from .common import _print_json, _wants_json
+from .common import _paths, _print_json, _wants_json
 
 
 def cmd_capabilities_export(args: argparse.Namespace) -> int:
     try:
-        _print_json(filtered_capability_snapshot(args.section))
+        _print_json(filtered_capability_snapshot(args.section, paths=_paths(args)))
     except ValueError as exc:
         raise OmjError(str(exc)) from exc
     return 0
@@ -18,7 +18,7 @@ def cmd_capabilities_export(args: argparse.Namespace) -> int:
 
 def cmd_capabilities_list(args: argparse.Namespace) -> int:
     try:
-        payload = list_capabilities(args.section)
+        payload = list_capabilities(args.section, paths=_paths(args))
     except ValueError as exc:
         raise OmjError(str(exc)) from exc
     if _wants_json(args):
@@ -37,7 +37,10 @@ def cmd_capabilities_list(args: argparse.Namespace) -> int:
 
 
 def cmd_capabilities_summary(args: argparse.Namespace) -> int:
-    payload = capability_summary()
+    try:
+        payload = capability_summary(paths=_paths(args))
+    except ValueError as exc:
+        raise OmjError(str(exc)) from exc
     if _wants_json(args):
         _print_json(payload)
         return 0
@@ -71,7 +74,7 @@ def cmd_capabilities_summary(args: argparse.Namespace) -> int:
 
 def cmd_capabilities_inspect(args: argparse.Namespace) -> int:
     try:
-        payload = inspect_capability(args.identifier, section=args.section)
+        payload = inspect_capability(args.identifier, section=args.section, paths=_paths(args))
     except ValueError as exc:
         raise OmjError(str(exc)) from exc
     if _wants_json(args):

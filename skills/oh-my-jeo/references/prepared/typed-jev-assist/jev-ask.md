@@ -49,7 +49,7 @@ Run in Hermes: build the ask, call `omh_jev_ask`, and report the numbers. Nothin
 - SHA256: `b5c11c9d4a9799e124105052061dfb8aa4447b281a6dd9a0bb5de217a8a6072f`
 
 ## Method references
-- `omh-jev-ask/references/full-contract.md` (pinned `skills/omh-jev-ask/references/full-contract.md`)
+- `jev-ask/omh-jev-ask/references/full-contract.md` (pinned `skills/omh-jev-ask/references/full-contract.md`)
 
 ## Source gaps
 - The source full-contract references absent references/procedure.md; preserve this gap and do not fabricate a procedure or provider.

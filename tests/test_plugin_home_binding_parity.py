@@ -122,6 +122,119 @@ class HomeBindingParityTests(unittest.TestCase):
             self.assertTrue(any(item.get("session_id") == "binding-session" for item in observations))
             self.assertFalse((ambient_omj / "runtime" / "plugin_host_observations.jsonl").exists())
 
+    def test_native_interact_uses_host_binding_for_executor_and_session_writes(self) -> None:
+        """Native chat must resolve the installed host homes, not ambient env homes."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            selected_omj = (root / "selected" / ".omj").resolve()
+            selected_hermes = (root / "selected" / ".hermes").resolve()
+            ambient_omj = (root / "ambient" / ".omj").resolve()
+            ambient_hermes = (root / "ambient" / ".hermes").resolve()
+            self._setup(selected_omj, selected_hermes)
+            profile_path = selected_omj / "setup-profile.json"
+            profile = json.loads(profile_path.read_text(encoding="utf-8"))
+            profile.update(
+                {
+                    "selected_categories": ["codex-lifecycle"],
+                    "default_executor": "codex",
+                    "dispatch_policy": "ask_before_dispatch",
+                }
+            )
+            profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+            plugin = load_installed_plugin(selected_hermes / "plugins" / "omj")
+            context = FakeHermesContext()
+            plugin.register(context)
+            args = {
+                "message": "prepare a safe refactor",
+                "mode": "delegate",
+                "record_session": True,
+            }
+            with patch.dict(
+                os.environ,
+                {"OMJ_HOME": str(ambient_omj), "HERMES_HOME": str(ambient_hermes)},
+                clear=False,
+            ):
+                payload = json.loads(
+                    context.tools["omj_interact"]["args"][2](
+                        args,
+                        omj_home=str(selected_omj),
+                        hermes_home=str(selected_hermes),
+                        host="hermes-agent",
+                        session_id="bound-interact-session",
+                    )
+                )
+
+            self.assertEqual(payload["delegation"]["selected_executor_profile"], "codex")
+            self.assertEqual(payload["wrapper_session"]["recorded"], True)
+            self.assertEqual(payload["plugin_host_observation"]["host"], "hermes-agent")
+            self.assertEqual(payload["plugin_host_observation"]["session_id"], "bound-interact-session")
+            self.assertEqual(payload["plugin_host_observation"]["event"], "tool_call")
+            self.assertEqual(payload["plugin_host_observation"]["status"], "observed")
+            wrapper_session_id = payload["wrapper_session"]["session_id"]
+            expected_session_id = "ws-" + hashlib.sha256(
+                payload["thread_key"].encode("utf-8")
+            ).hexdigest()[:24]
+            self.assertEqual(wrapper_session_id, expected_session_id)
+            session_path = selected_omj / "runtime" / "wrapper_sessions" / wrapper_session_id / "session.json"
+            persisted_session = json.loads(session_path.read_text(encoding="utf-8"))
+            self.assertEqual(persisted_session["session_id"], wrapper_session_id)
+            self.assertEqual(persisted_session["thread_key"], payload["thread_key"])
+
+            observation_path = selected_omj / "runtime" / "plugin_host_observations.jsonl"
+            observations = [
+                json.loads(line)
+                for line in observation_path.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertTrue(
+                any(
+                    item.get("event") == "tool_call"
+                    and item.get("tool") == "omj_interact"
+                    and item.get("host") == "hermes-agent"
+                    and item.get("session_id") == "bound-interact-session"
+                    and item.get("status") == "observed"
+                    for item in observations
+                )
+            )
+            self.assertFalse((ambient_omj / "runtime").exists())
+
+    def test_native_interact_refusal_does_not_create_runtime_state(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            selected_omj = (root / "selected" / ".omj").resolve()
+            selected_hermes = (root / "selected" / ".hermes").resolve()
+            self._setup(selected_omj, selected_hermes)
+            runtime_before = {
+                path.relative_to(selected_omj): path.read_bytes()
+                for path in selected_omj.joinpath("runtime").rglob("*")
+                if path.is_file()
+            }
+            plugin = load_installed_plugin(selected_hermes / "plugins" / "omj")
+            context = FakeHermesContext()
+            plugin.register(context)
+
+            payload = json.loads(
+                context.tools["omj_interact"]["args"][2](
+                    {"message": "   "},
+                    omj_home=str(selected_omj),
+                    hermes_home=str(selected_hermes),
+                    host="hermes-agent",
+                    session_id="refused-interact-session",
+                )
+            )
+            runtime_after = {
+                path.relative_to(selected_omj): path.read_bytes()
+                for path in selected_omj.joinpath("runtime").rglob("*")
+                if path.is_file()
+            }
+
+            self.assertEqual(payload["status"], "error")
+            self.assertEqual(runtime_after, runtime_before)
+            self.assertNotIn("plugin_host_observation", payload)
+            self.assertFalse(
+                (selected_omj / "runtime" / "wrapper_sessions" / "refused-interact-session").exists()
+            )
+
     def test_args_home_control_case_reads_selected_store(self) -> None:
         """The existing explicit tool-argument path remains a green control."""
         with TemporaryDirectory() as tmp:
@@ -145,6 +258,8 @@ class HomeBindingParityTests(unittest.TestCase):
             self.assertEqual(payload["omj_home"], str(selected_omj))
             self.assertEqual(payload["latest_run_id"], "selected-run")
 
+
+
     def test_doctor_flags_missing_invalid_and_mismatched_profile_binding(self) -> None:
         """Doctor must surface absent, malformed, and contradictory profile bindings."""
         cases = (
@@ -161,7 +276,8 @@ class HomeBindingParityTests(unittest.TestCase):
                 config_path = hermes_home / "config.yaml"
                 config = config_path.read_text(encoding="utf-8")
                 if replacement == "remove":
-                    config = re.sub(r"\nplugins:\n(?:  .*\n|\n)*", "\n", config)
+                    config = re.sub(r"(?m)^plugins:\n(?:  .*\n|\n)*", "", config)
+                    self.assertNotRegex(config, r"(?m)^\s+omj_home:")
                 else:
                     config += f"\nplugins:\n  entries:\n    omj:\n      settings:\n        {replacement}\n"
                 config_path.write_text(config, encoding="utf-8")

@@ -6,7 +6,10 @@ OMJ_CHANNEL="${OMJ_CHANNEL:-preview}"
 OMJ_VERSION="${OMJ_VERSION:-}"
 OMJ_PACKAGE_URL="${OMJ_PACKAGE_URL:-}"
 OMJ_SOURCE_REF="${OMJ_SOURCE_REF:-}"
-OMJ_PYTHON="${OMJ_PYTHON:-python3}"
+OMJ_PYTHON_WAS_SET="${OMJ_PYTHON+x}"
+if [ -z "$OMJ_PYTHON_WAS_SET" ]; then
+  OMJ_PYTHON="python3"
+fi
 OMJ_PIP_ARGS_WAS_SET="${OMJ_PIP_ARGS+x}"
 OMJ_PIP_ARGS="${OMJ_PIP_ARGS:-}"
 OMJ_INSTALL_MODE="${OMJ_INSTALL_MODE:-venv}"
@@ -30,12 +33,11 @@ fi
 OMJ_LINK_COMMAND="${OMJ_LINK_COMMAND:-1}"
 OMJ_FORCE_LINK="${OMJ_FORCE_LINK:-0}"
 OMJ_RUN_SETUP="${OMJ_RUN_SETUP:-0}"
-OMJ_AUTOPILOT="${OMJ_AUTOPILOT:-1}"
+OMJ_AUTOPILOT="${OMJ_AUTOPILOT:-0}"
 OMJ_AUTO_APPLY="${OMJ_AUTO_APPLY:-1}"
 OMJ_RUN_DOCTOR="${OMJ_RUN_DOCTOR:-1}"
-# Autopilot runs `omj setup --autopilot` after the command is exposed so a single
-# `curl ... | sh` installs OMJ, registers it with Hermes, bootstraps the Hermes
-# runtime OMJ wraps, and verifies. Set OMJ_AUTOPILOT=0 to install the command only.
+# Autopilot runs `omj setup --autopilot` only when explicitly enabled after the
+# command is exposed. The default install path exposes the command without setup.
 OMJ_DO_SETUP=0
 if [ "$OMJ_RUN_SETUP" = "1" ] || [ "$OMJ_AUTOPILOT" = "1" ]; then
   OMJ_DO_SETUP=1
@@ -337,11 +339,63 @@ install_into_python() {
   OMJ_RUNTIME_PYTHON="$OMJ_PYTHON"
 }
 
-if ! command -v "$OMJ_PYTHON" >/dev/null 2>&1; then
-  say "omj installer: '$OMJ_PYTHON' was not found."
-  say "Set OMJ_PYTHON to a Python 3.11+ executable and retry."
-  exit 1
-fi
+OMJ_MIN_PYTHON_MINOR=11
+
+python_two_part_version() {
+  "$1" -I -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null |
+    awk 'NR == 1 && /^[0-9]+\.[0-9]+$/ { version = $0 } END { if (NR == 1 && version != "") print version }'
+}
+
+python_version_supported() {
+  [ -n "$1" ] || return 1
+  printf '%s' "$1" | awk -F. -v minor="$OMJ_MIN_PYTHON_MINOR" '
+    { exit !($1 > 3 || ($1 == 3 && $2 >= minor)) }'
+}
+
+resolve_python() {
+  OMJ_SELECTED_PYTHON=""
+  OMJ_SELECTED_PYTHON_VERSION=""
+
+  if [ -n "$OMJ_PYTHON_WAS_SET" ]; then
+    OMJ_SELECTED_PYTHON="$OMJ_PYTHON"
+    OMJ_SELECTED_PYTHON_VERSION="$(python_two_part_version "$OMJ_SELECTED_PYTHON")"
+    if ! python_version_supported "$OMJ_SELECTED_PYTHON_VERSION"; then
+      if [ -n "$OMJ_SELECTED_PYTHON_VERSION" ]; then
+        say "omj installer: OMJ_PYTHON='$OMJ_SELECTED_PYTHON' is Python $OMJ_SELECTED_PYTHON_VERSION; Python 3.11+ is required."
+      else
+        say "omj installer: OMJ_PYTHON='$OMJ_SELECTED_PYTHON' was not found or is not a usable Python 3.11+ executable."
+      fi
+      exit 1
+    fi
+  else
+    OMJ_REJECTED_PYTHON=""
+    OMJ_REJECTED_PYTHON_VERSION=""
+    for OMJ_PYTHON_CANDIDATE in python3 python3.14 python3.13 python3.12 python3.11 python; do
+      OMJ_CANDIDATE_VERSION="$(python_two_part_version "$OMJ_PYTHON_CANDIDATE")"
+      if [ -n "$OMJ_CANDIDATE_VERSION" ]; then
+        OMJ_REJECTED_PYTHON="$OMJ_PYTHON_CANDIDATE"
+        OMJ_REJECTED_PYTHON_VERSION="$OMJ_CANDIDATE_VERSION"
+      fi
+      if python_version_supported "$OMJ_CANDIDATE_VERSION"; then
+        OMJ_SELECTED_PYTHON="$OMJ_PYTHON_CANDIDATE"
+        OMJ_SELECTED_PYTHON_VERSION="$OMJ_CANDIDATE_VERSION"
+        break
+      fi
+    done
+    if [ -z "$OMJ_SELECTED_PYTHON" ]; then
+      if [ -n "$OMJ_REJECTED_PYTHON_VERSION" ]; then
+        say "omj installer: $OMJ_REJECTED_PYTHON is Python $OMJ_REJECTED_PYTHON_VERSION; Python 3.11+ is required."
+      else
+        say "omj installer: no Python 3.11+ was found in PATH."
+      fi
+      say "Install Python 3.11 or newer, or set OMJ_PYTHON to an installed interpreter and retry."
+      exit 1
+    fi
+  fi
+
+  OMJ_PYTHON="$OMJ_SELECTED_PYTHON"
+  OMJ_RUNTIME_PYTHON="$OMJ_PYTHON"
+}
 
 if [ -z "$OMJ_PACKAGE_URL" ]; then
   case "$OMJ_CHANNEL" in
@@ -393,6 +447,8 @@ elif [ -z "$OMJ_SOURCE_REF" ]; then
 fi
 
 say_header "$(msg installer_title)" "$(msg installer_subtitle)"
+resolve_python
+say_note "Python: $OMJ_PYTHON ($OMJ_SELECTED_PYTHON_VERSION)"
 say_note "$(msg channel): $OMJ_CHANNEL"
 say_note "Source ref: $OMJ_SOURCE_REF"
 say_note "$(msg mode): $OMJ_INSTALL_MODE"
@@ -500,7 +556,7 @@ if [ "$OMJ_DO_SETUP" = "1" ]; then
   fi
 elif [ "$OMJ_AUTO_APPLY" = "0" ] || [ "$OMJ_WITH_PLUGIN" = "1" ] || [ "$OMJ_WITH_MCP" = "1" ] || [ -n "$OMJ_SCOPE" ] || [ -n "$OMJ_PROFILE_PACKS" ] || [ -n "$OMJ_SETUP_PROFILES" ] || [ -n "$OMJ_DEFAULT_EXECUTOR" ] || [ -n "$OMJ_SETUP_ARGS" ] || [ "$OMJ_RUN_DOCTOR" = "0" ]; then
   say_note "Setup options were not applied because autopilot is disabled (OMJ_AUTOPILOT=0)."
-  say_note "Run 'omj setup' with those choices explicitly, or set OMJ_AUTOPILOT=1 (default) for one-shot Hermes bootstrap."
+  say_note "Run 'omj setup' with those choices explicitly, or set OMJ_AUTOPILOT=1 for one-shot Hermes bootstrap."
 fi
 
 printf '\n'

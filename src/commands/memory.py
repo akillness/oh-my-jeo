@@ -54,8 +54,28 @@ from ..workflows.memory_lifecycle import (
     make_lifecycle_receipt,
     run_memory_retrieval_evaluation,
 )
-from ..workflows.memory_provenance import build_memory_source_index
-from .common import _paths, _print_json
+from ..workflows.memory_provenance import _redact_metadata, build_memory_source_index
+from ..quality.memory_evidence import MemoryEvidenceError, build_memory_evidence, format_memory_evidence_summary
+from .common import _paths, _print_json, _wants_json
+
+
+def cmd_memory_evidence(args: argparse.Namespace) -> int:
+    try:
+        if args.days is not None and args.since is not None:
+            raise MemoryEvidenceError("--days and --since are mutually exclusive")
+        days = args.days if args.days is not None else (None if args.since is not None else 7)
+        payload = build_memory_evidence(
+            _paths(args), days=days, since=args.since,
+            session_jsonl=args.session_jsonl, max_rows=args.max_rows,
+        )
+    except MemoryEvidenceError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        print(format_memory_evidence_summary(payload))
+    return 0 if payload["ok"] else 3
 
 
 def cmd_memory_status(args: argparse.Namespace) -> int:
@@ -261,18 +281,27 @@ def _memory_record_metadata(
         raise ValueError("invalid_revision")
     if revision is not None and revision != current_revision:
         raise ValueError("stale_revision")
+    def redact(value: object) -> object:
+        if isinstance(value, str):
+            return _redact_metadata(value)
+        if isinstance(value, dict):
+            return {_redact_metadata(key): redact(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        return value
+
     return {
-        "record_id": record_id,
+        "record_id": _redact_metadata(record_id),
         "revision": current_revision,
-        "scope": record.get("scope", {}),
-        "source": str(record.get("source", "") or ""),
-        "source_ref": str(record.get("source_ref", "") or ""),
-        "source_class": str(record.get("source_class", "") or ""),
-        "derived_from": record.get("derived_from", []),
-        "admission": record.get("admission", {}),
-        "retention": record.get("retention", {}),
-        "staleness": record.get("staleness", {}),
-        "record_path": str(path),
+        "scope": redact(record.get("scope", {})),
+        "source": _redact_metadata(record.get("source", "")),
+        "source_ref": _redact_metadata(record.get("source_ref", "")),
+        "source_class": _redact_metadata(record.get("source_class", "")),
+        "derived_from": redact(record.get("derived_from", [])),
+        "admission": redact(record.get("admission", {})),
+        "retention": redact(record.get("retention", {})),
+        "staleness": redact(record.get("staleness", {})),
+        "record_path": _redact_metadata(str(path)),
     }
 
 
@@ -297,14 +326,27 @@ def cmd_memory_recall_incident(args: argparse.Namespace) -> int:
         record = _read_required_json(str(record_path))
         metadata = _memory_record_metadata(paths, args.record_id, args.revision, record=record)
         replay = lifecycle_replay_status(record, now=datetime.now(timezone.utc))
+        query = str(getattr(args, "query", "") or "").strip()
+        # Selection is unknown (None) unless an explicit --query is supplied; a
+        # query runs through the SAME canonical recall selector production
+        # commands use, never a locally re-derived guess of what would match.
+        selection: dict[str, object] = {"query": query, "selected": None, "included_record_ids": None}
+        if query:
+            canonical = build_project_memory_recall_pack(paths, query)
+            included_ids = [str(row.get("record_id", "")) for row in canonical.get("included_records", [])]
+            selection = {"query": query, "selected": str(args.record_id) in included_ids, "included_record_ids": included_ids}
         payload = {
             "schema_version": "memory_recall_incident/v1",
             "record": metadata,
             "stages": {
                 "stored": True,
                 "eligible": bool(replay.get("replay_eligible", False)),
-                "selected": bool(replay.get("replay_eligible", False)),
             },
+            "selection": selection,
+            # Neither is observable from OMJ-local metadata: recall selection is
+            # not proof a host delivered the context or that a model used it.
+            "delivery_observed": None,
+            "model_use_observed": None,
             "replay": replay,
             "claim_boundary": "Prepared local recall evidence only; it does not prove executor, provider, Hermes-native, or delivery observation.",
         }
@@ -326,7 +368,11 @@ def _read_retrieval_fixture(path: str | None) -> list[dict[str, object]]:
 
 def cmd_memory_recall_suite(args: argparse.Namespace) -> int:
     try:
-        report = run_memory_retrieval_evaluation(target_revision=str(args.target_revision or ""), cases=_read_retrieval_fixture(args.fixture))
+        report = run_memory_retrieval_evaluation(
+            target_revision=str(args.target_revision or ""),
+            cases=_read_retrieval_fixture(args.fixture),
+            pack_builder=build_project_memory_recall_pack,
+        )
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise OmjError(str(exc)) from exc
     _print_json(report)
@@ -569,6 +615,14 @@ def _add_memory_commands(sub) -> None:
     status = memory_sub.add_parser("status", help="Show OMJ project-memory policy, store paths, and review counts.")
     status.set_defaults(func=cmd_memory_status)
 
+    evidence = memory_sub.add_parser("evidence", help="Read bounded OMJ-local memory and explicitly supplied session metadata without writes.")
+    evidence.add_argument("--days", type=int, default=None, help="Positive lookback window in days (default: 7); exclusive with --since.")
+    evidence.add_argument("--since", default=None, help="Finite epoch or ISO-8601 start time; exclusive with --days.")
+    evidence.add_argument("--session-jsonl", default=None, help="Optional structured session JSONL source; native Hermes memory is not read.")
+    evidence.add_argument("--max-rows", type=int, default=None, help="Positive maximum number of session rows to read.")
+    evidence.add_argument("--json", action="store_true", help="Print the full metadata-only report as JSON.")
+    evidence.set_defaults(func=cmd_memory_evidence)
+
     capture = memory_sub.add_parser("capture", help="Capture an OMJ project-memory candidate for review.")
     capture.add_argument("summary", nargs="*", help="Short reviewed-memory summary to capture.")
     capture.add_argument("--type", choices=("fact", "decision", "lesson", "procedure", "episode", "failed_attempt"), default="fact", help="Typed memory record category.")
@@ -664,6 +718,7 @@ def _add_memory_commands(sub) -> None:
     recall_incident = memory_sub.add_parser("recall-incident", help="Report stored, eligible, and selected stages for one record.")
     recall_incident.add_argument("--record-id", required=True, dest="record_id")
     recall_incident.add_argument("--revision", type=int, default=None)
+    recall_incident.add_argument("--query", default="", help="Run the canonical recall selector for this query before reporting selection.")
     recall_incident.set_defaults(func=cmd_memory_recall_incident)
 
     recall_suite = memory_sub.add_parser("recall-suite", help="Run deterministic offline retrieval regression cases.")

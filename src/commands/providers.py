@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import stat
 import sys
 from pathlib import Path
-
+from typing import Mapping
+from urllib.parse import urlsplit
 from ..catalogs.provider_auth import (
     diagnose_provider_auth,
     get_provider_auth,
@@ -21,7 +24,9 @@ from ..coding.request_verdicts import (
     recommend_model_for_complexity,
     score_request_complexity,
 )
+from ..coding.model_contracts import MODEL_CONTRACTS, model_contract_projection
 from ..installer import OmjError
+from ..system.paths import resolve_paths
 from .common import _print_json, _wants_json
 
 
@@ -52,6 +57,346 @@ def cmd_providers_doctor(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_providers_doctor_summary(payload)
+    return 0
+_MODEL_CONFIG_MAX_BYTES = 512 * 1024
+_MODEL_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$")
+_MODEL_SECRET_RE = re.compile(
+    r"^(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]{20,})$",
+    re.IGNORECASE,
+)
+_SENSITIVE_MODEL_MARKERS = ("secret", "token", "password", "credential", "authorization", "bearer")
+_UNPINNED_PROVIDER_MARKERS = frozenset({"", "auto", "null", "~", "default", "none"})
+MODEL_INSPECTION_CLAIM_BOUNDARY = (
+    "Model inspection reads only the selected Hermes config and local OMJ contract metadata. "
+    "It is read-only advisory evidence: known, discovered, or explicitly confirmed ids are not "
+    "availability, entitlement, login, quota, routing, or execution evidence."
+)
+
+
+def _selected_hermes_home(args: argparse.Namespace) -> Path:
+    explicit = getattr(args, "hermes_home", None)
+    if explicit:
+        return Path(os.path.expandvars(str(explicit))).expanduser()
+    return resolve_paths(
+        getattr(args, "omj_home", None),
+        None,
+        scope=getattr(args, "scope", None),
+    ).hermes_home
+
+
+def _read_model_source(path: Path) -> tuple[dict[str, object], str]:
+    base = {"path": str(path), "found": False, "readable": False, "sha256": ""}
+    try:
+        if not path.exists():
+            base["status"] = "absent"
+            return base, ""
+        if not path.is_file() or path.stat().st_size > _MODEL_CONFIG_MAX_BYTES:
+            base["status"] = "unreadable"
+            return base, ""
+        raw = path.read_bytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        base.update({"found": True, "readable": True, "sha256": digest, "status": "present"})
+        try:
+            return base, raw.decode("utf-8")
+        except UnicodeDecodeError:
+            base.update({"readable": False, "status": "unreadable"})
+            return base, ""
+    except OSError:
+        base["status"] = "unreadable"
+        return base, ""
+
+
+def _yaml_scalar(value: str) -> str:
+    value = value.split(" #", 1)[0].strip()
+    return value.strip("'\"")
+
+
+def _safe_model_ref(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    ref = value.strip()
+    lowered = ref.casefold()
+    if not ref or not _MODEL_REF_RE.fullmatch(ref):
+        return ""
+    if _MODEL_SECRET_RE.fullmatch(ref) or any(marker in lowered for marker in _SENSITIVE_MODEL_MARKERS):
+        return ""
+    return ref
+
+
+def _model_config_values(text: str) -> tuple[dict[str, str], dict[str, str]]:
+    lines = text.splitlines()
+    if "\x00" in text or "\t" in text:
+        raise ValueError("model config shape is ambiguous")
+    block_indexes = [index for index, line in enumerate(lines) if not line.startswith(" ") and line.rstrip() == "model:"]
+    dotted: list[tuple[str, str]] = []
+    for line in lines:
+        if line.startswith(" "):
+            continue
+        key, separator, value = line.partition(":")
+        if separator and key.startswith("model."):
+            dotted.append((key[6:], _yaml_scalar(value)))
+    if len(block_indexes) > 1 or (block_indexes and dotted) or (not block_indexes and not dotted):
+        raise ValueError("model config shape is ambiguous")
+    scalars: dict[str, str] = {}
+    aliases: dict[str, str] = {}
+    if dotted:
+        for key, value in dotted:
+            if key.startswith("aliases."):
+                alias = _safe_model_ref(key[8:])
+                target = _safe_model_ref(value)
+                if alias and target:
+                    aliases[alias] = target
+            elif key in {"default", "provider", "base_url"}:
+                scalars[key] = value
+        return scalars, aliases
+    model_index = block_indexes[0]
+    in_aliases = False
+    for line in lines[model_index + 1 :]:
+        if line and not line.startswith(" "):
+            break
+        if line.startswith("  ") and not line.startswith("    "):
+            key, separator, value = line.strip().partition(":")
+            if not separator:
+                continue
+            in_aliases = key == "aliases" and not value.strip()
+            if key != "aliases":
+                scalars[key] = _yaml_scalar(value)
+            continue
+        if in_aliases and line.startswith("    "):
+            key, separator, value = line.strip().partition(":")
+            if separator:
+                alias = _safe_model_ref(key)
+                target = _safe_model_ref(_yaml_scalar(value))
+                if alias and target:
+                    aliases[alias] = target
+    return scalars, aliases
+
+
+def _model_source_payload(home: Path) -> tuple[dict[str, object], dict[str, str], dict[str, str]]:
+    source, text = _read_model_source(home / "config.yaml")
+    if not text:
+        return source, {}, {}
+    try:
+        scalars, aliases = _model_config_values(text)
+    except ValueError:
+        source = {**source, "readable": False, "status": "unreadable"}
+        return source, {}, {}
+    return source, scalars, aliases
+
+
+def _model_family(model_id: str) -> str:
+    family, separator, rest = model_id.partition("/")
+    return family.casefold() if separator and rest else ""
+
+
+def _base_url_host(value: str) -> str:
+    if not value:
+        return ""
+    candidate = value if "://" in value else f"//{value}"
+    try:
+        host = urlsplit(candidate).hostname or ""
+    except ValueError:
+        return ""
+    return host if re.fullmatch(r"[A-Za-z0-9._:-]{1,253}", host) else ""
+
+
+def _routing_disagreements(scalars: Mapping[str, str]) -> list[str]:
+    default_model = _safe_model_ref(scalars.get("default", ""))
+    family = _model_family(default_model)
+    provider = _safe_model_ref(scalars.get("provider", "")).casefold()
+    host = _base_url_host(scalars.get("base_url", ""))
+    if not default_model or not family or not host or provider not in _UNPINNED_PROVIDER_MARKERS:
+        return []
+    host_core = host.casefold().rstrip(".").rsplit(".", 1)[0] if "." in host else host.casefold()
+    if family in host_core:
+        return []
+    return [
+        f"`model.default` is `{default_model}`, but `model.base_url` sends requests to `{host}` and `model.provider` is unset"
+    ]
+
+
+def _model_rows(scalars: Mapping[str, str], aliases: Mapping[str, str], confirmed: Sequence[str] = ()) -> list[dict[str, object]]:
+    rows: dict[str, dict[str, object]] = {}
+    confirmed_ids = {_safe_model_ref(value).casefold() for value in confirmed if _safe_model_ref(value)}
+    default_model = _safe_model_ref(scalars.get("default", ""))
+
+    for model_id in sorted(MODEL_CONTRACTS):
+        projection = model_contract_projection(model_id) or {}
+        rows[model_id.casefold()] = {
+            "model_id": model_id,
+            "provider": _model_family(model_id),
+            "status": "known",
+            "provenance": str(projection.get("provenance", "exact")),
+            "contract_model_id": str(projection.get("contract_model_id", model_id)),
+            "source": "local_contract_metadata",
+        }
+    observed: list[tuple[str, str]] = []
+    if default_model:
+        observed.append((default_model, "config"))
+    observed.extend((target, "alias") for target in aliases.values())
+    for model_id, source in observed:
+        key = model_id.casefold()
+        projection = model_contract_projection(model_id) or {}
+        row = rows.get(key, {})
+        row.update({
+            "model_id": model_id,
+            "provider": _model_family(model_id),
+            "status": "explicitly_confirmed" if key in confirmed_ids else "discovered",
+            "provenance": source,
+            "contract_model_id": str(projection.get("contract_model_id", "")) or None,
+            "contract_provenance": str(projection.get("provenance", "")) or None,
+            "source": source,
+        })
+        rows[key] = row
+    for model_id in confirmed:
+        value = _safe_model_ref(model_id)
+        if not value:
+            continue
+        key = value.casefold()
+        row = rows.get(
+            key,
+            {
+                "model_id": value,
+                "provider": _model_family(value),
+                "status": "explicitly_confirmed",
+                "provenance": "user_confirmation",
+                "contract_model_id": None,
+                "contract_provenance": None,
+                "source": "user_confirmation",
+            },
+        )
+        row.update({
+            "model_id": value,
+            "status": "explicitly_confirmed",
+            "provenance": "user_confirmation",
+            "contract_model_id": row.get("contract_model_id"),
+            "contract_provenance": row.get("contract_provenance"),
+            "source": "user_confirmation",
+        })
+        rows[key] = row
+    return [rows[key] for key in sorted(rows)]
+
+
+def build_model_inventory(hermes_home: str | Path | None = None, *, confirmed_models: Sequence[str] = ()) -> dict[str, object]:
+    home = Path(hermes_home).expanduser() if hermes_home is not None else resolve_paths().hermes_home
+    source, scalars, aliases = _model_source_payload(home)
+    return {
+        "schema_version": "model_inventory/v1",
+        "source_state": {"config": source},
+        "config": {"path": source["path"], "found": source["found"], "readable": source["readable"], "digest": source["sha256"]},
+        "models": _model_rows(scalars, aliases, confirmed_models),
+        "claim_boundary": MODEL_INSPECTION_CLAIM_BOUNDARY,
+    }
+
+
+def build_model_status(hermes_home: str | Path | None = None) -> dict[str, object]:
+    home = Path(hermes_home).expanduser() if hermes_home is not None else resolve_paths().hermes_home
+    source, scalars, aliases = _model_source_payload(home)
+    default_model = _safe_model_ref(scalars.get("default", ""))
+    provider = _safe_model_ref(scalars.get("provider", "")).casefold()
+    base_url = scalars.get("base_url", "")
+    host = _base_url_host(base_url)
+    return {
+        "schema_version": "hermes_model_status/v1",
+        "source_state": {"config": source},
+        "config": {"path": source["path"], "found": source["found"], "readable": source["readable"], "digest": source["sha256"]},
+        "default_model": {"value": default_model, "family": _model_family(default_model)},
+        "provider": {"value": provider, "pinned": provider not in _UNPINNED_PROVIDER_MARKERS},
+        "base_url": {"set": bool(base_url), "host": host},
+        "models": _model_rows(scalars, aliases),
+        "disagreements": _routing_disagreements(scalars),
+        "claim_boundary": MODEL_INSPECTION_CLAIM_BOUNDARY,
+    }
+
+
+def _alias_changes(values: Sequence[str] | Mapping[str, str]) -> dict[str, str]:
+    if isinstance(values, Mapping):
+        items = values.items()
+    else:
+        items = (str(value).split("=", 1) for value in values)
+    changes: dict[str, str] = {}
+    for raw_alias, raw_target in items:
+        alias = _safe_model_ref(raw_alias)
+        target = _safe_model_ref(raw_target)
+        if not alias or not target:
+            raise ValueError("--model-alias requires NAME=MODEL with safe metadata references")
+        changes[alias] = target
+    return changes
+
+
+def build_model_setup_preview(
+    hermes_home: str | Path | None = None,
+    *,
+    confirm_models: Sequence[str] = (),
+    model_aliases: Sequence[str] | Mapping[str, str] = (),
+    expected_digest: str = "",
+) -> dict[str, object]:
+    home = Path(hermes_home).expanduser() if hermes_home is not None else resolve_paths().hermes_home
+    source, scalars, aliases = _model_source_payload(home)
+    changes = _alias_changes(model_aliases)
+    collisions = {
+        alias: {"existing": aliases[alias], "proposed": target}
+        for alias, target in changes.items()
+        if alias in aliases and aliases[alias] != target
+    }
+    current_digest = str(source.get("sha256", ""))
+    digest_match = not expected_digest or expected_digest == current_digest
+    return {
+        "schema_version": "model_setup_preview/v1",
+        "source_state": {"config": source},
+        "config": {"path": source["path"], "found": source["found"], "readable": source["readable"], "digest": current_digest},
+        "models": _model_rows(scalars, aliases, confirm_models),
+        "confirmed_models": [_safe_model_ref(value) for value in confirm_models if _safe_model_ref(value)],
+        "changes": changes,
+        "proposed_aliases": {**aliases, **changes},
+        "collisions": collisions,
+        "drift": {"expected_digest": expected_digest, "current_digest": current_digest, "match": digest_match},
+        "claim_boundary": MODEL_INSPECTION_CLAIM_BOUNDARY,
+    }
+
+
+def cmd_providers_model_inventory(args: argparse.Namespace) -> int:
+    payload = build_model_inventory(_selected_hermes_home(args))
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        print("OMJ local model inventory")
+        print(f"  Models: {len(payload['models'])}")
+        print(f"Boundary: {payload['claim_boundary']}")
+    return 0
+
+
+def cmd_providers_model_status(args: argparse.Namespace) -> int:
+    payload = build_model_status(_selected_hermes_home(args))
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        print("OMJ Hermes model status")
+        print(f"  Default: {payload['default_model']['value'] or '(unset)'}")
+        print(f"  Disagreements: {len(payload['disagreements'])}")
+        print(f"Boundary: {payload['claim_boundary']}")
+    return 0
+
+
+def cmd_providers_model_setup_preview(args: argparse.Namespace) -> int:
+    try:
+        payload = build_model_setup_preview(
+            _selected_hermes_home(args),
+            confirm_models=args.confirm_model or (),
+            model_aliases=args.model_alias or (),
+            expected_digest=args.model_config_digest or "",
+        )
+    except ValueError as exc:
+        raise OmjError(str(exc)) from exc
+    if payload["collisions"]:
+        raise OmjError("model alias collision in read-only preview")
+    if _wants_json(args):
+        _print_json(payload)
+    else:
+        print("OMJ Hermes model setup preview")
+        print(f"  Changes: {len(payload['changes'])}")
+        print(f"  Config digest: {payload['config']['digest'] or '(unavailable)'}")
+        print(f"Boundary: {payload['claim_boundary']}")
     return 0
 
 _MAX_JSON_INPUT_BYTES = 256 * 1024
@@ -347,6 +692,30 @@ def _add_providers_commands(sub) -> None:
     doctor_cmd = providers_sub.add_parser("doctor")
     doctor_cmd.add_argument("--json", action="store_true", help="Print machine-readable host provider-auth diagnostic.")
     doctor_cmd.set_defaults(func=cmd_providers_doctor)
+    inventory = providers_sub.add_parser(
+        "model-inventory",
+        help="Read selected Hermes model identities and local contract provenance without provider access.",
+    )
+    inventory.add_argument("--json", action="store_true", help="Print machine-readable model inventory.")
+    inventory.set_defaults(func=cmd_providers_model_inventory)
+
+    status = providers_sub.add_parser(
+        "model-status",
+        help="Read selected Hermes model routing configuration without network or mutation.",
+    )
+    status.add_argument("--json", action="store_true", help="Print machine-readable model status.")
+    status.set_defaults(func=cmd_providers_model_status)
+
+    preview = providers_sub.add_parser(
+        "model-setup-preview",
+        help="Preview model confirmations and alias metadata without writing Hermes configuration.",
+    )
+    preview.add_argument("--confirm-model", action="append", default=[], help="Explicitly confirm one exact model id.")
+    preview.add_argument("--model-alias", action="append", default=[], metavar="NAME=MODEL", help="Propose one alias change; repeatable.")
+    preview.add_argument("--model-config-digest", default="", help="Expected config SHA-256 for drift reporting.")
+    preview.add_argument("--json", action="store_true", help="Print machine-readable setup preview.")
+    preview.set_defaults(func=cmd_providers_model_setup_preview)
+
 
     complexity = providers_sub.add_parser(
         "complexity",

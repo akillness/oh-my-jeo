@@ -66,7 +66,7 @@ Keep the problem statement, the index proposal, the migration plan with its lock
 - SHA256: `02be09b6e1cc793de7008e7d4e68f635db9f6a654e2bb9f0849b2d957ea44bfe`
 
 ## Method references
-- `omh-relational-db/references/engine-lock-tables.md` (pinned `skills/omh-relational-db/references/engine-lock-tables.md`)
+- `relational-db/omh-relational-db/references/engine-lock-tables.md` (pinned `skills/omh-relational-db/references/engine-lock-tables.md`)
 
 ## Source gaps
 - None declared

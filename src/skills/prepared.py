@@ -301,11 +301,18 @@ def _contract_markdown(record: Mapping[str, Any]) -> str:
             return "\n".join(f"- {item}" for item in value) or "- None declared"
         return f"- {value}"
 
+    canonical_id = _safe_relative(record["canonical_id"], label="canonical_id")
     refs = record.get("references", ())
     ref_lines = []
     for reference in refs if isinstance(refs, (list, tuple)) else ():
         if isinstance(reference, Mapping):
-            ref_lines.append(f"- `{reference.get('relative_path')}` (pinned `{reference.get('source_path')}`)")
+            # Reference files materialize one level below this contract file,
+            # under the member's own subfolder: references/prepared/{family}/
+            # {canonical}/{relative_path}, while this contract sits at
+            # references/prepared/{family}/{canonical}.md. The pointer must
+            # include that {canonical}/ segment to resolve from contract.parent.
+            relative = _safe_relative(reference.get("relative_path"), label=f"{record['canonical_id']} reference relative_path")
+            ref_lines.append(f"- `{canonical_id}/{relative}` (pinned `{reference.get('source_path')}`)")
     references = "\n".join(ref_lines) or "- No source-specific method reference is declared; do not invent one."
     gaps = bullets(record.get("source_gaps", ()))
     prerequisites = bullets(record.get("blocked_prerequisites", ()))

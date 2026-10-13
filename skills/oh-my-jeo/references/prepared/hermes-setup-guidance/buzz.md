@@ -58,9 +58,9 @@ Operate through Hermes' native Buzz adapter and official Buzz surfaces. Keep sta
 - SHA256: `fffc268347d6af81912b08f9c27561a63fb96217a804086b705a0b33952b8c77`
 
 ## Method references
-- `omh-buzz/references/media.md` (pinned `skills/omh-buzz/references/media.md`)
-- `omh-buzz/references/self-host.md` (pinned `skills/omh-buzz/references/self-host.md`)
-- `omh-buzz/references/setup.md` (pinned `skills/omh-buzz/references/setup.md`)
+- `buzz/omh-buzz/references/media.md` (pinned `skills/omh-buzz/references/media.md`)
+- `buzz/omh-buzz/references/self-host.md` (pinned `skills/omh-buzz/references/self-host.md`)
+- `buzz/omh-buzz/references/setup.md` (pinned `skills/omh-buzz/references/setup.md`)
 
 ## Source gaps
 - None declared

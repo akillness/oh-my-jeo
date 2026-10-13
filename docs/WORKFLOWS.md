@@ -1682,9 +1682,10 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Why: The request lacks the required inputs or would overclaim work that Hermes did not observe.
 - Quality bar:
   - Make goals, non-goals, risks, acceptance criteria, and verification shape explicit.
-  - Keep draft plans unapproved until a user or wrapper accepts them.
+  - Keep draft plans unapproved until the user's actual answer accepts them; a wrapper may carry the user's answer and its response status/value but cannot originate acceptance.
   - Only prepare coding handoff guidance after the plan is accepted.
   - Bound Review Focus to five inputs and pass the four-question test-authoring gate.
+  - Take plan acceptance only from the answer the user gave — the response status and value the question tool returns, or the user's own reply — never from the wording of the question you asked: when the acceptance question times out, is dismissed, or returns with no answer, the plan stays unaccepted, so record no acceptance, prepare no handoff, and start nothing; a missing answer is not a refusal either, so ask again later or report the plan as awaiting acceptance.
 - Completion checklist:
   - The plan names current state, target state, non-goals, and the next decision boundary.
   - Review Focus names at most five requirement-implied uncovered inputs, each paired with its expected behavior and owning test or task, or states none found when no unmapped input remains.
@@ -1747,6 +1748,7 @@ When wrapper metadata reports `omj_target_topology/v1`, skills bind workflow sta
   - Record unresolved tradeoffs and evidence gaps instead of flattening uncertainty.
   - End with a selected executor/runtime handoff shape only after the plan is accepted.
   - Do not implement directly from consensus planning.
+  - Take plan acceptance only from the answer the user gave — the response status and value the question tool returns, or the user's own reply — never from the wording of the question you asked: when the acceptance question times out, is dismissed, or returns with no answer, the plan stays unaccepted, so record no acceptance, prepare no handoff, and start nothing; a missing answer is not a refusal either, so ask again later or report the plan as awaiting acceptance.
 - Completion checklist:
   - Observed repo facts and source/web evidence gaps are named.
   - At least two options or one chosen option plus rejected alternatives are recorded.
@@ -3056,8 +3058,9 @@ Turn clarified requirements into an execution-ready plan with tradeoffs and test
   - Make goals, non-goals, decision drivers, options, risks, and test strategy explicit.
   - Record at least one rejected option and why it lost before presenting the preferred path.
   - Tie every acceptance criterion to a validation command, artifact, or explicit manual evidence gap.
-  - Keep draft plans unapproved until a user or wrapper accepts them.
+  - Keep draft plans unapproved until the user's actual answer accepts them; a wrapper may carry the user's answer and its response status/value but cannot originate acceptance.
   - Prepare coding handoff guidance only after acceptance.
+  - Take plan acceptance only from the answer the user gave — the response status and value the question tool returns, or the user's own reply — never from the wording of the question you asked: when the acceptance question times out, is dismissed, or returns with no answer, the plan stays unaccepted, so record no acceptance, prepare no handoff, and start nothing; a missing answer is not a refusal either, so ask again later or report the plan as awaiting acceptance.
 - Inputs:
   - requirements
   - constraints

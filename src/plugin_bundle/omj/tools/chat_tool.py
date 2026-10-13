@@ -7,6 +7,7 @@ from typing import Any
 
 from ..awareness import awareness_route_hint
 from ..host_observation import OBSERVATION_SCHEMA, attach_public_observation, observe_plugin_tool_call
+from ..runtime_paths import RuntimeHomes, resolve_handler_homes
 
 OMJ_INTERACT_SCHEMA = {
     "name": "omj_interact",
@@ -63,11 +64,11 @@ OMJ_INTERACT_SCHEMA = {
             },
             "omj_home": {
                 "type": "string",
-                "description": "Optional OMJ_HOME override. Defaults to $OMJ_HOME or ~/.omj.",
+                "description": "Optional OMJ_HOME override. Defaults to the host/profile binding, then $OMJ_HOME or ~/.omj.",
             },
             "hermes_home": {
                 "type": "string",
-                "description": "Optional HERMES_HOME override. Defaults to $HERMES_HOME or ~/.hermes.",
+                "description": "Optional HERMES_HOME override. Defaults to the host/profile binding, then $HERMES_HOME or ~/.hermes.",
             },
             "observation": OBSERVATION_SCHEMA,
         },
@@ -100,19 +101,24 @@ _SENSITIVE_VALUE_PATTERN = re.compile(
 
 
 def omj_interact_handler(args: dict, **kwargs) -> str:
-    observation = observe_plugin_tool_call("omj_interact", args, kwargs)
     message = str(args.get("message") or "").strip()
     if not message:
+        # Refused before any home resolution or observation I/O: a blank
+        # message must never create runtime state under either home.
         payload = {
             "schema_version": "omj_interact_result/v1",
             "status": "error",
             "error": "omj_interact.message is required",
             "claim_boundary": _CLAIM_BOUNDARY,
         }
-        return json.dumps(attach_public_observation(payload, observation), sort_keys=True)
+        return json.dumps(payload, sort_keys=True)
 
+    homes = resolve_handler_homes(args, kwargs)
+    bound_kwargs = dict(kwargs)
+    bound_kwargs.update({"omj_home": str(homes.omj_home), "hermes_home": str(homes.hermes_home)})
+    observation = observe_plugin_tool_call("omj_interact", args, bound_kwargs)
     try:
-        payload = _package_interaction(args, message, observation=observation)
+        payload = _package_interaction(args, message, homes=homes, observation=observation)
     except (ImportError, ModuleNotFoundError) as exc:
         payload = _fallback_interaction(args, message, error=str(exc))
     except Exception as exc:
@@ -124,16 +130,14 @@ def _package_interaction(
     args: dict[str, Any],
     message: str,
     *,
+    homes: RuntimeHomes,
     observation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from omj.paths import resolve_paths
     from omj.wrapper.contract import build_chat_interaction_payload
     from omj.wrapper.sessions import create_or_resume_wrapper_session
 
-    paths = resolve_paths(
-        omj_home=_optional_path_arg(args.get("omj_home")),
-        hermes_home=_optional_path_arg(args.get("hermes_home")),
-    )
+    paths = resolve_paths(omj_home=homes.omj_home, hermes_home=homes.hermes_home)
     source = _source(args)
     mode = _mode(args)
     limit = _bounded_limit(args.get("limit"), default=3)
@@ -319,11 +323,6 @@ def _source_metadata(args: dict[str, Any]) -> dict[str, str]:
         if key in args and (cleaned := _safe_metadata_text(args.get(key))):
             metadata.setdefault(key, cleaned)
     return metadata
-
-
-def _optional_path_arg(value: object) -> str | None:
-    text = str(value or "").strip()
-    return text or None
 
 
 def _thread_key(source: str, metadata: dict[str, str], message_hash: str) -> str:

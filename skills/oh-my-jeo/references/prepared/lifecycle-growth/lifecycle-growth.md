@@ -62,8 +62,8 @@ Keep lifecycle framing, audience and safety policy, experiment design, and reado
 - SHA256: `a7a43439df50a0fd5e9cbdf9bfbaa50655aa547af968f4490b1598242f5308d9`
 
 ## Method references
-- `omh-lifecycle-growth/references/full-contract.md` (pinned `skills/omh-lifecycle-growth/references/full-contract.md`)
-- `omh-lifecycle-growth/references/procedure.md` (pinned `skills/omh-lifecycle-growth/references/procedure.md`)
+- `lifecycle-growth/omh-lifecycle-growth/references/full-contract.md` (pinned `skills/omh-lifecycle-growth/references/full-contract.md`)
+- `lifecycle-growth/omh-lifecycle-growth/references/procedure.md` (pinned `skills/omh-lifecycle-growth/references/procedure.md`)
 
 ## Source gaps
 - None declared

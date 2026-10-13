@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib
 import importlib.resources as resources
@@ -7,6 +8,7 @@ import importlib.util
 import json
 import sys
 import tomllib
+import types
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -674,12 +676,27 @@ class PluginDistributionTests(unittest.TestCase):
             self.assertIn("ultrawork", route_hint["not_executed"])
             self.assertFalse(route_hint.get("explicit_execution", False))
 
+    def test_context_callback_does_not_mask_core_builder_errors(self) -> None:
+        from omj.plugin_bundle.omj.tools.context_tool import omj_context_handler
+
+        package_context = types.ModuleType("omj.context")
+
+        def raise_core_error(*args: object, **kwargs: object) -> dict[str, object]:
+            raise ValueError("canonical context builder failed")
+
+        package_context.build_context_brief = raise_core_error  # type: ignore[attr-defined]
+        with mock.patch.dict(sys.modules, {"omj.context": package_context}):
+            with self.assertRaisesRegex(ValueError, "canonical context builder failed"):
+                omj_context_handler({"message": "trigger core failure", "source": "test"})
+
     def test_retained_context_callback_survives_bundle_module_eviction(self) -> None:
+        from omj.capabilities.families import capability_family_cards
         from omj.plugin_bundle.omj.context_brief import build_context_brief
         from omj.plugin_bundle.omj.tools.context_tool import omj_context_handler
 
         baseline = build_context_brief("what workflows are available?", source="test")
         baseline_families = baseline["capability_families"]
+        self.assertEqual(baseline_families, capability_family_cards())
         retained_builder = build_context_brief
         retained_handler = omj_context_handler
         saved_modules = {
@@ -703,6 +720,201 @@ class PluginDistributionTests(unittest.TestCase):
         self.assertEqual(handled["capability_families"], baseline_families)
         self.assertEqual(handled["source_backend"], "standalone_plugin_bundle_fallback")
         self.assertEqual(handled["message"]["raw_prompt_echoed"], False)
+
+    def _plugin_source_tree(self, root: Path) -> Path:
+        import shutil
+        source = Path(__file__).resolve().parents[1] / "src" / "plugin_bundle" / "omj"
+        target = root / "plugins" / "omj"
+        shutil.copytree(source, target)
+        return target
+    def test_register_smoke_restores_bytecode_setting_and_avoids_cache_files(self) -> None:
+        """Smoke probing restores the caller flag and leaves no generated plugin caches."""
+        plugin_pack = importlib.import_module("omj.install.plugin_pack")
+        register_smoke = getattr(plugin_pack, "_register_smoke")
+        previous = sys.dont_write_bytecode
+        try:
+            with TemporaryDirectory() as tmp:
+                plugin_dir = self._plugin_source_tree(Path(tmp))
+                import shutil
+                for cache in plugin_dir.rglob("__pycache__"):
+                    shutil.rmtree(cache)
+                for incoming in (False, True):
+                    sys.dont_write_bytecode = incoming
+                    result = register_smoke(plugin_dir)
+                    self.assertTrue(result["register_smoke"])
+                    self.assertEqual(sys.dont_write_bytecode, incoming)
+                    self.assertFalse(any(path.name == "__pycache__" for path in plugin_dir.rglob("*")))
+
+                (plugin_dir / "__init__.py").write_text("PLUGIN_ONLY = True\n", encoding="utf-8")
+                for incoming in (False, True):
+                    sys.dont_write_bytecode = incoming
+                    result = register_smoke(plugin_dir)
+                    self.assertFalse(result["register_smoke"])
+                    self.assertIn("register(ctx) is missing", result["error"])
+                    self.assertEqual(sys.dont_write_bytecode, incoming)
+                    self.assertFalse(any(path.name == "__pycache__" for path in plugin_dir.rglob("*")))
+        finally:
+            sys.dont_write_bytecode = previous
+
+
+    def test_descriptor_admission_requires_real_sdk_field_and_version(self) -> None:
+        plugin_pack = importlib.import_module("omj.install.plugin_pack")
+        validate = getattr(plugin_pack, "validate_plugin_descriptor", None)
+        self.assertTrue(callable(validate), "plugin admission must expose validate_plugin_descriptor(plugin_dir)")
+        with TemporaryDirectory() as tmp:
+            plugin_dir = self._plugin_source_tree(Path(tmp))
+            self.assertTrue(validate(plugin_dir)["ok"])
+            descriptor = plugin_dir / "plugin.yaml"
+            original = descriptor.read_text(encoding="utf-8")
+            descriptor.write_text(original.replace('version: "1.0.1"\n', ""), encoding="utf-8")
+            missing_version = validate(plugin_dir)
+            self.assertFalse(missing_version["ok"])
+            self.assertIn("version", missing_version["invalid_fields"])
+            descriptor.write_text(original.replace("sdk: hermes\n", ""), encoding="utf-8")
+            missing_sdk = validate(plugin_dir)
+            self.assertFalse(missing_sdk["ok"])
+            self.assertIn("sdk", missing_sdk["invalid_fields"])
+    def test_real_loader_observation_does_not_claim_unresolved_version_or_timeout(self) -> None:
+        import subprocess
+        import sys
+        from types import SimpleNamespace
+        observe = importlib.import_module("omj.install.plugin_loader_observation").observe_real_loader_registration
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plugin_dir = self._plugin_source_tree(root)
+            code_root = root / "hermes-code"
+            (code_root / "hermes_cli").mkdir(parents=True)
+            unresolved = "OMJ_PLUGIN_LOADER_OBSERVATION=" + json.dumps({"enabled": False, "hermes_version": "unknown"})
+            result = observe(plugin_dir, python_executable=Path(sys.executable), hermes_code_root=code_root, runner=lambda *_: SimpleNamespace(returncode=0, stdout=unresolved, stderr=""))
+            self.assertFalse(result["observed"])
+            self.assertEqual(result["reason"], "hermes_version_unresolved")
+            timeout = observe(plugin_dir, python_executable=Path(sys.executable), hermes_code_root=code_root, runner=lambda *_: (_ for _ in ()).throw(subprocess.TimeoutExpired("probe", 1)))
+            self.assertFalse(timeout["observed"])
+            self.assertEqual(timeout["reason"], "loader_probe_failed")
+
+    def test_loader_root_follows_selected_interpreter_tree(self) -> None:
+        from unittest.mock import patch
+        observer = importlib.import_module("omj.install.plugin_loader_observation")
+        resolve_root = getattr(observer, "resolve_hermes_code_root", None)
+        self.assertTrue(callable(resolve_root), "loader seam must expose resolve_hermes_code_root")
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tree = root / "hermes" / "venv"
+            interpreter = tree / "bin" / "python"
+            interpreter.parent.mkdir(parents=True)
+            interpreter.write_text("", encoding="utf-8")
+            (root / "hermes" / "hermes_cli").mkdir()
+            with patch.dict("os.environ", {"HERMES_PYTHON": str(interpreter)}, clear=False):
+                self.assertEqual(resolve_root(root / "profile"), root / "hermes")
+
+    def test_real_loader_observation_distinguishes_registry_mismatch_and_bad_output(self) -> None:
+        import sys
+        from types import SimpleNamespace
+        observer = importlib.import_module("omj.install.plugin_loader_observation")
+        observe = getattr(observer, "observe_real_loader_registration", None)
+        self.assertTrue(callable(observe), "real loader seam must expose observe_real_loader_registration")
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plugin_dir = self._plugin_source_tree(root)
+            code_root = root / "hermes-code"
+            (code_root / "hermes_cli").mkdir(parents=True)
+            seen: dict[str, object] = {}
+
+            def runner(_command, timeout_seconds, env):
+                seen.update(timeout=timeout_seconds, env=env)
+                payload = {"enabled": True, "error": None, "tools": sorted(PROVIDED_TOOLS)[:-1], "hooks": sorted(PROVIDED_HOOKS), "hermes_version": "0.21.1"}
+                return SimpleNamespace(returncode=0, stdout="OMJ_PLUGIN_LOADER_OBSERVATION=" + json.dumps(payload), stderr="")
+
+            result = observe(plugin_dir, python_executable=Path(sys.executable), hermes_code_root=code_root, runner=runner, timeout_seconds=3)
+            self.assertTrue(result["observed"])
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason"], "registration_mismatch")
+            self.assertEqual(seen["timeout"], 3)
+            self.assertEqual(seen["env"]["PYTHONPATH"], str(code_root))
+            invalid = observe(plugin_dir, python_executable=Path(sys.executable), hermes_code_root=code_root, runner=lambda *_: SimpleNamespace(returncode=0, stdout="garbage", stderr=""))
+            self.assertFalse(invalid["observed"])
+            self.assertEqual(invalid["reason"], "loader_probe_failed")
+
+    def test_real_loader_observation_reports_actual_version_from_child_host(self) -> None:
+        import subprocess
+        import sys
+        observe = importlib.import_module("omj.install.plugin_loader_observation").observe_real_loader_registration
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plugin_dir = self._plugin_source_tree(root)
+            code_root = root / "hermes-code"
+            package = code_root / "hermes_cli"
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("__version__ = '0.21.0'\n", encoding="utf-8")
+            (package / "plugins.py").write_text(
+                "from types import SimpleNamespace\n"
+                "class PluginManager:\n"
+                "    def __init__(self): self._plugins = {}\n"
+                "    def discover_and_load(self, force=False):\n"
+                "        self._plugins['omj'] = SimpleNamespace(enabled=False, error='requires Hermes >=0.21.1; running Hermes 0.21.0', tools_registered=[], hooks_registered=[])\n",
+                encoding="utf-8",
+            )
+            result = observe(plugin_dir, python_executable=Path(sys.executable), hermes_code_root=code_root)
+            self.assertTrue(result["observed"], result)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["hermes_version"], "0.21.0")
+            self.assertEqual(result["reason"], "registration_mismatch")
+            self.assertIn("0.21.0", result["error"])
+
+            timeout = observe(plugin_dir, python_executable=Path(sys.executable), hermes_code_root=code_root, runner=lambda *_: (_ for _ in ()).throw(subprocess.TimeoutExpired("probe", 1)))
+            self.assertFalse(timeout["observed"])
+            self.assertEqual(timeout["reason"], "loader_probe_failed")
+
+    def test_core_import_scan_flags_only_unguarded_imports(self) -> None:
+        scanner = importlib.import_module("omj.install.plugin_pack")
+        scan = getattr(scanner, "scan_bundle_core_imports", None)
+        self.assertTrue(callable(scan), "plugin bundle must expose scan_bundle_core_imports(plugin_dir)")
+        with TemporaryDirectory() as tmp:
+            plugin_dir = Path(tmp) / "omj"
+            plugin_dir.mkdir()
+            (plugin_dir / "__init__.py").write_text("import omj\ntry:\n    import hermes_cli\nexcept ImportError:\n    hermes_cli = None\n", encoding="utf-8")
+            result = scan(plugin_dir)
+            self.assertEqual(result["unguarded_imports"], ["omj"])
+            self.assertEqual(result["guarded_optional_imports"], ["hermes_cli"])
+
+    def test_core_import_scan_traverses_with_and_async_with_bodies(self) -> None:
+        scanner = importlib.import_module("omj.install.plugin_bundle_import_scan")
+        scan = scanner.scan_bundle_core_imports
+        with TemporaryDirectory() as tmp:
+            plugin_dir = Path(tmp) / "omj"
+            plugin_dir.mkdir()
+            (plugin_dir / "module.py").write_text("with manager:\n    import omj\n", encoding="utf-8")
+            async_with = ast.parse(
+                "async def _fixture():\n"
+                "    async with manager:\n"
+                "        import omj\n"
+            ).body[0].body[0]
+            guarded_async_with = ast.parse(
+                "async def _guarded_fixture():\n"
+                "    async with manager:\n"
+                "        import omj\n"
+            ).body[0].body[0]
+            guarded_async_try = ast.parse("try:\n    pass\nexcept ImportError:\n    pass\n").body[0]
+            guarded_async_try.body = [guarded_async_with]
+            guarded_with = ast.parse(
+                "try:\n"
+                "    with manager:\n"
+                "        import hermes_cli\n"
+                "except ImportError:\n"
+                "    pass\n"
+            ).body[0]
+            module_tree = ast.Module(
+                body=[ast.parse("with manager:\n    import omj\n").body[0], async_with, guarded_with, guarded_async_try],
+                type_ignores=[],
+            )
+            ast.fix_missing_locations(module_tree)
+            with mock.patch.object(scanner.ast, "parse", return_value=module_tree):
+                result = scan(plugin_dir)
+            self.assertEqual(len(result["findings"]), 2)
+            self.assertEqual(sum("import omj" in finding["statement"] for finding in result["findings"]), 2)
+            self.assertEqual(result["unguarded_imports"], ["omj"])
+            self.assertEqual(result["guarded_optional_imports"], ["hermes_cli", "omj"])
+            self.assertEqual(result["reason"], "unguarded_core_imports")
 
 if __name__ == "__main__":
     unittest.main()

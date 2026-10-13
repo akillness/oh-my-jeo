@@ -60,8 +60,8 @@ Keep decision framing, evidence classification, assumption ranking, test precomm
 - SHA256: `1ab833ce4b011d8dbdb17941fe1fc0b4e7c56d39e5aac399142e0bc000cf8ab1`
 
 ## Method references
-- `omh-product-discovery-validation/references/full-contract.md` (pinned `skills/omh-product-discovery-validation/references/full-contract.md`)
-- `omh-product-discovery-validation/references/procedure.md` (pinned `skills/omh-product-discovery-validation/references/procedure.md`)
+- `product-discovery-validation/omh-product-discovery-validation/references/full-contract.md` (pinned `skills/omh-product-discovery-validation/references/full-contract.md`)
+- `product-discovery-validation/omh-product-discovery-validation/references/procedure.md` (pinned `skills/omh-product-discovery-validation/references/procedure.md`)
 
 ## Source gaps
 - None declared

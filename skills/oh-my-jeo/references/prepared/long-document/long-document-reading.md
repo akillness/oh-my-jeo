@@ -61,7 +61,7 @@ Keep document reading in Hermes: `read_file`, the built-in `pdf` skill scripts, 
 - SHA256: `879dce22c5769c86ebdc7b9a2615538de0ab6feb5a7becdf425403a204cd0c4c`
 
 ## Method references
-- `omh-long-document-reading/references/hermes-pdf-limits.md` (pinned `skills/omh-long-document-reading/references/hermes-pdf-limits.md`)
+- `long-document-reading/omh-long-document-reading/references/hermes-pdf-limits.md` (pinned `skills/omh-long-document-reading/references/hermes-pdf-limits.md`)
 
 ## Source gaps
 - None declared

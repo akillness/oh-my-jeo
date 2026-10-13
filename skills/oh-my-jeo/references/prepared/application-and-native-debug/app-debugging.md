@@ -68,7 +68,7 @@ Keep the symptom statement, the hypothesis set, the discriminating observations,
 - SHA256: `e60fe09f8b5bceff2ff7bf6344a85d6a289d9bb683b1f301294f587521099a47`
 
 ## Method references
-- `omh-app-debugging/references/hypothesis-and-race-method.md` (pinned `skills/omh-app-debugging/references/hypothesis-and-race-method.md`)
+- `app-debugging/omh-app-debugging/references/hypothesis-and-race-method.md` (pinned `skills/omh-app-debugging/references/hypothesis-and-race-method.md`)
 
 ## Source gaps
 - None declared

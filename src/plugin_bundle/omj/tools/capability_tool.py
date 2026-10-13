@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from typing import Iterable
 
 from ..awareness import awareness_lane_examples, awareness_primer_payload
 from ..host_observation import OBSERVATION_SCHEMA, attach_public_observation, observe_plugin_tool_call
+from ..runtime_paths import resolve_handler_homes
 from ..metadata import PROVIDED_HOOKS, PROVIDED_TOOLS
 
 STANDALONE_CAPABILITY_SECTIONS = (
@@ -206,27 +208,49 @@ OMJ_CAPABILITIES_SCHEMA = {
 
 
 def omj_capabilities_handler(args: dict, **kwargs) -> str:
-    observation = observe_plugin_tool_call("omj_capabilities", args, kwargs)
+    homes = resolve_handler_homes(args, kwargs)
+    bound_kwargs = dict(kwargs)
+    bound_kwargs.update({"omj_home": str(homes.omj_home), "hermes_home": str(homes.hermes_home)})
+    observation = observe_plugin_tool_call("omj_capabilities", args, bound_kwargs)
     action = str(args.get("action", "export") or "export")
     section = str(args.get("section", "") or "") or None
+    registry = _load_package_registry()
+    paths = None
+    if registry:
+        from omj.paths import OmjPaths
+
+        paths = OmjPaths(homes.omj_home, homes.hermes_home)
     try:
-        payload = _handle_capability_action(action, section, str(args.get("id", "") or ""))
+        payload = _handle_capability_action(
+            action,
+            section,
+            str(args.get("id", "") or ""),
+            paths=paths,
+            registry=registry,
+        )
     except ValueError as exc:
         payload = {"error": str(exc)}
     return json.dumps(attach_public_observation(payload, observation), sort_keys=True)
 
 
-def _handle_capability_action(action: str, section: str | None, capability_id: str) -> dict[str, object]:
-    registry = _load_package_registry()
+def _handle_capability_action(
+    action: str,
+    section: str | None,
+    capability_id: str,
+    *,
+    paths: object | None = None,
+    registry: dict[str, object] | None = None,
+) -> dict[str, object]:
+    registry = registry if registry is not None else _load_package_registry()
     if registry:
         if action == "summary":
-            return registry["capability_summary"]()
+            return registry["capability_summary"](paths=paths)
         if action == "export":
-            return registry["filtered_capability_snapshot"](section)
+            return registry["filtered_capability_snapshot"](section, paths=paths)
         if action == "list":
-            return registry["list_capabilities"](section)
+            return registry["list_capabilities"](section, paths=paths)
         if action == "inspect":
-            return registry["inspect_capability"](capability_id, section=section)
+            return registry["inspect_capability"](capability_id, section=section, paths=paths)
         return {"error": f"unknown action: {action}"}
     if action == "summary":
         return _standalone_capability_summary()
@@ -252,6 +276,15 @@ def _load_package_registry() -> dict[str, object]:
     }
 
 
+def _standalone_capability_policy() -> dict[str, object]:
+    return {
+        "status": "unobserved",
+        "applied": False,
+        "availability": "prepared_baseline",
+        "source": "selected_home_setup_profile",
+        "claim_boundary": "Standalone fallback cannot observe selected-home capability policy; listed capabilities are the prepared baseline only.",
+    }
+
 def _standalone_capability_summary() -> dict[str, object]:
     awareness = awareness_primer_payload()
     sections = _standalone_sections()
@@ -266,6 +299,7 @@ def _standalone_capability_summary() -> dict[str, object]:
         "schema_version": "omj_capability_summary/v1",
         "source": "standalone_plugin_bundle_fallback",
         "degraded": True,
+        "capability_policy": _standalone_capability_policy(),
         "determinism": "static_plugin_metadata_no_runtime_clock",
         "purpose": (
             "Compact Hermes-facing summary for answering what OMJ can do, choosing the nearest workflow, "
@@ -329,14 +363,23 @@ def standalone_capability_family_cards() -> list[dict[str, object]]:
     return _standalone_capability_families()
 
 
-def _standalone_capability_families() -> list[dict[str, object]]:
+def _standalone_capability_families(
+    disabled_families: Iterable[str] | None = None,
+) -> list[dict[str, object]]:
+    # Standalone fallback cannot observe selected-home policy, so it always
+    # exposes the prepared baseline and never applies caller-supplied filters.
+    _ = disabled_families
     families: list[dict[str, object]] = []
     for family in STANDALONE_CAPABILITY_FAMILIES:
         source_lanes = [str(lane) for lane in family.get("source_lanes", ()) if str(lane)]
+        enabled = True
         payload = {
             **family,
             "source_lanes": source_lanes,
-            "primary_workflows": list(family.get("primary_workflows", ())),
+            "enabled": enabled,
+            "availability": "enabled" if enabled else "disabled_by_policy",
+            "primary_workflows": list(family.get("primary_workflows", ())) if enabled else [],
+            "retained_core_workflows": [],
             "not_evidence_until_observed": list(family.get("not_evidence_until_observed", ())),
             "source_examples": [
                 example
@@ -398,12 +441,14 @@ def _standalone_compact_playbook(playbook: dict[str, object]) -> dict[str, objec
 
 def _standalone_capability_snapshot(section: str | None = None) -> dict[str, object]:
     canonical_section = _standalone_normalize_section(section)
+    policy = _standalone_capability_policy()
     payload: dict[str, object] = {
         "schema_version": "omj_capability_manifest/v1",
         "source": "standalone_plugin_bundle_fallback",
         "degraded": True,
         "determinism": "static_plugin_metadata_no_runtime_clock",
         "summary": {name: len(value) if isinstance(value, list) else len(value.keys()) for name, value in _standalone_sections().items()},
+        "capability_policy": policy,
         "evidence_boundaries": _standalone_evidence_boundaries(),
         "non_goals": [
             "standalone plugin fallback does not expose the full installed skill catalog",
@@ -424,6 +469,7 @@ def _standalone_capability_snapshot(section: str | None = None) -> dict[str, obj
 def _standalone_capability_list(section: str | None = None) -> dict[str, object]:
     canonical_section = _standalone_normalize_section(section)
     sections = _standalone_sections()
+    policy = _standalone_capability_policy()
     if canonical_section:
         if canonical_section not in sections:
             raise ValueError(f"unknown capability section: {section}")
@@ -431,6 +477,7 @@ def _standalone_capability_list(section: str | None = None) -> dict[str, object]
             "schema_version": "omj_capability_list/v1",
             "section": canonical_section,
             "ids": _standalone_ids(sections[canonical_section]),
+            "capability_policy": policy,
             "degraded": True,
         }
     return {
@@ -439,6 +486,7 @@ def _standalone_capability_list(section: str | None = None) -> dict[str, object]
             {"section": name, "ids": _standalone_ids(value)}
             for name, value in sorted(sections.items())
         ],
+        "capability_policy": policy,
         "degraded": True,
     }
 
@@ -463,6 +511,7 @@ def _standalone_capability_inspect(capability_id: str, section: str | None = Non
                     "resolved_id": _standalone_item_id(item, wanted),
                     "capability": item,
                     "degraded": True,
+                    "capability_policy": _standalone_capability_policy(),
                 }
         if isinstance(values, dict) and wanted in values:
             return {
@@ -473,6 +522,7 @@ def _standalone_capability_inspect(capability_id: str, section: str | None = Non
                 "resolved_id": wanted,
                 "capability": values[wanted],
                 "degraded": True,
+                "capability_policy": _standalone_capability_policy(),
             }
     raise ValueError(f"unknown capability id: {wanted}")
 

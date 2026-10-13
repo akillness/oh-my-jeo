@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.resources as resources
 import importlib.util
+import re
 import shutil
 import sys
 from dataclasses import dataclass
@@ -13,11 +14,25 @@ from ..hashutil import sha256_file, sha256_text
 from ..local_store import atomic_write_json, ensure_dir, read_json_object, utc_now
 from ..paths import OmjPaths
 from ..plugin_bundle.omj.metadata import PROVIDED_HOOKS, PROVIDED_TOOLS
+from ..workflows.plugin_hook_contract import (
+    PLUGIN_HOOK_CONTRACT_HOST,
+    PLUGIN_HOOK_CONTRACT_RANGE,
+    PluginHookDeclarationError,
+    PluginManifestFormatError,
+    host_range_status,
+    read_hook_declaration,
+)
+from .plugin_bundle_import_scan import scan_bundle_core_imports
 
 PLUGIN_NAME = "omj"
 PLUGIN_SCHEMA_VERSION = "plugin_distribution/v1"
 PLUGIN_MANAGED_MANIFEST = ".omj-plugin-manifest.json"
 PLUGIN_ENABLE_HINT = "Hermes may require `hermes plugins enable omj` after the bundle is installed."
+PLUGIN_DESCRIPTOR_SCHEMA_VERSION = "plugin_descriptor_admission/v1"
+PLUGIN_DESCRIPTOR_FILENAME = "plugin.yaml"
+PLUGIN_DESCRIPTOR_REQUIRED_FIELDS = ("name", "version", "sdk", "kind", "requires_hermes")
+PLUGIN_DESCRIPTOR_KINDS = frozenset({"standalone", "compat"})
+_DESCRIPTOR_SCALAR_FIELD = re.compile(r'^(name|version|sdk|kind|requires_hermes):[ \t]*(.*)$', re.MULTILINE)
 
 
 class PluginPackError(Exception):
@@ -115,6 +130,8 @@ def inspect_plugin_bundle(paths: OmjPaths) -> dict[str, Any]:
         if missing_hooks:
             detail.append(f"missing hooks={missing_hooks}")
         errors.append("plugin register smoke is incomplete: " + "; ".join(detail))
+    descriptor_admission = validate_plugin_descriptor(target)
+    bundle_import_scan = scan_bundle_core_imports(target)
     return {
         "schema_version": PLUGIN_SCHEMA_VERSION,
         "plugin_name": PLUGIN_NAME,
@@ -136,7 +153,99 @@ def inspect_plugin_bundle(paths: OmjPaths) -> dict[str, Any]:
         "plugin_runtime_observed": False,
         "requires_hermes_plugin_enable": target.exists(),
         "enable_hint": PLUGIN_ENABLE_HINT,
+        # Separate, additive diagnostic tiers: static descriptor conformance and a
+        # static AST import-safety scan. Fake-register smoke is `plugin_import_smoke`/
+        # `plugin_register_smoke` above; isolated real-loader admission is the
+        # deliberately-not-auto-run `observe_real_loader_registration` (it spawns a
+        # real Hermes subprocess and is invoked explicitly by callers that want it).
+        "descriptor_admission": descriptor_admission,
+        "bundle_import_scan": bundle_import_scan,
         "errors": errors,
+    }
+
+
+def validate_plugin_descriptor(plugin_dir: Path) -> dict[str, Any]:
+    """Statically validate a plugin bundle's ``plugin.yaml`` descriptor.
+
+    This is the descriptor-conformance tier: it checks field presence and
+    shape against the real Hermes hook contract source, and never imports or
+    executes any part of the bundle. It does not prove the bundle registers
+    correctly with a live Hermes loader (see ``observe_real_loader_registration``
+    for that isolated tier).
+    """
+    descriptor_path = plugin_dir / PLUGIN_DESCRIPTOR_FILENAME
+    try:
+        text = descriptor_path.read_text(encoding="utf-8")
+    except OSError as error:
+        return _descriptor_payload(
+            plugin_dir,
+            descriptor_path,
+            ok=False,
+            reason="plugin_descriptor_unreadable",
+            invalid_fields=sorted(PLUGIN_DESCRIPTOR_REQUIRED_FIELDS),
+            detail=f"{type(error).__name__}: {error}",
+        )
+    fields = {match.group(1): match.group(2).strip().strip("'\"") for match in _DESCRIPTOR_SCALAR_FIELD.finditer(text)}
+    invalid: set[str] = {name for name in PLUGIN_DESCRIPTOR_REQUIRED_FIELDS if not fields.get(name)}
+    if fields.get("sdk") and fields["sdk"] != PLUGIN_HOOK_CONTRACT_HOST:
+        invalid.add("sdk")
+    if fields.get("kind") and fields["kind"] not in PLUGIN_DESCRIPTOR_KINDS:
+        invalid.add("kind")
+    declared_range = fields.get("requires_hermes") or None
+    try:
+        declaration = read_hook_declaration(text)
+    except (PluginHookDeclarationError, PluginManifestFormatError) as error:
+        invalid.add("provides_hooks")
+        return _descriptor_payload(
+            plugin_dir,
+            descriptor_path,
+            ok=False,
+            reason="plugin_descriptor_unreadable",
+            invalid_fields=sorted(invalid),
+            fields=fields,
+            declared_range=declared_range,
+            detail=str(error),
+        )
+    if "requires_hermes" not in invalid and declaration.range_status != "supported":
+        invalid.add("requires_hermes")
+    ok = not invalid
+    return _descriptor_payload(
+        plugin_dir,
+        descriptor_path,
+        ok=ok,
+        reason="descriptor_admitted" if ok else "descriptor_rejected",
+        invalid_fields=sorted(invalid),
+        fields=fields,
+        declared_range=declaration.declared_range,
+        range_status=declaration.range_status,
+    )
+
+
+def _descriptor_payload(
+    plugin_dir: Path,
+    descriptor_path: Path,
+    *,
+    ok: bool,
+    reason: str,
+    invalid_fields: list[str],
+    fields: dict[str, str] | None = None,
+    declared_range: str | None = None,
+    range_status: str = "undeclared",
+    detail: str = "",
+) -> dict[str, Any]:
+    return {
+        "schema_version": PLUGIN_DESCRIPTOR_SCHEMA_VERSION,
+        "ok": ok,
+        "reason": reason,
+        "plugin_dir": str(plugin_dir),
+        "descriptor_path": str(descriptor_path),
+        "invalid_fields": invalid_fields,
+        "fields": fields or {},
+        "expected_sdk": PLUGIN_HOOK_CONTRACT_HOST,
+        "expected_range": PLUGIN_HOOK_CONTRACT_RANGE,
+        "declared_range": declared_range,
+        "range_status": range_status,
+        "detail": detail,
     }
 
 
@@ -268,6 +377,8 @@ def _manifest_valid(manifest: dict[str, Any] | None, target: Path) -> bool:
 def _register_smoke(plugin_dir: Path) -> dict[str, Any]:
     module_name = "_omj_plugin_smoke"
     _clear_smoke_modules(module_name)
+    previous_bytecode_setting = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
     try:
         spec = importlib.util.spec_from_file_location(
             module_name,
@@ -299,6 +410,7 @@ def _register_smoke(plugin_dir: Path) -> dict[str, Any]:
     except Exception as exc:
         return {"import_smoke": False, "register_smoke": False, "error": f"plugin smoke failed: {exc}"}
     finally:
+        sys.dont_write_bytecode = previous_bytecode_setting
         _clear_smoke_modules(module_name)
 
 

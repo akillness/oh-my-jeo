@@ -13,11 +13,15 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ..local_store import read_json_object_result
 from ..paths import OmjPaths
 from .memory import (
-    PROJECT_MEMORY_CANDIDATE_SCHEMA_VERSION,
-    PROJECT_MEMORY_RECORD_SCHEMA_VERSION,
+    MAX_MEMORY_SCAN_FILES,
+    _PROJECT_MEMORY_CANDIDATE_SCHEMAS,
+    _PROJECT_MEMORY_RECORD_SCHEMAS,
+    _bounded_memory_inventory,
+    _memory_admission_state,
+    _memory_status_label,
+    _read_bounded_memory_json,
     _normalize_scope,
     _normalize_tags,
     _record_staleness,
@@ -63,7 +67,8 @@ def build_memory_source_index(
     """
     selector = str(source or "").strip()
     records, unreadable = _read_approved_records(paths)
-    candidates = _read_candidates(paths)
+    candidates, candidate_errors = _read_candidates(paths)
+    unreadable.extend(candidate_errors)
 
     labels: dict[str, dict[str, Any]] = {}
     axis_values: dict[str, set[str]] = {axis: set() for axis in SOURCE_AXES}
@@ -111,8 +116,12 @@ def build_memory_source_index(
     selected_limit = _limited(selected, limit)
     unreadable_rows = list(unreadable)
     outcome = _selector_outcome(selector, selected, records, labels)
+    complete = not unreadable_rows
     return {
         "schema_version": MEMORY_SOURCE_INDEX_SCHEMA_VERSION,
+        "read_state": "read" if complete else "partial" if records else "refused",
+        "complete": complete,
+        "scan_budget": {"max_files_per_source": MAX_MEMORY_SCAN_FILES, "complete": complete},
         "record_count": len(records),
         "axes": [
             {
@@ -141,6 +150,7 @@ def build_memory_source_index(
             "count": len(selected),
             "records": selected_limit,
             "truncated": limit is not None and len(selected) > max(limit, 0),
+            "complete": complete,
         },
         "indeterminate": {
             "records": indeterminate,
@@ -162,56 +172,26 @@ def build_memory_source_index(
 def _read_approved_records(
     paths: OmjPaths,
 ) -> tuple[list[tuple[dict[str, Any], Path]], list[dict[str, object]]]:
-    """Read active approved records and fail closed on every unjudgeable file.
-
-    This intentionally scans only the active ``records`` directory, matching
-    the local recall surface. Retired archive files are not active records and
-    cannot silently remain in a source blast radius.
-    """
-    memory_dir = paths.memory_dir
-    try:
-        memory_root = memory_dir.resolve(strict=False)
-    except (OSError, RuntimeError):
-        memory_root = memory_dir.absolute()
-    records_dir = memory_dir / "records"
+    """Read only bounded active files, disclosing every unjudgeable source."""
+    records_dir = paths.memory_dir / "records"
     rows: list[tuple[dict[str, Any], Path]] = []
     unreadable: list[dict[str, object]] = []
     seen_ids: set[str] = set()
-
-    try:
-        if records_dir.is_symlink():
-            return rows, [{"path_name": _redact_metadata(records_dir.name), "reason": "symlink_directory"}]
-        if not records_dir.exists():
-            return rows, unreadable
-        files = sorted(records_dir.glob("*.json"))
-    except OSError as exc:
-        return rows, [{"path_name": _redact_metadata(records_dir.name), "reason": _redact_metadata(str(exc))}]
-
+    files, state, _ = _bounded_memory_inventory(records_dir, max_entries=MAX_MEMORY_SCAN_FILES)
+    if state not in {"read", "absent"}:
+        unreadable.append({"path_name": "records", "reason": state})
     for path in files:
         path_name = _redact_metadata(path.name)
-        try:
-            if not path.is_file() or path.is_symlink() or _has_symlink_ancestor(path, records_dir):
-                unreadable.append({"path_name": path_name, "reason": "symlink_path"})
-                continue
-            resolved = path.resolve(strict=False)
-            if not _under_root(resolved, memory_root):
-                unreadable.append({"path_name": path_name, "reason": "outside_memory_root"})
-                continue
-            data, error = read_json_object_result(path)
-        except (OSError, RuntimeError) as exc:
-            data, error = None, str(exc)
-        if error:
-            unreadable.append({"path_name": path_name, "reason": _redact_metadata(str(error))})
+        data, error, _ = _read_bounded_memory_json(path)
+        if error or data is None:
+            unreadable.append({"path_name": path_name, "reason": error or "corrupt_json"})
             continue
-        if not isinstance(data, dict):
-            unreadable.append({"path_name": path_name, "reason": "record_not_object"})
-            continue
-
         record_id = str(data.get("record_id", ""))
-        if data.get("schema_version") != PROJECT_MEMORY_RECORD_SCHEMA_VERSION:
+        schema = data.get("schema_version")
+        if not isinstance(schema, str) or schema not in _PROJECT_MEMORY_RECORD_SCHEMAS:
             unreadable.append({"path_name": path_name, "record_id": _redact_metadata(record_id), "reason": "unsupported_record_schema"})
             continue
-        if data.get("review_status") != "approved":
+        if _memory_admission_state(data) not in {"approved_manual", "approved_auto_safe"}:
             unreadable.append({"path_name": path_name, "record_id": _redact_metadata(record_id), "reason": "not_approved"})
             continue
         if record_id and record_id in seen_ids:
@@ -220,38 +200,30 @@ def _read_approved_records(
         if record_id:
             seen_ids.add(record_id)
         rows.append((data, path))
-
     return rows, unreadable
 
 
-def _read_candidates(paths: OmjPaths) -> dict[str, dict[str, Any]]:
-    """Read candidates only for non-authoritative status metadata."""
+def _read_candidates(paths: OmjPaths) -> tuple[dict[str, dict[str, Any]], list[dict[str, object]]]:
+    """Read bounded candidates for non-authoritative status metadata."""
     directory = paths.memory_dir / "candidates"
-    try:
-        memory_root = paths.memory_dir.resolve(strict=False)
-        if directory.is_symlink() or not directory.exists():
-            return {}
-        files = sorted(directory.glob("*.json"))
-    except (OSError, RuntimeError):
-        return {}
+    files, state, _ = _bounded_memory_inventory(directory, max_entries=MAX_MEMORY_SCAN_FILES)
+    errors: list[dict[str, object]] = []
+    if state not in {"read", "absent"}:
+        errors.append({"path_name": "candidates", "reason": state})
     candidates: dict[str, dict[str, Any]] = {}
     for path in files:
-        try:
-            if path.is_symlink() or _has_symlink_ancestor(path, directory) or not path.is_file():
-                continue
-            if not _under_root(path.resolve(strict=False), memory_root):
-                continue
-            data, error = read_json_object_result(path)
-        except (OSError, RuntimeError):
+        data, error, _ = _read_bounded_memory_json(path)
+        if error or data is None:
+            errors.append({"path_name": _redact_metadata(path.name), "reason": error or "corrupt_json"})
             continue
-        if error or not isinstance(data, dict):
-            continue
-        if data.get("schema_version") != PROJECT_MEMORY_CANDIDATE_SCHEMA_VERSION:
+        schema = data.get("schema_version")
+        if not isinstance(schema, str) or schema not in _PROJECT_MEMORY_CANDIDATE_SCHEMAS:
+            errors.append({"path_name": _redact_metadata(path.name), "reason": "unsupported_record_schema"})
             continue
         candidate_id = str(data.get("candidate_id", ""))
         if candidate_id:
             candidates[candidate_id] = data
-    return candidates
+    return candidates, errors
 
 
 def _record_sources(record: dict[str, Any]) -> list[dict[str, str]]:
@@ -279,8 +251,8 @@ def _source_card(
     archived = _is_archived(record, record_path, memory_dir)
     # The local reviewed-record schema has no conflict axis; do not infer one.
     conflict = False
-    candidate_status = str(candidate.get("status", "")) if candidate else ""
-    approved = str(record.get("review_status", "")) == "approved"
+    candidate_status = _memory_status_label(candidate.get("status")) if candidate else ""
+    approved = _memory_admission_state(record) in {"approved_manual", "approved_auto_safe"}
     return {
         "record_id": _redact_metadata(record_id),
         "candidate_id": _redact_metadata(candidate_id),
@@ -363,28 +335,8 @@ def _redact_metadata(value: Any) -> str:
     return _redact(text)
 
 
-def _under_root(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False
 
 
-def _has_symlink_ancestor(path: Path, root: Path) -> bool:
-    try:
-        relative = path.relative_to(root)
-    except ValueError:
-        return True
-    current = root
-    for part in relative.parts[:-1]:
-        current = current / part
-        try:
-            if current.is_symlink():
-                return True
-        except OSError:
-            return True
-    return False
 
 
 def _revision(value: Any) -> int | None:

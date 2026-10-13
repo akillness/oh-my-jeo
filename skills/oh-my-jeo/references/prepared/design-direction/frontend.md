@@ -202,15 +202,15 @@ Keep product framing, reference selection, design-system contract, viewport/stat
 - SHA256: `8469297df68b61ed17919318b6899deac2318260ee437ab06abd3dfe67f75dec`
 
 ## Method references
-- `omh-frontend/references/chart-styling.md` (pinned `skills/omh-frontend/references/chart-styling.md`)
-- `omh-frontend/references/component-registry-adoption.md` (pinned `skills/omh-frontend/references/component-registry-adoption.md`)
-- `omh-frontend/references/design-system-contract.md` (pinned `skills/omh-frontend/references/design-system-contract.md`)
-- `omh-frontend/references/reference-token-extraction.md` (pinned `skills/omh-frontend/references/reference-token-extraction.md`)
-- `omh-frontend/references/screenshot-loop.md` (pinned `skills/omh-frontend/references/screenshot-loop.md`)
-- `omh-frontend/references/scroll-motion-libraries.md` (pinned `skills/omh-frontend/references/scroll-motion-libraries.md`)
-- `omh-frontend/references/taste-foundations.md` (pinned `skills/omh-frontend/references/taste-foundations.md`)
-- `omh-frontend/references/tui-craft.md` (pinned `skills/omh-frontend/references/tui-craft.md`)
-- `omh-frontend/references/web-vitals-budgets.md` (pinned `skills/omh-frontend/references/web-vitals-budgets.md`)
+- `frontend/omh-frontend/references/chart-styling.md` (pinned `skills/omh-frontend/references/chart-styling.md`)
+- `frontend/omh-frontend/references/component-registry-adoption.md` (pinned `skills/omh-frontend/references/component-registry-adoption.md`)
+- `frontend/omh-frontend/references/design-system-contract.md` (pinned `skills/omh-frontend/references/design-system-contract.md`)
+- `frontend/omh-frontend/references/reference-token-extraction.md` (pinned `skills/omh-frontend/references/reference-token-extraction.md`)
+- `frontend/omh-frontend/references/screenshot-loop.md` (pinned `skills/omh-frontend/references/screenshot-loop.md`)
+- `frontend/omh-frontend/references/scroll-motion-libraries.md` (pinned `skills/omh-frontend/references/scroll-motion-libraries.md`)
+- `frontend/omh-frontend/references/taste-foundations.md` (pinned `skills/omh-frontend/references/taste-foundations.md`)
+- `frontend/omh-frontend/references/tui-craft.md` (pinned `skills/omh-frontend/references/tui-craft.md`)
+- `frontend/omh-frontend/references/web-vitals-budgets.md` (pinned `skills/omh-frontend/references/web-vitals-budgets.md`)
 
 ## Source gaps
 - None declared

@@ -58,7 +58,7 @@ Keep this as Hermes-facing orchestration guidance first. Prepare executor, conne
 - SHA256: `bcab2434ebcf01f32d34a9493a154f233bbcd53b6f39418c2be9a4b8fec4fe08`
 
 ## Method references
-- `omh-agent-debug/references/session-forensics.md` (pinned `skills/omh-agent-debug/references/session-forensics.md`)
+- `agent-debug/omh-agent-debug/references/session-forensics.md` (pinned `skills/omh-agent-debug/references/session-forensics.md`)
 
 ## Source gaps
 - None declared

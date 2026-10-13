@@ -93,7 +93,7 @@ Keep the drift assessment, blast radius, cost delta, staged apply plan, health g
 - SHA256: `19e48fac2583ed8131bc1eb3ebe77bd225846583038379380a46b57e31d4a057`
 
 ## Method references
-- `omh-iac-change/references/iac-change-method.md` (pinned `skills/omh-iac-change/references/iac-change-method.md`)
+- `iac-change/omh-iac-change/references/iac-change-method.md` (pinned `skills/omh-iac-change/references/iac-change-method.md`)
 
 ## Source gaps
 - None declared

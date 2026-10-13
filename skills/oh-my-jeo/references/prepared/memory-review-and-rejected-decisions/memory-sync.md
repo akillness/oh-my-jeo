@@ -57,7 +57,7 @@ Keep this as Hermes-facing orchestration guidance first. Prepare executor, conne
 - SHA256: `22274080815463ec40d0c49f91b5c233bf94498d8d4dfc1df1c1dd6eef84cbdc`
 
 ## Method references
-- `omh-memory-sync/references/source-recovery.md` (pinned `skills/omh-memory-sync/references/source-recovery.md`)
+- `memory-sync/omh-memory-sync/references/source-recovery.md` (pinned `skills/omh-memory-sync/references/source-recovery.md`)
 
 ## Source gaps
 - None declared

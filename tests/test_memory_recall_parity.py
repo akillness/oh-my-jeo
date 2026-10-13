@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import json
 import unittest
 
 from _local_package import load_local_package
@@ -137,6 +140,253 @@ class RecallParityTests(unittest.TestCase):
                 [korean_record["record_id"]],
             )
             self.assertNotIn(unrelated["record_id"], {item["record_id"] for item in korean_recall["included_records"]})
+
+    def test_shared_eligibility_gates_out_rank_relevance_and_allow_stale(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = resolve_paths(root / ".omj", root / ".hermes")
+            records: dict[str, tuple[dict[str, object], Path]] = {}
+            for label in ("eligible", "expired", "pending", "bad-ttl", "unreadable-source", "stale"):
+                captured = capture_project_memory_candidate(
+                    paths,
+                    f"needle {label}",
+                    record_type="procedure",
+                    source="operator",
+                    tags=[label],
+                )
+                record = self._approve(paths, captured)
+                path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+                records[label] = (record, path)
+
+            expired, _ = records["expired"]
+            expired["ttl"] = {"expires_at": "2000-01-01T00:00:00Z", "ttl_days": 1}
+            pending, _ = records["pending"]
+            pending["admission"] = {"state": "pending_review"}
+            bad_ttl, _ = records["bad-ttl"]
+            bad_ttl["ttl"] = {"expires_at": "not-a-timestamp", "ttl_days": 1}
+            unreadable, _ = records["unreadable-source"]
+            unreadable["source_status"] = "unreadable"
+            stale, _ = records["stale"]
+            stale["staleness"] = {"stale_after": "2000-01-01T00:00:00Z", "review_due_at": "2000-01-01T00:00:00Z"}
+            for record, path in records.values():
+                path.write_text(json.dumps(record), encoding="utf-8")
+
+            pack = build_project_memory_recall_pack(paths, "needle", executor_target="codex")
+            included = {item["record_id"] for item in pack["included_records"]}
+            excluded = {item["record_id"]: item["reason"] for item in pack["excluded_records"]}
+            self.assertEqual(included, {records["eligible"][0]["record_id"]})
+            self.assertEqual(excluded[expired["record_id"]], "expired")
+            self.assertIn(excluded[pending["record_id"]], {"not_approved", "pending_review"})
+            self.assertIn(excluded[bad_ttl["record_id"]], {"malformed_ttl", "unreadable_retention"})
+            self.assertIn(excluded[unreadable["record_id"]], {"unreadable_source", "source_unreadable"})
+            self.assertIn(excluded[stale["record_id"]], {"stale", "review_due"})
+
+            with_stale = build_project_memory_recall_pack(paths, "needle", executor_target="codex", include_stale=True)
+            stale_ids = {item["record_id"] for item in with_stale["included_records"]}
+            self.assertIn(stale["record_id"], stale_ids)
+            self.assertNotIn(expired["record_id"], stale_ids)
+
+
+    def test_governed_recall_rejects_each_invalid_expiry_and_poison_marker(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            fixtures: dict[str, tuple[dict[str, object], Path]] = {}
+            for label in (
+                "retention-expired",
+                "retention-malformed",
+                "source-changed",
+                "source-unreadable",
+                "revision-zero",
+                "superseded",
+                "contaminated",
+                "stale",
+            ):
+                record = self._approve(
+                    paths,
+                    capture_project_memory_candidate(
+                        paths,
+                        f"needle {label}",
+                        record_type="procedure",
+                        source="operator",
+                        tags=[label],
+                    ),
+                )
+                record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+                fixtures[label] = (record, record_path)
+
+            fixtures["retention-expired"][0].update(
+                {
+                    "ttl": {"expires_at": "2999-01-01T00:00:00Z", "ttl_days": 1},
+                    "retention": {"class": "standard", "expires_at": "2000-01-01T00:00:00Z"},
+                }
+            )
+            fixtures["retention-malformed"][0].update(
+                {
+                    "ttl": {"expires_at": "2999-01-01T00:00:00Z", "ttl_days": 1},
+                    "retention": {"class": "standard", "expires_at": "not-a-timestamp"},
+                }
+            )
+            fixtures["source-changed"][0]["source_evidence"] = {"status": "changed"}
+            fixtures["source-unreadable"][0]["source_evidence"] = {"status": "unreadable"}
+            fixtures["revision-zero"][0]["revision"] = 0
+            fixtures["superseded"][0]["superseded_by"] = "newer-record"
+            fixtures["contaminated"][0]["contamination_class"] = "prompt_injection"
+            fixtures["stale"][0]["staleness"] = {
+                "stale_after": "2000-01-01T00:00:00Z",
+                "review_due_at": "2000-01-01T00:00:00Z",
+            }
+            for record, record_path in fixtures.values():
+                record_path.write_text(json.dumps(record), encoding="utf-8")
+
+            pack = build_project_memory_recall_pack(paths, "needle", executor_target="codex")
+            included = {item["record_id"] for item in pack["included_records"]}
+            excluded = {item["record_id"]: item["reason"] for item in pack["excluded_records"]}
+            self.assertEqual(included, set())
+            allowed_reasons = {
+                "retention-expired": {"expired", "expired_standard"},
+                "retention-malformed": {"malformed_ttl", "unreadable_retention", "unreadable_expiry"},
+                "source-changed": {"source_changed"},
+                "source-unreadable": {"unreadable_source", "source_unreadable"},
+                "revision-zero": {"invalid_revision"},
+                "superseded": {"superseded", "superseded_record"},
+                "contaminated": {"contaminated", "contamination"},
+                "stale": {"stale", "review_due", "stale_review_required"},
+            }
+            for label, (record, _) in fixtures.items():
+                with self.subTest(label=label):
+                    self.assertIn(record["record_id"], excluded)
+                    self.assertIn(excluded[record["record_id"]], allowed_reasons[label])
+
+            with_stale = build_project_memory_recall_pack(
+                paths,
+                "needle",
+                executor_target="codex",
+                include_stale=True,
+            )
+            stale_ids = {item["record_id"] for item in with_stale["included_records"]}
+            self.assertIn(fixtures["stale"][0]["record_id"], stale_ids)
+            for label, (record, _) in fixtures.items():
+                if label != "stale":
+                    with self.subTest(include_stale=label):
+                        self.assertNotIn(record["record_id"], stale_ids)
+
+    def test_recall_rejects_changed_or_unreadable_declared_source_evidence(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = resolve_paths(root / ".omj", root / ".hermes")
+            source_path = root / "source.txt"
+            source_path.write_text("original source", encoding="utf-8")
+            canonical_source_path = source_path.resolve()
+            digest = hashlib.sha256(canonical_source_path.read_bytes()).hexdigest()
+            symlink_path = root / "source-link.txt"
+            symlink_path.symlink_to(source_path)
+            oversized_path = root / "oversized-source.txt"
+            oversized_path.write_bytes(b"x" * 1_000_001)
+            oversized_digest = hashlib.sha256(oversized_path.read_bytes()).hexdigest()
+            fixtures: dict[str, tuple[dict[str, object], set[str]]] = {}
+            for label, evidence, reasons in (
+                (
+                    "changed",
+                    {"path": str(source_path), "sha256": digest},
+                    {"source_changed", "source_unreadable", "unreadable_source"},
+                ),
+                (
+                    "unreadable",
+                    {"path": str(root / "missing-source.txt"), "sha256": "0" * 64},
+                    {"source_unreadable", "unreadable_source"},
+                ),
+                (
+                    "symlink",
+                    {"path": str(symlink_path), "sha256": digest},
+                    {"source_unreadable", "unreadable_source"},
+                ),
+                (
+                    "oversized",
+                    {"path": str(oversized_path), "sha256": oversized_digest},
+                    {"source_unreadable", "unreadable_source"},
+                ),
+            ):
+                captured = capture_project_memory_candidate(
+                    paths,
+                    f"needle direct-source-{label}",
+                    record_type="procedure",
+                    source="operator",
+                )
+                record = self._approve(paths, captured)
+                record["source_evidence"] = evidence
+                record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+                record_path.write_text(json.dumps(record), encoding="utf-8")
+                fixtures[label] = (record, reasons)
+
+            source_path.write_text("changed source", encoding="utf-8")
+            recall = build_project_memory_recall_pack(paths, "needle", executor_target="codex")
+            self.assertFalse(recall["included_records"])
+            excluded = {item["record_id"]: item["reason"] for item in recall["excluded_records"]}
+            for label, (record, reasons) in fixtures.items():
+                with self.subTest(label=label):
+                    self.assertIn(record["record_id"], excluded)
+                    self.assertIn(excluded[record["record_id"]], reasons)
+
+    def test_legacy_approved_v1_record_remains_recallable(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            captured = capture_project_memory_candidate(paths, "legacy deployment procedure", record_type="procedure", source="operator")
+            record = self._approve(paths, captured)
+            record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+            legacy = json.loads(record_path.read_text(encoding="utf-8"))
+            legacy["schema_version"] = "project_memory_record/v1"
+            legacy.pop("source_class", None)
+            legacy.pop("admission", None)
+            legacy.pop("retention", None)
+            record_path.write_text(json.dumps(legacy), encoding="utf-8")
+            recall = build_project_memory_recall_pack(paths, "legacy", executor_target="codex")
+            self.assertEqual([item["record_id"] for item in recall["included_records"]], [record["record_id"]])
+    def test_canonical_recall_rejects_explicit_empty_admission_state_but_accepts_absent_legacy_admission(self) -> None:
+        for state in (None, ""):
+            with self.subTest(admission_state=state):
+                with TemporaryDirectory() as tmp:
+                    paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+                    record = self._approve(
+                        paths,
+                        capture_project_memory_candidate(
+                            paths,
+                            "legacy admission compatibility",
+                            record_type="procedure",
+                            source="operator",
+                        ),
+                    )
+                    record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+                    persisted = json.loads(record_path.read_text(encoding="utf-8"))
+                    persisted["review_status"] = "approved"
+                    persisted["admission"] = {"state": state}
+                    record_path.write_text(json.dumps(persisted), encoding="utf-8")
+
+                    recall = build_project_memory_recall_pack(paths, "legacy admission", executor_target="codex")
+
+                    self.assertEqual(recall["included_records"], [])
+                    excluded = {row["record_id"]: row["reason"] for row in recall["excluded_records"]}
+                    self.assertEqual(excluded[record["record_id"]], "not_approved")
+
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            record = self._approve(
+                paths,
+                capture_project_memory_candidate(
+                    paths,
+                    "legacy admission compatibility",
+                    record_type="procedure",
+                    source="operator",
+                ),
+            )
+            record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+            persisted = json.loads(record_path.read_text(encoding="utf-8"))
+            persisted.pop("admission", None)
+            persisted["review_status"] = "approved"
+            record_path.write_text(json.dumps(persisted), encoding="utf-8")
+
+            recall = build_project_memory_recall_pack(paths, "legacy admission", executor_target="codex")
+
+            self.assertEqual([row["record_id"] for row in recall["included_records"]], [record["record_id"]])
 
     def test_fallback_respects_project_scope_review_stale_and_expiry_gates(self) -> None:
         """Recall fallback changes token eligibility only, never governance gates."""

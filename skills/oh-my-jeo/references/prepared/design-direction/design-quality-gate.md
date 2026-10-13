@@ -89,7 +89,7 @@ Keep the quality brief, reference selection, design rubric, content-structure re
 - SHA256: `b7f5fe57565af02b4daaf62392985a6307218c5e3f16405cf640caea45d11350`
 
 ## Method references
-- `omh-design-quality-gate/references/design-critique-rubric.md` (pinned `skills/omh-design-quality-gate/references/design-critique-rubric.md`)
+- `design-quality-gate/omh-design-quality-gate/references/design-critique-rubric.md` (pinned `skills/omh-design-quality-gate/references/design-critique-rubric.md`)
 
 ## Source gaps
 - None declared

@@ -56,10 +56,10 @@ Answer read-only OMH documentation questions directly from official current sour
 - SHA256: `5a2b13a24e3898b8b34153cea07eb1cfa2b6f74343c58a727fdc9bbeabbafd4a`
 
 ## Method references
-- `omh-docs/references/capability-map.md` (pinned `skills/omh-docs/references/capability-map.md`)
-- `omh-docs/references/long-term-memory.md` (pinned `skills/omh-docs/references/long-term-memory.md`)
-- `omh-docs/references/model-routing-and-local-state.md` (pinned `skills/omh-docs/references/model-routing-and-local-state.md`)
-- `omh-docs/references/product-and-sources.md` (pinned `skills/omh-docs/references/product-and-sources.md`)
+- `product-docs/omh-docs/references/capability-map.md` (pinned `skills/omh-docs/references/capability-map.md`)
+- `product-docs/omh-docs/references/long-term-memory.md` (pinned `skills/omh-docs/references/long-term-memory.md`)
+- `product-docs/omh-docs/references/model-routing-and-local-state.md` (pinned `skills/omh-docs/references/model-routing-and-local-state.md`)
+- `product-docs/omh-docs/references/product-and-sources.md` (pinned `skills/omh-docs/references/product-and-sources.md`)
 
 ## Source gaps
 - None declared

@@ -61,7 +61,7 @@ Keep domain framing, clarification, source/evidence synthesis, draft outputs, an
 - SHA256: `a0263ea7e99e71e903e4c7997497854d02cadad3060f826bed1e4eb95cba89d9`
 
 ## Method references
-- `omh-finance-analysis/references/procedure.md` (pinned `skills/omh-finance-analysis/references/procedure.md`)
+- `finance-analysis/omh-finance-analysis/references/procedure.md` (pinned `skills/omh-finance-analysis/references/procedure.md`)
 
 ## Source gaps
 - None declared

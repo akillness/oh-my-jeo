@@ -59,8 +59,8 @@ Hermes prepares the preview plan, pass order, and characterization-test gate; th
 - SHA256: `b2a22786194fe49410a1ab0b6183b89d0f70711c6a5ad9bac243505cec047ed0`
 
 ## Method references
-- `omh-frontend-refactor/references/refactor-passes.md` (pinned `skills/omh-frontend-refactor/references/refactor-passes.md`)
-- `omh-frontend-refactor/references/state-discipline.md` (pinned `skills/omh-frontend-refactor/references/state-discipline.md`)
+- `frontend-refactor/omh-frontend-refactor/references/refactor-passes.md` (pinned `skills/omh-frontend-refactor/references/refactor-passes.md`)
+- `frontend-refactor/omh-frontend-refactor/references/state-discipline.md` (pinned `skills/omh-frontend-refactor/references/state-discipline.md`)
 
 ## Source gaps
 - None declared

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,6 +17,7 @@ from omj.workflows.memory import (
     approve_project_memory_candidate,
     build_project_memory_recall_pack,
     capture_project_memory_candidate,
+    scan_governed_memory,
 )
 from omj.workflows.memory_provenance import build_memory_source_index
 from omj.workflows.domain_intelligence import (
@@ -31,13 +34,20 @@ from omj.workflows.domain_intelligence import (
 )
 from omj.workflows.memory_lifecycle import (
     RECEIPT_SCHEMA_VERSION,
+    apply_memory_correction,
+    apply_memory_reapproval,
+    apply_memory_restore,
+    apply_memory_retirement,
     build_memory_correction,
+    build_memory_reapproval,
     build_memory_restore,
     build_memory_retirement,
     compare_retrieval_reports,
     lifecycle_replay_status,
+    make_lifecycle_receipt,
     validate_lifecycle_receipt,
 )
+import omj.commands.memory as memory_commands
 
 
 class MemoryExtensionsParityTests(unittest.TestCase):
@@ -99,6 +109,58 @@ class MemoryExtensionsParityTests(unittest.TestCase):
             empty = build_memory_source_index(resolve_paths(Path(tmp) / "empty.omj", Path(tmp) / "empty.hermes"), source="anything")
             self.assertEqual(empty["selected"]["outcome"], "empty_store")
 
+    def test_g8_bounded_diagnostic_scan_names_corruption_schema_escape_duplicates_and_pending(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = resolve_paths(root / ".omj", root / ".hermes")
+            first = capture_project_memory_candidate(paths, "first release note", source="release-import")
+            first_record = approve_project_memory_candidate(paths, first["candidate"]["candidate_id"])["record"]
+            second = capture_project_memory_candidate(paths, "second release note", source="release-import")
+            second_record = approve_project_memory_candidate(paths, second["candidate"]["candidate_id"])["record"]
+            pending = capture_project_memory_candidate(paths, "pending release note", source="release-import")
+
+            records_dir = paths.memory_dir / "records"
+            candidates_dir = paths.memory_dir / "candidates"
+            pending_payload = json.loads((candidates_dir / f"{pending['candidate']['candidate_id']}.json").read_text(encoding="utf-8"))
+            unsupported_candidate_list = candidates_dir / "unsupported-list.json"
+            unsupported_candidate_list.write_text(json.dumps({**pending_payload, "schema_version": ["project_memory_candidate/v99"]}), encoding="utf-8")
+            unsupported_candidate_mapping = candidates_dir / "unsupported-mapping.json"
+            unsupported_candidate_mapping.write_text(json.dumps({**pending_payload, "schema_version": {"version": "project_memory_candidate/v99"}}), encoding="utf-8")
+            duplicate = records_dir / "duplicate.json"
+            duplicate.write_text(json.dumps(first_record), encoding="utf-8")
+            unsupported = records_dir / "unsupported.json"
+            unsupported.write_text(json.dumps({**second_record, "schema_version": "project_memory_record/v99"}), encoding="utf-8")
+            unsupported_list = records_dir / "unsupported-list.json"
+            unsupported_list.write_text(json.dumps({**second_record, "schema_version": ["project_memory_record/v99"]}), encoding="utf-8")
+            unsupported_mapping = records_dir / "unsupported-mapping.json"
+            unsupported_mapping.write_text(json.dumps({**second_record, "schema_version": {"version": "project_memory_record/v99"}}), encoding="utf-8")
+            corrupt = records_dir / "corrupt.json"
+            corrupt.write_text("{not-json", encoding="utf-8")
+            outside = root / "outside.json"
+            outside.write_text(json.dumps(first_record), encoding="utf-8")
+            escaped = records_dir / "escaped.json"
+            try:
+                os.symlink(outside, escaped)
+            except OSError as exc:
+                self.skipTest(f"symlink fixtures unavailable: {exc}")
+
+            report = build_memory_source_index(paths, source="release-import")
+
+            self.assertEqual(report["selected"]["outcome"], "matched")
+            self.assertEqual(report["selected"]["count"], 2)
+            self.assertEqual(
+                {item["record_id"] for item in report["selected"]["records"]},
+                {first_record["record_id"], second_record["record_id"]},
+            )
+            unreadable_reasons = [item["reason"] for item in report["indeterminate"]["unreadable"]]
+            reasons = set(unreadable_reasons)
+            self.assertTrue({"duplicate_record", "unsupported_record_schema", "corrupt_json"} <= reasons)
+            self.assertGreaterEqual(unreadable_reasons.count("unsupported_record_schema"), 5)
+            self.assertTrue(any(item["reason"] in {"symlink_path", "outside_memory_root"} for item in report["indeterminate"]["unreadable"]))
+            self.assertNotIn(pending["candidate"]["candidate_id"], json.dumps(report["selected"]))
+            self.assertGreaterEqual(report["indeterminate"]["count"], 4)
+
+
     def test_g8_index_does_not_broaden_recall_scope_or_expiry_filters(self) -> None:
         with TemporaryDirectory() as tmp:
             paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
@@ -122,6 +184,59 @@ class MemoryExtensionsParityTests(unittest.TestCase):
             self.assertEqual(index["selected"]["count"], 1)
             self.assertEqual(recall["record_count"], 0)
             self.assertFalse(recall["included_records"])
+
+    def test_g8_source_index_refuses_oversized_active_records_as_indeterminate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            paths = resolve_paths(Path(tmp) / ".omj", Path(tmp) / ".hermes")
+            captured = capture_project_memory_candidate(paths, "bounded source record", source="release-import")
+            approved = approve_project_memory_candidate(paths, captured["candidate"]["candidate_id"])
+            record = approved["record"]
+            record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+            oversized = json.loads(record_path.read_text(encoding="utf-8"))
+            oversized["summary"] = "x" * 1_000_100
+            record_path.write_text(json.dumps(oversized), encoding="utf-8")
+            report = build_memory_source_index(paths, source="release-import")
+
+            self.assertEqual(report["selected"]["count"], 0)
+            self.assertEqual(report["selected"]["records"], [])
+            self.assertGreaterEqual(report["indeterminate"]["count"], 1)
+
+    def test_g8_scan_refusal_states_are_explicit_for_deep_unreadable_and_byte_budget_inputs(self) -> None:
+        for label in ("deep-1500", "deep-20000", "unreadable", "byte-budget"):
+            with self.subTest(input=label):
+                with TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    paths = resolve_paths(root / ".omj", root / ".hermes")
+                    captured = capture_project_memory_candidate(paths, f"refusal fixture {label}", source="operator")
+                    record = approve_project_memory_candidate(paths, captured["candidate"]["candidate_id"])["record"]
+                    record_path = paths.memory_dir / "records" / f"{record['record_id']}.json"
+                    if label.startswith("deep"):
+                        depth = 1_500 if label == "deep-1500" else 20_000
+                        nested_open = "".join('{"next":' for _ in range(depth))
+                        nested_raw = nested_open + json.dumps("leaf") + ("}" * depth)
+                        record_json = json.dumps(record)
+                        record_path.write_text(record_json[:-1] + ',"extra":' + nested_raw + "}", encoding="utf-8")
+                        expected_state = "partial"
+                        expected_diagnostic = "corrupt_json"
+                    elif label == "unreadable":
+                        outside = root / "outside.json"
+                        outside.write_text(json.dumps(record), encoding="utf-8")
+                        record_path.unlink()
+                        record_path.symlink_to(outside)
+                        expected_state = "partial"
+                        expected_diagnostic = "symlink_path"
+                    else:
+                        record_path.write_bytes(b"x" * 1_000_001)
+                        expected_state = "budget_exceeded"
+                        expected_diagnostic = "file_budget_exceeded"
+
+                    scan = scan_governed_memory(paths)
+
+                    self.assertEqual(scan["read_state"], expected_state)
+                    self.assertFalse(scan["complete"])
+                    self.assertIn(expected_diagnostic, {item["diagnostic"] for item in scan["findings"]})
+                    if label == "byte-budget":
+                        self.assertTrue(scan["limit_reached"])
 
     def _domain_candidate(self, paths: object) -> dict[str, object]:
         return capture_domain_candidate(
@@ -235,12 +350,171 @@ class MemoryExtensionsParityTests(unittest.TestCase):
             retirement = build_memory_retirement(paths, "mem-missing", 4, now=now)
             restore = build_memory_restore(paths, "mem-missing", 4, now=now)
             correction = build_memory_correction(paths, "mem-missing", 4, "corrected", now=now)
-
             for plan in (retirement, restore, correction):
                 with self.subTest(operation=plan.operation_type):
                     self.assertFalse(plan.report["eligible"])
                     self.assertEqual(plan.report["outcomes"][0]["outcome"], "rejected")
             self.assertFalse(paths.memory_dir.exists())
+
+    def test_restore_reapproval_refuses_destination_and_tombstone_races_without_receipt(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = resolve_paths(root / ".omj", root / ".hermes")
+            captured = capture_project_memory_candidate(
+                paths,
+                "restorable release procedure",
+                record_type="procedure",
+                source="operator",
+                ttl_days=1,
+            )
+            approved = approve_project_memory_candidate(paths, captured["candidate"]["candidate_id"])
+            origin = approved["record"]
+            record_id = str(origin["record_id"])
+            record_path = paths.memory_dir / "records" / f"{record_id}.json"
+            expired = json.loads(record_path.read_text(encoding="utf-8"))
+            expired["ttl"] = {"expires_at": "2000-01-01T00:00:00Z", "ttl_days": 1}
+            record_path.write_text(json.dumps(expired), encoding="utf-8")
+
+            now = datetime(2031, 1, 2, tzinfo=timezone.utc)
+            retirement = build_memory_retirement(paths, record_id, 1, now=now)
+            retired = apply_memory_retirement(
+                paths,
+                retirement,
+                transaction_executor=memory_commands._lifecycle_executor,
+            )
+            self.assertTrue(retired["applied"])
+            tombstone_path = paths.memory_dir / "tombstones" / f"retired-{record_id}-r1.json"
+            tombstone_before = tombstone_path.read_bytes()
+
+            restore = build_memory_restore(paths, record_id, 1, now=now)
+            self.assertTrue(restore.report["eligible"])
+            existing_candidates = {
+                path.name: path.read_bytes()
+                for path in (paths.memory_dir / "candidates").glob("*.json")
+            }
+            tombstone = json.loads(tombstone_path.read_text(encoding="utf-8"))
+            tombstone["tombstoned_at"] = "2031-01-03T00:00:00Z"
+            tombstone_path.write_text(json.dumps(tombstone), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "operation_guard_mismatch"):
+                apply_memory_restore(paths, restore, transaction_executor=memory_commands._lifecycle_executor)
+            self.assertEqual(
+                {
+                    path.name: path.read_bytes()
+                    for path in (paths.memory_dir / "candidates").glob("*.json")
+                },
+                existing_candidates,
+            )
+            tombstone_path.write_bytes(tombstone_before)
+
+            restored = apply_memory_restore(paths, restore, transaction_executor=memory_commands._lifecycle_executor)
+            self.assertTrue(restored["applied"])
+            candidate_path = next(
+                path
+                for path in (paths.memory_dir / "candidates").glob("*.json")
+                if json.loads(path.read_text(encoding="utf-8")).get("lifecycle") == "restore"
+            )
+            candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+            candidate_before = candidate_path.read_bytes()
+            reapproval = build_memory_reapproval(
+                paths,
+                str(candidate["candidate_id"]),
+                reviewer_claim="reviewer",
+                now=now,
+            )
+            self.assertTrue(reapproval.report["eligible"])
+
+            tombstone = json.loads(tombstone_path.read_text(encoding="utf-8"))
+            tombstone["tombstoned_at"] = "2031-01-04T00:00:00Z"
+            tombstone_path.write_text(json.dumps(tombstone), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "operation_guard_mismatch"):
+                apply_memory_reapproval(paths, reapproval, transaction_executor=memory_commands._lifecycle_executor)
+            self.assertFalse(record_path.exists())
+            self.assertEqual(candidate_path.read_bytes(), candidate_before)
+            tombstone_path.write_bytes(tombstone_before)
+
+            reapproval = build_memory_reapproval(
+                paths,
+                str(candidate["candidate_id"]),
+                reviewer_claim="reviewer",
+                now=now,
+            )
+            newer = json.loads((paths.memory_dir / "archive" / f"{record_id}.r1.json").read_text(encoding="utf-8"))
+            newer.update(
+                {
+                    "revision": 10,
+                    "review_status": "approved",
+                    "admission": {"state": "approved_manual"},
+                    "updated_at": "2031-01-04T00:00:00Z",
+                }
+            )
+            record_path.write_text(json.dumps(newer), encoding="utf-8")
+            newer_before = record_path.read_bytes()
+            with self.assertRaisesRegex(ValueError, "operation_guard_mismatch"):
+                apply_memory_reapproval(paths, reapproval, transaction_executor=memory_commands._lifecycle_executor)
+            self.assertEqual(record_path.read_bytes(), newer_before)
+            self.assertFalse((paths.memory_dir / "reviews" / f"review-{record_id}-r2.json").exists())
+
+    def test_lifecycle_apply_rejects_false_receipts_but_accepts_successful_receipt(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = resolve_paths(root / ".omj", root / ".hermes")
+            captured = capture_project_memory_candidate(paths, "receipt-bound correction", source="operator")
+            origin = approve_project_memory_candidate(paths, captured["candidate"]["candidate_id"])["record"]
+            plan = build_memory_correction(
+                paths,
+                str(origin["record_id"]),
+                int(origin.get("revision", 1)),
+                "receipt-bound replacement",
+                now=datetime(2031, 1, 2, tzinfo=timezone.utc),
+            )
+            self.assertTrue(plan.report["eligible"])
+
+            def valid_receipt(outcomes: list[dict[str, object]] | None = None) -> dict[str, object]:
+                return make_lifecycle_receipt(plan, outcomes or successes)
+
+            successes = [
+                {
+                    "target_id": mutation.target_id,
+                    "artifact_kind": mutation.artifact_kind,
+                    "outcome": {"write": "written", "move": "moved", "delete": "removed"}.get(mutation.action, mutation.action),
+                    "reason_code": "ok",
+                }
+                for mutation in plan.mutations
+            ]
+            rejected = [{**outcome, "outcome": "rejected", "reason_code": "refused"} for outcome in successes]
+            wrong_action = [{**outcome, "outcome": "already_absent", "reason_code": "wrong_action"} if index == 0 else outcome for index, outcome in enumerate(successes)]
+            invalid_receipts = {
+                "rejected": valid_receipt(rejected),
+                "operation": {**valid_receipt(), "operation_id": "other-operation"},
+                "operation_type": {**valid_receipt(), "operation_type": "retire"},
+                "record": {**valid_receipt(), "record_id": "other-record"},
+                "revision": {**valid_receipt(), "revision": int(origin.get("revision", 1)) + 1},
+                "scope": {**valid_receipt(), "scope": {"kind": "project", "ref": "other-repo"}},
+                "outcome": valid_receipt(wrong_action),
+            }
+            for label, receipt in invalid_receipts.items():
+                with self.subTest(receipt=label):
+                    def executor(_paths, _plan, receipt=receipt):
+                        return {"receipt": receipt}
+
+                    try:
+                        result = apply_memory_correction(paths, plan, transaction_executor=executor)
+                    except ValueError as exc:
+                        self.assertIn("receipt", str(exc))
+                    else:
+                        self.assertFalse(result.get("applied", False))
+
+            applied = apply_memory_correction(paths, plan, transaction_executor=memory_commands._lifecycle_executor)
+            self.assertTrue(applied["applied"])
+            self.assertEqual(applied["receipt"]["state"], "completed")
+            self.assertEqual(
+                {item["outcome"] for item in applied["receipt"]["outcomes"]},
+                {
+                    {"write": "written", "move": "moved", "delete": "removed"}.get(mutation.action, mutation.action)
+                    for mutation in plan.mutations
+                },
+            )
+
 
     def test_g15_replay_preserves_explicit_admission_modes_and_retention_tiers(self) -> None:
         now = datetime(2031, 1, 2, 3, 4, 5, tzinfo=timezone.utc)

@@ -48,8 +48,8 @@ Run in Hermes: build the ask, call `omh_jev_ask`, and report the numbers. Nothin
 - SHA256: `0ba2151732035f078ca20f5ce3caabf26fc963d9fa878fbe48b74c287bae2954`
 
 ## Method references
-- `omh-jev-failure-triage/references/full-contract.md` (pinned `skills/omh-jev-failure-triage/references/full-contract.md`)
-- `omh-jev-failure-triage/references/preset.md` (pinned `skills/omh-jev-failure-triage/references/preset.md`)
+- `jev-failure-triage/omh-jev-failure-triage/references/full-contract.md` (pinned `skills/omh-jev-failure-triage/references/full-contract.md`)
+- `jev-failure-triage/omh-jev-failure-triage/references/preset.md` (pinned `skills/omh-jev-failure-triage/references/preset.md`)
 
 ## Source gaps
 - The source full-contract references absent references/procedure.md; preserve this gap and do not fabricate a procedure or provider.

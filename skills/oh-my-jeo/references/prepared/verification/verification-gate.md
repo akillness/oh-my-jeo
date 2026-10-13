@@ -84,8 +84,8 @@ Hermes owns the gate contract and verdict narration. Running commands, CI, brows
 - SHA256: `327b4458de6d08432c89976d3450b40a892db8693a87dc46fb4fadcd54692296`
 
 ## Method references
-- `omh-verification-gate/references/generated-artifact-provenance.md` (pinned `skills/omh-verification-gate/references/generated-artifact-provenance.md`)
-- `omh-verification-gate/references/requirement-coverage-map.md` (pinned `skills/omh-verification-gate/references/requirement-coverage-map.md`)
+- `verification-gate/omh-verification-gate/references/generated-artifact-provenance.md` (pinned `skills/omh-verification-gate/references/generated-artifact-provenance.md`)
+- `verification-gate/omh-verification-gate/references/requirement-coverage-map.md` (pinned `skills/omh-verification-gate/references/requirement-coverage-map.md`)
 
 ## Source gaps
 - None declared
