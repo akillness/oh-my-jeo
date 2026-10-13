@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlsplit
 REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "site"
 CANONICAL_ICON = REPO / "assets" / "oh-my-jeo-icon.png"
+WORKFLOWS = REPO / ".github" / "workflows"
 CANONICAL_SOCIAL_IMAGE = "https://akillness.github.io/oh-my-jeo/assets/oh-my-jeo-icon.png"
 
 
@@ -56,6 +57,30 @@ def _parse(path: Path) -> _StaticMarkupParser:
     parser.feed(path.read_text(encoding="utf-8"))
     parser.close()
     return parser
+
+def _workflow_job_runners(path: Path) -> dict[str, str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    in_jobs = False
+    current_job: str | None = None
+    runners: dict[str, str] = {}
+    for line in lines:
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if indent == 0 and stripped == "jobs:":
+            in_jobs = True
+            continue
+        if not in_jobs:
+            continue
+        if indent == 0 and stripped:
+            break
+        if not stripped or stripped.startswith("#"):
+            continue
+        if indent == 2 and stripped.endswith(":"):
+            current_job = stripped[:-1]
+            continue
+        if current_job and indent == 4 and stripped.startswith("runs-on:"):
+            runners[current_job] = stripped.split(":", 1)[1].strip().strip("'\"")
+    return runners
 
 
 def _prepare_script() -> str:
@@ -117,6 +142,15 @@ def _is_home_link(anchor: dict[str, object], page: Path, artifact: Path) -> bool
 
 
 class StaticPublicationTests(unittest.TestCase):
+    def test_ci_and_pages_jobs_pin_verified_ubuntu_runner(self) -> None:
+        expected_runners = {
+            "ci.yml": {"test": "ubuntu-24.04"},
+            "pages.yml": {"build": "ubuntu-24.04", "deploy": "ubuntu-24.04"},
+        }
+        for workflow_name, expected in expected_runners.items():
+            with self.subTest(workflow=workflow_name):
+                self.assertEqual(_workflow_job_runners(WORKFLOWS / workflow_name), expected)
+
     def test_pages_prepare_publishes_all_eight_pages_and_local_media(self) -> None:
         source_pages = _static_pages()
         self.assertEqual(len(source_pages), 8, "the Pages surface must cover home, docs landing, and six feature pages")
